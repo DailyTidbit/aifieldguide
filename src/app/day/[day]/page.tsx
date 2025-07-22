@@ -1,0 +1,659 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { Clock, Star, Tag, Play, Users, ArrowRight, CheckCircle, Lightbulb, Target, Camera } from 'lucide-react'
+import TidbitTutor from '../../components/TidbitTutor'
+import RotatingWord from '../../components/RotatingWord'
+import { supabase } from '../../lib/supabaseClient'
+
+interface DayPageProps {
+  params: Promise<{ day: string }>
+}
+
+interface TutorConversation {
+  userInput: string
+  aiOutput: string
+  timestamp: Date
+}
+
+export default function DayPage({ params }: DayPageProps) {
+  const [resolvedParams, setResolvedParams] = useState<{ day: string } | null>(null)
+  const [tidbit, setTidbit] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [latestConversation, setLatestConversation] = useState<TutorConversation | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [postingToBitBoard, setPostingToBitBoard] = useState(false)
+
+  // Resolve params and fetch data
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const resolvedParams = await params
+        setResolvedParams(resolvedParams)
+        
+        const { day } = resolvedParams
+        console.log('Day param:', day)
+
+        const { data, error } = await supabase
+          .from('tidbits')
+          .select('*')
+          .eq('day_number', Number(day))
+          .single()
+
+        if (error || !data) {
+          setError(error?.message || 'Tidbit not found')
+          return
+        }
+
+        const processedTidbit = {
+          ...data,
+          day_number: Number(day),
+          tags: data.tags || [],
+          difficulty_level: data.difficulty_level || 1,
+          estimated_time: data.estimated_time || 5,
+          seo_description: data.seo_description || data.title
+        }
+
+        setTidbit(processedTidbit)
+      } catch (err) {
+        setError('Failed to load tidbit')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [params])
+
+  // Check for user auth
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
+  }, [])
+
+  // Handle conversation updates from TidbitTutor
+  const handleConversationUpdate = (userInput: string, aiOutput: string) => {
+    setLatestConversation({
+      userInput,
+      aiOutput,
+      timestamp: new Date()
+    })
+  }
+
+  // Post to BitBoard using TidbitTutor conversation
+  const postTutorConversationToBitBoard = async () => {
+    if (!user) {
+      alert("Please sign in to post to BitBoard!")
+      return
+    }
+
+    if (!latestConversation) {
+      alert("Try the Tidbit Tutor above first to create something to share!")
+      return
+    }
+
+    setPostingToBitBoard(true)
+
+    try {
+      const { error } = await supabase.from('posts').insert({
+        user_id: user.id,
+        content: `Used AI to improve my writing with Daily Tidbit #${tidbit.day_number}! "${tidbit.title}"`,
+        before_text: latestConversation.userInput,
+        after_text: latestConversation.aiOutput,
+        tidbit: tidbit.day_number,
+        type: 'tidbit_tutor_conversation',
+        description: `AI writing improvement from Tidbit Tutor - Day ${tidbit.day_number}`
+      })
+
+      if (error) throw error
+
+      // Success feedback
+      if (confirm("Posted successfully! 🎉 Want to see it on BitBoard?")) {
+        window.open('/bitboard', '_blank')
+      }
+
+    } catch (error) {
+      console.error("Error posting to BitBoard:", error)
+      alert("Failed to post. Please try again.")
+    } finally {
+      setPostingToBitBoard(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50/30 to-blue-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-[#60A875] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading tidbit...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !tidbit) {
+    return (
+      <div className="p-8 text-red-600 text-center">
+        <h1 className="text-2xl font-bold">Day {resolvedParams?.day} not found</h1>
+        <p>{error}</p>
+      </div>
+    )
+  }
+
+  const getDifficultyLabel = (level: number) => {
+    const labels = {
+      1: "Beginner",
+      2: "Easy", 
+      3: "Medium",
+      4: "Hard",
+      5: "Advanced"
+    }
+    return labels[level as keyof typeof labels] || "Beginner"
+  }
+
+  const getDifficultyColor = (level: number) => {
+    const colors = {
+      1: "bg-green-100 text-green-800 border-green-200",
+      2: "bg-blue-100 text-blue-800 border-blue-200",
+      3: "bg-yellow-100 text-yellow-800 border-yellow-200", 
+      4: "bg-orange-100 text-orange-800 border-orange-200",
+      5: "bg-red-100 text-red-800 border-red-200"
+    }
+    return colors[level as keyof typeof colors] || colors[1]
+  }
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-green-50/30 to-blue-50/30">
+      {/* Hero Section */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-6 py-12">
+          {/* Label Row - Right Aligned */}
+          <div className="flex items-center justify-end gap-3 mb-8">
+            <span className={`px-4 py-2 rounded-full text-sm font-semibold border ${getDifficultyColor(tidbit.difficulty_level)}`}>
+              {getDifficultyLabel(tidbit.difficulty_level)}
+            </span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-gray-700">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm font-medium">{tidbit.estimated_time} min</span>
+            </div>
+          </div>
+
+          {/* Video as Hero */}
+          {tidbit.video_url && (
+            <div className="max-w-3xl mx-auto mb-8">
+              <div className="relative bg-black rounded-2xl overflow-hidden shadow-2xl">
+                <video 
+                  controls 
+                  className="w-full"
+                  poster={tidbit.image_url}
+                >
+                  <source src={tidbit.video_url} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </div>
+          )}
+
+          {/* Short Description */}
+          <div className="text-center">
+            <p className="text-xl text-gray-700 max-w-2xl mx-auto leading-relaxed" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
+              Take a rough message — like a text, post, or email — and rewrite it in seconds using AI.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Sections */}
+      <div className="max-w-4xl mx-auto px-6 py-12">
+        {/* Single Column Layout */}
+        <div className="space-y-12">
+          
+          {/* Intro Section */}
+          <Section 
+            title="What You'll Learn" 
+            icon={<Lightbulb className="w-6 h-6" />}
+            gradient="from-blue-500 to-cyan-500"
+          >
+            {tidbit.walkthrough_intro}
+          </Section>
+
+          {/* What You Need */}
+          <Section 
+            title="What You Need" 
+            icon={<CheckCircle className="w-6 h-6" />}
+            gradient="from-green-500 to-emerald-500"
+          >
+            {tidbit.what_you_need}
+          </Section>
+
+          {/* Step-by-Step Guide */}
+          <section className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
+                <Target className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                Step-by-Step Guide
+              </h3>
+            </div>
+
+            {/* Enhanced Tidbit Tutor with BitBoard Integration */}
+            <div className="bg-gradient-to-br from-[#60A875]/5 to-[#59B1E3]/5 rounded-2xl p-8 border border-[#60A875]/20 mb-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white">
+                  <span className="text-xl">🤖</span>
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                  Try It Right Here with Tidbit Tutor
+                </h4>
+              </div>
+              <p className="text-gray-700 text-lg mb-4" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
+                {tidbit.tutor_intro}
+              </p>
+              <p className="text-gray-600 text-base mb-6 italic" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
+                Paste a rough message and ask it to rewrite it. Then say: "Make it more confident" or "Add humor."
+              </p>
+              
+              {/* Enhanced Tidbit Tutor with conversation tracking */}
+              <TidbitTutor 
+                tidbitNumber={tidbit.day_number}
+                tidbitTitle={tidbit.title}
+                onConversationUpdate={handleConversationUpdate}
+              />
+              
+              {/* Additional CTA after using the tutor */}
+              <div className="mt-6 p-4 bg-white/50 rounded-xl border border-[#59B1E3]/20">
+                <div className="flex items-center gap-2 text-[#59B1E3] mb-2">
+                  <Users className="w-5 h-5" />
+                  <span className="font-semibold">Love your results?</span>
+                </div>
+                <p className="text-gray-700 text-sm">
+                  Share your before & after transformation to inspire others in the Daily Tidbit community!
+                </p>
+              </div>
+            </div>
+
+            {/* Part 1: Rewrite It with AI */}
+            <div className="mb-8">
+              <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2" style={{fontFamily: "'Playfair Display', serif"}}>
+                <span className="bg-[#60A875] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
+                Rewrite It with AI
+              </h4>
+              <RichContent>{tidbit.step_by_step}</RichContent>
+            </div>
+
+            {/* Part 2: Tweak the Tone */}
+            <div>
+              <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2" style={{fontFamily: "'Playfair Display', serif"}}>
+                <span className="bg-[#59B1E3] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
+                Tweak the Tone
+              </h4>
+              <RichContent>{tidbit.try_it}</RichContent>
+            </div>
+          </section>
+
+          {/* Community CTA - Enhanced with direct posting */}
+          {tidbit.bitboard_url && (
+            <div className="bg-gradient-to-br from-[#59B1E3]/10 to-[#60A875]/10 rounded-2xl p-12 border border-[#59B1E3]/20 text-center">
+              <div className="max-w-2xl mx-auto">
+                <div className="mb-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-[#59B1E3] rounded-full mb-4">
+                    <Users className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-3xl font-bold text-gray-900 mb-4" style={{fontFamily: "'Playfair Display', serif"}}>
+                    Post Your <RotatingWord /> to The Tidbit Creators Board
+                  </h3>
+                  <p className="text-xl text-gray-700 leading-relaxed mb-8" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
+                    Share your AI transformations and see what others have created with this tidbit. 
+                    Connect with fellow learners and get inspired by the community!
+                  </p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  {/* Main CTA - Post to BitBoard */}
+                  {user ? (
+                    <button
+                      onClick={postTutorConversationToBitBoard}
+                      disabled={postingToBitBoard || !latestConversation}
+                      className={`inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl ${
+                        latestConversation 
+                          ? 'bg-[#59B1E3] text-white hover:bg-blue-600' 
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {postingToBitBoard ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Posting...
+                        </>
+                      ) : latestConversation ? (
+                        <>
+                          <Target className="w-5 h-5" />
+                          POST TO BITBOARD
+                        </>
+                      ) : (
+                        <>
+                          <Target className="w-5 h-5" />
+                          TRY TUTOR FIRST
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center gap-3 bg-gray-300 text-gray-500 px-8 py-4 rounded-xl font-semibold text-lg cursor-not-allowed">
+                        <Target className="w-5 h-5" />
+                        SIGN IN TO POST
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Secondary CTA - Browse BitBoard */}
+                  <a
+                    href="/bitboard"
+                    className="inline-flex items-center justify-center gap-3 border-2 border-[#60A875] text-[#60A875] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#60A875] hover:text-white transition-all duration-200"
+                  >
+                    <Users className="w-5 h-5" />
+                    BROWSE COMMUNITY
+                  </a>
+                </div>
+                
+                {/* Dynamic hint based on state */}
+                <div className="mt-6 text-sm text-gray-600 italic">
+                  {!user ? (
+                    "🔐 Sign in to share your AI creations with the community"
+                  ) : !latestConversation ? (
+                    "💡 Use the Tidbit Tutor above to practice, then share your results!"
+                  ) : (
+                    `✨ Ready to share: "${latestConversation.userInput.slice(0, 50)}${latestConversation.userInput.length > 50 ? '...' : ''}"`
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Try Other AI Tools - New Section */}
+          {tidbit.explore_more && (
+            <Section 
+              title="Try Other AI Tools" 
+              icon={<Target className="w-6 h-6" />}
+              gradient="from-indigo-500 to-purple-500"
+            >
+              {tidbit.explore_more}
+            </Section>
+          )}
+
+        </div>
+      </div>
+    </main>
+  )
+}
+
+function Section({ 
+  title, 
+  children, 
+  icon, 
+  gradient, 
+  highlight = false 
+}: { 
+  title: string
+  children: string
+  icon: React.ReactElement
+  gradient: string
+  highlight?: boolean
+}) {
+  return (
+    <section className={`${highlight ? 'bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-200 shadow-sm' : ''}`}>
+      <div className="flex items-center gap-3 mb-6">
+        <div className={`p-2 rounded-lg bg-gradient-to-r ${gradient} text-white`}>
+          {icon}
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+          {title}
+        </h3>
+      </div>
+      <RichContent>{children}</RichContent>
+    </section>
+  )
+}
+
+function RichContent({ children }: { children: string }) {
+  // Clean up content - handle \r\n, multiple spaces, etc.
+  const cleanContent = children
+    .replace(/\\r\\n/g, '\n') // Convert escaped \r\n to actual newlines
+    .replace(/\r\n/g, '\n')   // Convert actual \r\n to \n
+    .replace(/\r/g, '\n')     // Convert lone \r to \n
+    .trim()
+
+  const lines = cleanContent.split('\n')
+  const elements: React.ReactElement[] = []
+  let listBuffer: string[] = []
+
+  const flushList = (keyPrefix: string) => {
+    if (listBuffer.length > 0) {
+      elements.push(
+        <ul key={`ul-${keyPrefix}`} className="list-none space-y-3 ml-0 my-6">
+          {listBuffer.map((item, i) => (
+            <li key={`li-${keyPrefix}-${i}`} className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-[#60A875] flex-shrink-0 mt-0.5" />
+              <span className="text-gray-700 leading-relaxed text-lg">{parseInlineFormatting(item)}</span>
+            </li>
+          ))}
+        </ul>
+      )
+      listBuffer = []
+    }
+  }
+
+  // Parse inline formatting like **bold**, *italic*, and links
+  const parseInlineFormatting = (text: string): React.ReactElement => {
+    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|https?:\/\/[^\s]+)/g)
+    
+    return (
+      <>
+        {parts.map((part, i) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
+          } else if (part.startsWith('*') && part.endsWith('*')) {
+            return <em key={i} className="italic">{part.slice(1, -1)}</em>
+          } else if (part.startsWith('http')) {
+            return (
+              <a key={i} href={part} target="_blank" rel="noopener noreferrer" 
+                 className="text-[#59B1E3] hover:text-blue-700 underline underline-offset-2">
+                {part}
+              </a>
+            )
+          }
+          return <span key={i}>{part}</span>
+        })}
+      </>
+    )
+  }
+
+  // Detect numbered circle steps (①②③④⑤⑥⑦⑧⑨⑩)
+  const isNumberedStep = (line: string): boolean => {
+    return /^[①②③④⑤⑥⑦⑧⑨⑩]/.test(line.trim())
+  }
+
+  // Extract step number from circle
+  const getStepNumber = (line: string): string => {
+    const circles = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']
+    const match = line.trim().match(/^[①②③④⑤⑥⑦⑧⑨⑩]/)
+    if (match) {
+      const index = circles.indexOf(match[0])
+      return (index + 1).toString()
+    }
+    return '1'
+  }
+
+  lines.forEach((line, i) => {
+    const trimmed = line.trim()
+
+    // Handle list items
+    if (trimmed.startsWith('- ')) {
+      listBuffer.push(trimmed.slice(2))
+      return
+    }
+
+    // Flush any pending list before processing other content
+    flushList(`line-${i}`)
+
+    // Empty lines create spacing
+    if (trimmed === '') {
+      elements.push(<div key={`space-${i}`} className="h-4" />)
+      return
+    }
+
+    // Handle images
+    if (trimmed.startsWith('<img')) {
+      // Extract alt text for better accessibility
+      const altMatch = trimmed.match(/alt="([^"]*)"/)
+      const altText = altMatch ? altMatch[1] : 'Tidbit image'
+      
+      elements.push(
+        <div key={`img-${i}`} className="my-8">
+          <div 
+            className="rounded-xl overflow-hidden shadow-lg border border-gray-200"
+            dangerouslySetInnerHTML={{ __html: trimmed }}
+          />
+          <p className="text-sm text-gray-500 text-center mt-3 italic">{altText}</p>
+        </div>
+      )
+      return
+    }
+
+    // Handle callout boxes with appropriate icons and styling
+    if (trimmed.startsWith('✅')) {
+      elements.push(
+        <div key={`callout-${i}`} className="bg-green-50 border border-green-200 rounded-lg p-4 my-6">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-green-800 font-medium leading-relaxed">{parseInlineFormatting(trimmed.slice(2).trim())}</p>
+          </div>
+        </div>
+      )
+      return
+    }
+
+    if (trimmed.startsWith('🧠')) {
+      elements.push(
+        <div key={`callout-${i}`} className="bg-purple-50 border border-purple-200 rounded-lg p-4 my-6">
+          <div className="flex items-start gap-3">
+            <Lightbulb className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+            <p className="text-purple-800 font-medium leading-relaxed">{parseInlineFormatting(trimmed.slice(2).trim())}</p>
+          </div>
+        </div>
+      )
+      return
+    }
+
+    if (trimmed.startsWith('📸')) {
+      elements.push(
+        <div key={`callout-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-4 my-6">
+          <div className="flex items-start gap-3">
+            <Camera className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <p className="text-blue-800 font-medium leading-relaxed">{parseInlineFormatting(trimmed.slice(2).trim())}</p>
+          </div>
+        </div>
+      )
+      return
+    }
+
+    // Handle numbered circle steps (①②③④)
+    if (isNumberedStep(trimmed)) {
+      const stepNum = getStepNumber(trimmed)
+      const stepText = trimmed.replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
+      
+      elements.push(
+        <div key={`step-${i}`} className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-xl p-6 border border-[#60A875]/20 my-6">
+          <div className="flex items-start gap-4">
+            <div className="flex items-center justify-center w-8 h-8 bg-[#60A875] text-white rounded-full font-bold text-sm flex-shrink-0">
+              {stepNum}
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-900 font-semibold text-lg leading-relaxed">{parseInlineFormatting(stepText)}</p>
+            </div>
+          </div>
+        </div>
+      )
+      return
+    }
+
+    // Handle "Step" prefixed lines (fallback)
+    if (trimmed.toLowerCase().startsWith('step ')) {
+      elements.push(
+        <div key={`step-${i}`} className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-lg p-4 border border-[#60A875]/20 my-6">
+          <div className="flex items-start gap-3">
+            <Target className="w-5 h-5 text-[#60A875] flex-shrink-0 mt-0.5" />
+            <p className="font-semibold text-[#60A875] text-lg leading-relaxed">{parseInlineFormatting(line)}</p>
+          </div>
+        </div>
+      )
+      return
+    }
+
+    // Handle example callouts
+    if (trimmed.toLowerCase().startsWith('example:')) {
+      const exampleText = trimmed.slice(8).trim() // Remove "Example:" prefix
+      elements.push(
+        <div key={`example-${i}`} className="bg-amber-50 border border-amber-200 rounded-lg p-4 my-6">
+          <div className="flex items-start gap-3">
+            <div className="text-xl">💡</div>
+            <div>
+              <p className="font-semibold text-amber-800 mb-2">Example:</p>
+              {exampleText && (
+                <p className="text-amber-700 leading-relaxed">{parseInlineFormatting(exampleText)}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+      return
+    }
+
+    // Handle subject lines and structured content
+    if (trimmed.toLowerCase().startsWith('subject:')) {
+      elements.push(
+        <div key={`subject-${i}`} className="bg-gray-50 border border-gray-200 rounded-lg p-4 my-4">
+          <p className="font-mono text-sm text-gray-700">{parseInlineFormatting(trimmed)}</p>
+        </div>
+      )
+      return
+    }
+
+    // Handle "Dear" or "Hi" greetings (email-like content)
+    if (trimmed.match(/^(Dear|Hi|Hello)/i)) {
+      elements.push(
+        <div key={`greeting-${i}`} className="bg-gray-50 border-l-4 border-gray-300 pl-4 py-2 my-4">
+          <p className="text-gray-700 leading-relaxed italic">{parseInlineFormatting(trimmed)}</p>
+        </div>
+      )
+      return
+    }
+
+    // Handle website URLs (like www.chatgpt.com)
+    if (trimmed.match(/^www\./)) {
+      elements.push(
+        <div key={`url-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center my-6">
+          <p className="font-mono text-blue-700 font-semibold text-lg">{trimmed}</p>
+          <p className="text-sm text-blue-600 mt-1">↑ Open this in your browser</p>
+        </div>
+      )
+      return
+    }
+
+    // Regular paragraphs
+    elements.push(
+      <p key={`p-${i}`} 
+         className="text-gray-700 leading-relaxed text-lg my-4" 
+         style={{fontFamily: "'Space Grotesk', sans-serif"}}>
+        {parseInlineFormatting(line)}
+      </p>
+    )
+  })
+
+  // Flush any remaining list items
+  flushList('final')
+
+  return <div className="space-y-2">{elements}</div>
+}
