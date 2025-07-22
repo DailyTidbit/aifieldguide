@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
-import PostCard from '../../components/postcard'
+import PostCard from '../../components/PostCard'
 
 type Post = {
   id: string

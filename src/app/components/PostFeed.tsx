@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import PostCard from './postcard'
+import PostCard from './PostCard'
 import PostModal from './PostModal'
 
 export type Post = {

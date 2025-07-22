@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Users, Share2, Sparkles, Copy, Check } from "lucide-react";
+import { Users, Share2, Sparkles, Copy, Check, ExternalLink, MessageCircle } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -31,11 +31,20 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
   const [postingToBitBoard, setPostingToBitBoard] = useState(false);
   const [lastSharedIndex, setLastSharedIndex] = useState<number | null>(null);
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
+  const [showQuickPost, setShowQuickPost] = useState(false);
+  const [customPostContent, setCustomPostContent] = useState("");
 
-  // Check for user auth
-  useState(() => {
+  // Check for user auth - fixed hook usage
+  useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-  });
+  }, []);
+
+  // Auto-generate custom post content when tidbit info changes
+  useEffect(() => {
+    if (tidbitNumber && tidbitTitle) {
+      setCustomPostContent(`Just used AI to transform my writing with Daily Tidbit #${tidbitNumber}! "${tidbitTitle}"`);
+    }
+  }, [tidbitNumber, tidbitTitle]);
 
   async function sendMessage() {
     if (!input.trim()) return;
@@ -113,12 +122,12 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
     return {
       beforeText: userInput,
       afterText: aiOutput,
-      content: `Used AI to improve my writing with Daily Tidbit #${tidbitNumber}! ${tidbitTitle ? `"${tidbitTitle}"` : ''}`
+      content: customPostContent || `Used AI to improve my writing with Daily Tidbit #${tidbitNumber}! ${tidbitTitle ? `"${tidbitTitle}"` : ''}`
     };
   };
 
-  // Post to BitBoard
-  const postToBitBoard = async () => {
+  // Enhanced post to BitBoard with better UX
+  const postToBitBoard = async (useCustomContent: boolean = false) => {
     if (!user) {
       alert("Please sign in to post to BitBoard!");
       return;
@@ -135,22 +144,24 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
     try {
       const { error } = await supabase.from('posts').insert({
         user_id: user.id,
-        content: formattedPost.content,
+        content: useCustomContent ? customPostContent : formattedPost.content,
         before_text: formattedPost.beforeText,
         after_text: formattedPost.afterText,
         tidbit: tidbitNumber || 1,
         type: 'tidbit_tutor_conversation',
-        description: `AI writing improvement from Tidbit Tutor`
+        description: `AI writing improvement from Tidbit Tutor - Day ${tidbitNumber}`
       });
 
       if (error) throw error;
 
-      // Success feedback
+      // Enhanced success feedback
       setLastSharedIndex(messages.length - 1);
+      setShowQuickPost(false);
       setTimeout(() => setLastSharedIndex(null), 3000);
       
-      // Optional: redirect to BitBoard to see the post
-      if (confirm("Posted successfully! 🎉 Want to see it on BitBoard?")) {
+      // Better success experience
+      const viewPost = confirm("🎉 Posted successfully! Want to see it on BitBoard?");
+      if (viewPost) {
         window.open('/bitboard', '_blank');
       }
 
@@ -162,7 +173,7 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
     }
   };
 
-  // Share specific message pair
+  // Share specific message pair with better UX
   const shareSpecificConversation = async (userMsgIndex: number) => {
     if (!user) {
       alert("Please sign in to post to BitBoard!");
@@ -182,12 +193,12 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
     try {
       const { error } = await supabase.from('posts').insert({
         user_id: user.id,
-        content: `Used AI to improve my writing with Daily Tidbit #${tidbitNumber}! ${tidbitTitle ? `"${tidbitTitle}"` : ''}`,
+        content: customPostContent || `Used AI to improve my writing with Daily Tidbit #${tidbitNumber}! ${tidbitTitle ? `"${tidbitTitle}"` : ''}`,
         before_text: userMsg.content,
         after_text: assistantMsg.content,
         tidbit: tidbitNumber || 1,
         type: 'tidbit_tutor_conversation',
-        description: `AI writing improvement from Tidbit Tutor`
+        description: `AI writing improvement from Tidbit Tutor - Day ${tidbitNumber}`
       });
 
       if (error) throw error;
@@ -195,7 +206,8 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
       setLastSharedIndex(userMsgIndex + 1);
       setTimeout(() => setLastSharedIndex(null), 3000);
 
-      if (confirm("Posted successfully! 🎉 Want to see it on BitBoard?")) {
+      const viewPost = confirm("🎉 Posted successfully! Want to see it on BitBoard?");
+      if (viewPost) {
         window.open('/bitboard', '_blank');
       }
 
@@ -223,6 +235,7 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
         )}
       </div>
       
+      {/* Enhanced chat area with better styling */}
       <div className="space-y-3 max-h-[400px] overflow-y-auto mb-4 p-3 bg-gray-50 rounded-lg">
         {messages.map((msg, i) => (
           <div key={i} className="group relative">
@@ -235,9 +248,9 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
             >
               <p className="text-sm leading-relaxed">{msg.content}</p>
               
-              {/* Action buttons for each message */}
+              {/* Enhanced action buttons */}
               <div className="absolute -right-2 top-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1">
-                {/* Copy button */}
+                {/* Copy button with better feedback */}
                 <button
                   onClick={() => copyMessage(msg.content, i)}
                   className="p-1 bg-white rounded shadow-md hover:bg-gray-50 transition-colors"
@@ -250,16 +263,22 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
                   )}
                 </button>
                 
-                {/* Share conversation button (only for assistant messages) */}
+                {/* Enhanced share conversation button */}
                 {msg.role === "assistant" && i > 0 && user && (
                   <button
                     onClick={() => shareSpecificConversation(i - 1)}
-                    className="p-1 bg-[#59B1E3] rounded shadow-md hover:bg-blue-600 transition-colors"
+                    className={`p-1 rounded shadow-md transition-colors ${
+                      lastSharedIndex === i 
+                        ? 'bg-green-500 hover:bg-green-600' 
+                        : 'bg-[#59B1E3] hover:bg-blue-600'
+                    }`}
                     title="Share this conversation to BitBoard"
                     disabled={postingToBitBoard}
                   >
                     {lastSharedIndex === i ? (
                       <Check className="w-3 h-3 text-white" />
+                    ) : postingToBitBoard ? (
+                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                       <Share2 className="w-3 h-3 text-white" />
                     )}
@@ -281,7 +300,7 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
         )}
       </div>
       
-      {/* Input area */}
+      {/* Enhanced input area */}
       <div className="flex items-center gap-2 mb-4">
         <input
           value={input}
@@ -300,7 +319,7 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
         </button>
       </div>
 
-      {/* Share to BitBoard section */}
+      {/* Enhanced Share to BitBoard section */}
       {showShareOptions && messages.length >= 4 && (
         <div className="mt-4 p-4 bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-lg border border-[#60A875]/20">
           <div className="flex items-center gap-2 mb-3">
@@ -312,37 +331,105 @@ export default function TidbitTutor({ tidbitNumber, tidbitTitle, onConversationU
           </p>
           
           {user ? (
-            <button
-              onClick={postToBitBoard}
-              disabled={postingToBitBoard}
-              className="flex items-center gap-2 bg-[#60A875] text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {postingToBitBoard ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Posting...
-                </>
-              ) : (
-                <>
-                  <Users className="w-4 h-4" />
-                  Post to BitBoard
-                </>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => postToBitBoard(false)}
+                  disabled={postingToBitBoard}
+                  className="flex items-center gap-2 bg-[#60A875] text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {postingToBitBoard ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Posting...
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4" />
+                      Quick Post
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setShowQuickPost(!showQuickPost)}
+                  className="flex items-center gap-2 border border-[#60A875] text-[#60A875] px-4 py-2 rounded-lg hover:bg-[#60A875] hover:text-white transition-colors font-medium"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Customize
+                </button>
+              </div>
+
+              {/* Custom post content editor */}
+              {showQuickPost && (
+                <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Customize your post message:
+                  </label>
+                  <textarea
+                    value={customPostContent}
+                    onChange={(e) => setCustomPostContent(e.target.value)}
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none text-sm"
+                    placeholder="Share what you learned..."
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => postToBitBoard(true)}
+                      disabled={postingToBitBoard || !customPostContent.trim()}
+                      className="flex-1 bg-[#60A875] text-white px-3 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 text-sm"
+                    >
+                      Post Custom Message
+                    </button>
+                    <button
+                      onClick={() => setShowQuickPost(false)}
+                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
-            </button>
+
+              {/* Preview of what will be shared */}
+              {formatConversationForPost() && (
+                <div className="mt-3 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                  <p className="font-medium mb-1">Preview:</p>
+                  <div className="space-y-1">
+                    <p><span className="text-red-700">Before:</span> {formatConversationForPost()?.beforeText.slice(0, 50)}...</p>
+                    <p><span className="text-green-700">After:</span> {formatConversationForPost()?.afterText.slice(0, 50)}...</p>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="text-sm text-gray-600">
-              <span>Sign in to share your results!</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Sign in to share your results!</span>
+              <button className="text-sm text-[#59B1E3] hover:text-blue-700 transition-colors flex items-center gap-1">
+                Sign In <ExternalLink className="w-3 h-3" />
+              </button>
             </div>
           )}
         </div>
       )}
 
-      {/* Success message */}
+      {/* Enhanced success message */}
       {lastSharedIndex !== null && (
-        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
           <div className="flex items-center gap-2 text-green-800">
-            <Check className="w-4 h-4" />
-            <span className="text-sm font-medium">Successfully posted to BitBoard! 🎉</span>
+            <Check className="w-5 h-5" />
+            <div className="flex-1">
+              <span className="font-medium">Successfully posted to BitBoard! 🎉</span>
+              <p className="text-sm text-green-700 mt-1">Your AI transformation is now live for the community to see.</p>
+            </div>
+            <a 
+              href="/bitboard" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-green-700 hover:text-green-900 transition-colors flex items-center gap-1"
+            >
+              View <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         </div>
       )}
