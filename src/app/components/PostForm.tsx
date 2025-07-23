@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabaseClient'
+import { Lock, Globe, Eye, EyeOff } from 'lucide-react'
 
 export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void }) {
   const [user, setUser] = useState<any>(null)
@@ -11,6 +12,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
   const [beforeText, setBeforeText] = useState('')
   const [afterText, setAfterText] = useState('')
   const [mediaFile, setMediaFile] = useState<File | null>(null)
+  const [isPrivate, setIsPrivate] = useState(false) // New privacy state
   const [submitting, setSubmitting] = useState(false)
 
   const searchParams = useSearchParams()
@@ -26,6 +28,29 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       setTidbit(Number(tidbitParam))
     }
   }, [searchParams])
+
+  // Track progress when post is created
+  const markPostCreated = async (tidbitNumber: number) => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('user_tidbit_progress')
+        .upsert({
+          user_id: user.id,
+          tidbit_number: tidbitNumber,
+          created_post: true
+        }, {
+          onConflict: 'user_id,tidbit_number'
+        })
+
+      if (error) {
+        console.error('Error marking post created:', error)
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,20 +83,26 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       media_url,
       tidbit,
       type: 'text',
+      is_private: isPrivate, // Include privacy setting
     })
 
     if (error) {
       alert('Error submitting post')
       console.error(error)
     } else {
-      alert('Post submitted!')
+      // Track progress - mark that user created a post for this tidbit
+      await markPostCreated(tidbit)
+      
+      const privacyMessage = isPrivate ? 'Private post created!' : 'Post shared to BitBoard!'
+      alert(privacyMessage)
       setContent('')
       setBeforeText('')
       setAfterText('')
       setMediaFile(null)
+      setIsPrivate(false)
       onPostSubmit()
 
-      // ✅ Redirect back to the walkthrough page for this Tidbit
+      // Redirect back to the walkthrough page
       router.push(`https://www.dailytidbit.org/tidbits/day-${tidbit}#bitboard`)
     }
 
@@ -86,12 +117,80 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       className="max-w-2xl mx-auto bg-white border rounded-xl shadow p-6 space-y-4"
     >
       <h2 className="text-xl font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>
-        Post your creation
+        Share your creation
       </h2>
 
-      {/* Tidbit display only (locked in from URL) */}
+      {/* Tidbit display */}
       <div className="text-sm text-gray-600">
         Posting to <strong>Tidbit #{tidbit}</strong>
+      </div>
+
+      {/* Privacy Toggle - Prominent placement */}
+      <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-full ${isPrivate ? 'bg-orange-100' : 'bg-green-100'}`}>
+              {isPrivate ? (
+                <Lock className="w-5 h-5 text-orange-600" />
+              ) : (
+                <Globe className="w-5 h-5 text-green-600" />
+              )}
+            </div>
+            <div>
+              <div className="font-semibold text-gray-900">
+                {isPrivate ? 'Private Post' : 'Public Post'}
+              </div>
+              <div className="text-sm text-gray-600">
+                {isPrivate 
+                  ? 'Only you can see this post' 
+                  : 'Visible to everyone on BitBoard'
+                }
+              </div>
+            </div>
+          </div>
+          
+          <button
+            type="button"
+            onClick={() => setIsPrivate(!isPrivate)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              isPrivate 
+                ? 'bg-orange-500 focus:ring-orange-500' 
+                : 'bg-green-500 focus:ring-green-500'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isPrivate ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        
+        {/* Privacy explanation */}
+        <div className="mt-3 text-xs text-gray-500 bg-white rounded-md p-3">
+          <div className="flex items-start gap-2">
+            <div className="flex-shrink-0">
+              {isPrivate ? (
+                <EyeOff className="w-4 h-4 text-orange-500 mt-0.5" />
+              ) : (
+                <Eye className="w-4 h-4 text-green-500 mt-0.5" />
+              )}
+            </div>
+            <div>
+              {isPrivate ? (
+                <div>
+                  <div className="font-medium text-orange-700">Private posts are perfect for:</div>
+                  <div className="text-orange-600">Personal projects, practice work, gifts for family, or anything you want to keep just for yourself.</div>
+                </div>
+              ) : (
+                <div>
+                  <div className="font-medium text-green-700">Public posts help the community:</div>
+                  <div className="text-green-600">Share your creativity, inspire others, and get feedback from the Daily Tidbit community.</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <label className="block">
@@ -102,6 +201,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
           value={content}
           onChange={(e) => setContent(e.target.value)}
           required
+          placeholder={isPrivate ? "Describe your personal creation..." : "Share what you created..."}
         />
       </label>
 
@@ -113,6 +213,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
             rows={2}
             value={beforeText}
             onChange={(e) => setBeforeText(e.target.value)}
+            placeholder="Original state..."
           />
         </label>
 
@@ -123,6 +224,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
             rows={2}
             value={afterText}
             onChange={(e) => setAfterText(e.target.value)}
+            placeholder="AI-enhanced result..."
           />
         </label>
       </div>
@@ -139,10 +241,24 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
 
       <button
         type="submit"
-        className="bg-[#60A875] text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`w-full px-6 py-3 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+          isPrivate 
+            ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+            : 'bg-[#60A875] hover:bg-green-600 text-white'
+        }`}
         disabled={submitting}
       >
-        {submitting ? 'Submitting...' : 'Post to BitBoard'}
+        {submitting ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            Creating...
+          </>
+        ) : (
+          <>
+            {isPrivate ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+            {isPrivate ? 'Save Privately' : 'Share to BitBoard'}
+          </>
+        )}
       </button>
     </form>
   )

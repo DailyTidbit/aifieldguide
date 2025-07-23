@@ -25,6 +25,95 @@ export default function DayPage({ params }: DayPageProps) {
   const [user, setUser] = useState<any>(null)
   const [postingToBitBoard, setPostingToBitBoard] = useState(false)
 
+  // Progress tracking functions
+  const markTidbitViewed = async (tidbitNumber: number) => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('user_tidbit_progress')
+        .upsert({
+          user_id: user.id,
+          tidbit_number: tidbitNumber,
+          viewed_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,tidbit_number'
+        })
+
+      if (error) {
+        console.error('Error marking tidbit viewed:', error)
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error)
+    }
+  }
+
+  const markTidbitCompleted = async (tidbitNumber: number) => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('user_tidbit_progress')
+        .upsert({
+          user_id: user.id,
+          tidbit_number: tidbitNumber,
+          completed_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,tidbit_number'
+        })
+
+      if (error) {
+        console.error('Error marking tidbit completed:', error)
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error)
+    }
+  }
+
+  const markAIPracticed = async (tidbitNumber: number) => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('user_tidbit_progress')
+        .upsert({
+          user_id: user.id,
+          tidbit_number: tidbitNumber,
+          practiced_with_ai: true
+        }, {
+          onConflict: 'user_id,tidbit_number'
+        })
+
+      if (error) {
+        console.error('Error marking AI practiced:', error)
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error)
+    }
+  }
+
+  const markPostCreated = async (tidbitNumber: number) => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('user_tidbit_progress')
+        .upsert({
+          user_id: user.id,
+          tidbit_number: tidbitNumber,
+          created_post: true
+        }, {
+          onConflict: 'user_id,tidbit_number'
+        })
+
+      if (error) {
+        console.error('Error marking post created:', error)
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error)
+    }
+  }
+
   // Resolve params and fetch data
   useEffect(() => {
     async function fetchData() {
@@ -67,18 +156,40 @@ export default function DayPage({ params }: DayPageProps) {
     fetchData()
   }, [params])
 
-  // Check for user auth
+  // Check for user auth and mark tidbit as viewed
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
-  }, [])
+    const initializeUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      
+      // Mark tidbit as viewed when page loads (if user is logged in and tidbit is loaded)
+      if (user && tidbit) {
+        await markTidbitViewed(tidbit.day_number)
+      }
+    }
+    
+    initializeUser()
+  }, [tidbit]) // Depend on tidbit so it runs after tidbit is loaded
 
   // Handle conversation updates from TidbitTutor
-  const handleConversationUpdate = (userInput: string, aiOutput: string) => {
+  const handleConversationUpdate = async (userInput: string, aiOutput: string) => {
     setLatestConversation({
       userInput,
       aiOutput,
       timestamp: new Date()
     })
+
+    // Mark AI as practiced when user has a conversation
+    if (user && tidbit) {
+      await markAIPracticed(tidbit.day_number)
+    }
+  }
+
+  // Simulate completing the walkthrough (you can call this when user finishes reading)
+  const handleWalkthroughComplete = async () => {
+    if (user && tidbit) {
+      await markTidbitCompleted(tidbit.day_number)
+    }
   }
 
   // Post to BitBoard using TidbitTutor conversation
@@ -107,6 +218,9 @@ export default function DayPage({ params }: DayPageProps) {
       })
 
       if (error) throw error
+
+      // Mark post as created for progress tracking
+      await markPostCreated(tidbit.day_number)
 
       // Success feedback
       if (confirm("Posted successfully! 🎉 Want to see it on BitBoard?")) {
@@ -255,7 +369,7 @@ export default function DayPage({ params }: DayPageProps) {
                 Paste a rough message and ask it to rewrite it. Then say: "Make it more confident" or "Add humor."
               </p>
               
-              {/* Enhanced Tidbit Tutor with conversation tracking */}
+              {/* Enhanced Tidbit Tutor with conversation tracking and progress */}
               <TidbitTutor 
                 tidbitNumber={tidbit.day_number}
                 tidbitTitle={tidbit.title}
@@ -291,9 +405,20 @@ export default function DayPage({ params }: DayPageProps) {
               </h4>
               <RichContent>{tidbit.try_it}</RichContent>
             </div>
+
+            {/* Completion Button - Mark walkthrough as complete */}
+            <div className="mt-8 text-center">
+              <button
+                onClick={handleWalkthroughComplete}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                <CheckCircle className="w-5 h-5" />
+                Mark as Complete
+              </button>
+            </div>
           </section>
 
-          {/* Community CTA - Enhanced with direct posting */}
+          {/* Community CTA - Enhanced with direct posting and progress tracking */}
           {tidbit.bitboard_url && (
             <div className="bg-gradient-to-br from-[#59B1E3]/10 to-[#60A875]/10 rounded-2xl p-12 border border-[#59B1E3]/20 text-center">
               <div className="max-w-2xl mx-auto">

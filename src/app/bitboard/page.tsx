@@ -1,4 +1,4 @@
-// Mobile-Optimized BitBoard with Enhanced PostCard Integration
+// Mobile-Optimized BitBoard with Enhanced PostCard Integration and Privacy Support
 
 'use client'
 
@@ -28,12 +28,16 @@ import {
   SortAsc,
   ChevronDown,
   MessageCircle,
-  ArrowUp
+  ArrowUp,
+  Lock,
+  Globe,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import Image from 'next/image'
 import { isValidMediaUrl } from '../lib/validateMedia'
 
-// Enhanced Post type with comment count
+// Enhanced Post type with privacy and pin support
 export type Post = {
   id: string
   created_at: string
@@ -50,6 +54,8 @@ export type Post = {
   username?: string
   user_avatar?: string | null
   user_full_name?: string | null
+  is_private?: boolean
+  is_pinned?: boolean
 }
 
 // Profile type for better type safety
@@ -60,7 +66,7 @@ type Profile = {
   full_name: string | null
 }
 
-type FilterOption = 'all' | 'trending' | 'recent' | 'popular' | 'liked' | 'commented'
+type FilterOption = 'all' | 'trending' | 'recent' | 'popular' | 'liked' | 'commented' | 'private'
 type ViewMode = 'masonry' | 'grid' | 'list'
 
 // Mobile-optimized skeleton with touch-friendly design
@@ -103,7 +109,7 @@ function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'defau
   )
 }
 
-// Mobile-optimized masonry component
+// Mobile-optimized masonry component with privacy support
 function MobileOptimizedMasonry({ 
   posts, 
   onTidbitClick, 
@@ -111,7 +117,8 @@ function MobileOptimizedMasonry({
   userLikedPosts,
   viewMode,
   loading = false,
-  onPostClick
+  onPostClick,
+  currentUser
 }: { 
   posts: Post[]
   onTidbitClick: (tidbit: number) => void 
@@ -120,6 +127,7 @@ function MobileOptimizedMasonry({
   viewMode: ViewMode
   loading?: boolean
   onPostClick: (post: Post) => void
+  currentUser: any
 }) {
   const [visiblePosts, setVisiblePosts] = useState<Post[]>([])
   const [page, setPage] = useState(1)
@@ -240,7 +248,41 @@ function MobileOptimizedMasonry({
     }
   }, [loadMore, visiblePosts.length, posts.length])
 
-  // Render posts using the enhanced PostCard component
+  // Enhanced PostCard with privacy awareness
+  const EnhancedPostCard = ({ post }: { post: Post }) => {
+    const isOwnPost = currentUser?.id === post.user_id
+    
+    return (
+      <div className="break-inside-avoid mb-3 w-full">
+        <div className="relative">
+          {/* Privacy indicator for own private posts */}
+          {post.is_private && isOwnPost && (
+            <div className="absolute top-2 left-2 z-10 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
+              <Lock className="w-3 h-3" />
+              Private
+            </div>
+          )}
+          
+          {/* Pin indicator */}
+          {post.is_pinned && (
+            <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
+              <span className="text-xs">📌</span>
+              Pinned
+            </div>
+          )}
+          
+          <PostCard
+            post={post}
+            isLiked={userLikedPosts.includes(post.id)}
+            onLike={onLike}
+            onClick={() => onPostClick(post)}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Render posts using the enhanced PostCard component with privacy indicators
   const renderPosts = () => {
     if (loading) {
       const skeletonVariants: Array<'tall' | 'default' | 'wide'> = ['default', 'tall', 'wide']
@@ -252,15 +294,8 @@ function MobileOptimizedMasonry({
       ))
     }
 
-    // ✅ Use the enhanced PostCard component for all view modes
     return visiblePosts.map((post) => (
-      <PostCard
-        key={post.id}
-        post={post}
-        isLiked={userLikedPosts.includes(post.id)}
-        onLike={onLike}
-        onClick={() => onPostClick(post)}
-      />
+      <EnhancedPostCard key={post.id} post={post} />
     ))
   }
 
@@ -326,7 +361,7 @@ export default function MobileOptimizedBitBoard() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Memoized filtered posts for better performance
+  // Memoized filtered posts for better performance with privacy support
   const filteredPosts = useMemo(() => {
     let filtered = [...posts]
 
@@ -345,7 +380,7 @@ export default function MobileOptimizedBitBoard() {
       )
     }
 
-    // Apply sorting
+    // Apply privacy-aware sorting
     switch (filterOption) {
       case 'trending':
       case 'popular':
@@ -356,23 +391,47 @@ export default function MobileOptimizedBitBoard() {
       case 'commented':
         return filtered.filter(post => userCommentedPosts.includes(post.id))
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      case 'private':
+        // Show only user's private posts
+        return filtered.filter(post => post.is_private && post.user_id === user?.id)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       case 'recent':
       default:
-        return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // Sort with pinned posts first, then by date
+        return filtered.sort((a, b) => {
+          // First, sort by pinned status (pinned posts first)
+          if (a.is_pinned && !b.is_pinned) return -1
+          if (!a.is_pinned && b.is_pinned) return 1
+          // Then by date
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
     }
-  }, [posts, selectedTidbit, debouncedSearchQuery, filterOption, userLikedPosts, userCommentedPosts])
+  }, [posts, selectedTidbit, debouncedSearchQuery, filterOption, userLikedPosts, userCommentedPosts, user?.id])
 
-  // Enhanced fetchPosts function with comment counts
+  // Enhanced fetchPosts function with privacy support
   const fetchPosts = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Fetch posts
-      const { data: postsData, error: postsError } = await supabase
+      // Get current user to check privacy permissions
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+
+      // Fetch posts with privacy filtering
+      let postsQuery = supabase
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false })
+
+      if (currentUser) {
+        // Show public posts OR private posts that belong to current user
+        postsQuery = postsQuery.or(`is_private.eq.false,and(is_private.eq.true,user_id.eq.${currentUser.id})`)
+      } else {
+        // Show only public posts for non-logged-in users
+        postsQuery = postsQuery.eq('is_private', false)
+      }
+
+      const { data: postsData, error: postsError } = await postsQuery
 
       if (postsError) throw postsError
 
@@ -583,7 +642,7 @@ export default function MobileOptimizedBitBoard() {
             <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search posts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 sm:pl-11 pr-8 sm:pr-12 py-2 sm:py-3 bg-gray-100 border-none rounded-full text-sm sm:text-base focus:ring-2 focus:ring-[#60A875]/20 focus:bg-white focus:shadow-md transition-all"
@@ -646,7 +705,7 @@ export default function MobileOptimizedBitBoard() {
         </div>
       </nav>
 
-      {/* Mobile-Optimized Filters Bar */}
+      {/* Enhanced Mobile-Optimized Filters Bar with Privacy Support */}
       {showFilters && (
         <div className="px-3 sm:px-4 py-2 sm:py-3 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide">
@@ -666,6 +725,21 @@ export default function MobileOptimizedBitBoard() {
                 {filter}
               </button>
             ))}
+
+            {/* Private Posts Filter - Only for logged-in users */}
+            {user && (
+              <button
+                onClick={() => setFilterOption('private')}
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full transition-colors whitespace-nowrap text-xs sm:text-sm font-medium ${
+                  filterOption === 'private'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <Lock className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                Private
+              </button>
+            )}
 
             {selectedTidbit !== null && (
               <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-[#59B1E3] text-white rounded-full">
@@ -748,7 +822,7 @@ export default function MobileOptimizedBitBoard() {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
             <div className="bg-white rounded-2xl p-4 sm:p-8 max-w-lg sm:max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create a Pin</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create a Post</h2>
                 <button
                   onClick={() => setShowPostForm(false)}
                   className="p-2 hover:bg-gray-100 rounded-xl"
@@ -792,25 +866,32 @@ export default function MobileOptimizedBitBoard() {
           </div>
         )}
 
-        {/* Main Content */}
+        {/* Main Content with Privacy Support */}
         <div className="h-full overflow-y-auto">
           {filteredPosts.length === 0 && !loading ? (
             <div className="flex items-center justify-center h-full p-4 sm:p-8">
               <div className="text-center max-w-sm sm:max-w-md">
                 <div className="bg-gray-100 rounded-2xl p-6 sm:p-8 w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  {filterOption === 'private' ? (
+                    <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  ) : (
+                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  )}
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">
-                  {debouncedSearchQuery ? 'No pins found' : 'No pins yet'}
+                  {filterOption === 'private' ? 'No private posts yet' : 
+                   debouncedSearchQuery ? 'No posts found' : 'No posts yet'}
                 </h3>
                 <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">
-                  {debouncedSearchQuery 
-                    ? `No pins match "${debouncedSearchQuery}". Try a different search.`
-                    : selectedTidbit 
-                      ? `No pins for Day ${selectedTidbit} yet. Be the first to create one!`
-                      : filterOption === 'commented'
-                        ? "You haven't commented on any posts yet. Start engaging with the community!"
-                        : "Be the first to share your AI creation and inspire the community!"
+                  {filterOption === 'private' 
+                    ? "Private posts you create will appear here. They're only visible to you!"
+                    : debouncedSearchQuery 
+                      ? `No posts match "${debouncedSearchQuery}". Try a different search.`
+                      : selectedTidbit 
+                        ? `No posts for Day ${selectedTidbit} yet. Be the first to create one!`
+                        : filterOption === 'commented'
+                          ? "You haven't commented on any posts yet. Start engaging with the community!"
+                          : "Be the first to share your AI creation and inspire the community!"
                   }
                 </p>
                 
@@ -818,12 +899,13 @@ export default function MobileOptimizedBitBoard() {
                   {user && (
                     <button
                       onClick={() => setShowPostForm(true)}
-                      className="px-4 sm:px-6 py-2.5 sm:py-3 bg-[#60A875] text-white rounded-full hover:bg-green-600 transition-colors font-medium text-sm sm:text-base"
+                      className="px-4 sm:px-6 py-2.5 sm:py-3 bg-[#60A875] text-white rounded-full hover:bg-green-600 transition-colors font-medium text-sm sm:text-base flex items-center justify-center gap-2"
                     >
-                      Create your first pin
+                      <Plus className="w-4 h-4" />
+                      {filterOption === 'private' ? 'Create private post' : 'Create your first post'}
                     </button>
                   )}
-                  {(debouncedSearchQuery || selectedTidbit) && (
+                  {(debouncedSearchQuery || selectedTidbit || filterOption !== 'recent') && (
                     <button
                       onClick={clearFilters}
                       className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors text-sm sm:text-base"
@@ -843,6 +925,7 @@ export default function MobileOptimizedBitBoard() {
               viewMode={viewMode}
               loading={loading}
               onPostClick={setSelectedPost}
+              currentUser={user}
             />
           )}
         </div>

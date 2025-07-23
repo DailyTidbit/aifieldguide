@@ -12,13 +12,18 @@ import {
   AlertTriangle,
   ExternalLink,
   Volume2,
-  VolumeX,
   Clock,
   Edit3,
-  Flag,
   Share,
   Copy,
-  Sparkles
+  Sparkles,
+  CheckCircle,
+  Settings,
+  Lock,
+  Unlock,
+  Flag,
+  Pin,
+  PinOff
 } from 'lucide-react'
 import Image from 'next/image'
 import { isValidMediaUrl } from '../lib/validateMedia'
@@ -39,6 +44,8 @@ export type Post = {
   username?: string
   user_avatar?: string | null
   user_full_name?: string | null
+  comments_enabled?: boolean
+  is_pinned?: boolean
 }
 
 // Comment type
@@ -71,6 +78,10 @@ export default function PostModal({ post, onClose }: PostModalProps) {
   const [showDropdown, setShowDropdown] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [commentsEnabled, setCommentsEnabled] = useState(post.comments_enabled ?? true)
+  const [isPinned, setIsPinned] = useState(post.is_pinned ?? false)
+  const [showShareMenu, setShowShareMenu] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
 
   // Check if current user owns this post
@@ -107,7 +118,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     getCurrentUser()
   }, [post.id])
 
-  // Fixed fetch comments function
+  // Enhanced fetch comments function
   useEffect(() => {
     const fetchComments = async () => {
       try {
@@ -201,7 +212,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
   // Enhanced comment submission function
   const handleSubmitComment = async () => {
-    if (!currentUser || !newComment.trim()) return
+    if (!currentUser || !newComment.trim() || !commentsEnabled) return
 
     try {
       setIsSubmittingComment(true)
@@ -282,7 +293,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
   // Handle comment deletion
   const handleDeleteComment = async (commentId: string, commentUserId: string) => {
-    if (!currentUser || currentUser.id !== commentUserId) return
+    if (!currentUser || (currentUser.id !== commentUserId && !isOwnPost)) return
 
     if (!confirm('Are you sure you want to delete this comment?')) return
 
@@ -291,7 +302,6 @@ export default function PostModal({ post, onClose }: PostModalProps) {
         .from('comments')
         .delete()
         .eq('id', commentId)
-        .eq('user_id', currentUser.id)
 
       if (error) throw error
 
@@ -302,22 +312,74 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // Handle share functionality
+  // Enhanced post management functions
+  const toggleCommentsEnabled = async () => {
+    if (!isOwnPost) return
+
+    try {
+      const newState = !commentsEnabled
+      const { error } = await supabase
+        .from('posts')
+        .update({ comments_enabled: newState })
+        .eq('id', post.id)
+
+      if (error) throw error
+
+      setCommentsEnabled(newState)
+      setShowDropdown(false)
+    } catch (error) {
+      console.error('Error updating comments setting:', error)
+      alert('Failed to update comments setting.')
+    }
+  }
+
+  const togglePinned = async () => {
+    if (!isOwnPost) return
+
+    try {
+      const newState = !isPinned
+      const { error } = await supabase
+        .from('posts')
+        .update({ is_pinned: newState })
+        .eq('id', post.id)
+
+      if (error) throw error
+
+      setIsPinned(newState)
+      setShowDropdown(false)
+    } catch (error) {
+      console.error('Error updating pin status:', error)
+      alert('Failed to update pin status.')
+    }
+  }
+
+  // Enhanced share functionality
   const handleShare = async () => {
     try {
+      const shareData = {
+        title: `AI Creation - Day ${post.tidbit}`,
+        text: post.content || `Check out this AI creation from Day ${post.tidbit}!`,
+        url: window.location.href
+      }
+
       if (navigator.share) {
-        await navigator.share({
-          title: `AI Creation - Day ${post.tidbit}`,
-          text: post.content || `Check out this AI creation from Day ${post.tidbit}!`,
-          url: window.location.href
-        })
+        await navigator.share(shareData)
       } else {
-        // Fallback: copy to clipboard
-        await navigator.clipboard.writeText(window.location.href)
-        alert('Link copied to clipboard!')
+        setShowShareMenu(true)
       }
     } catch (error) {
       console.error('Error sharing:', error)
+      setShowShareMenu(true)
+    }
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (error) {
+      console.error('Error copying to clipboard:', error)
     }
   }
 
@@ -328,7 +390,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // Enhanced media section rendering
+  // Enhanced media section rendering with better visual design
   const renderMediaSection = () => {
     if (hasValidImage) {
       return (
@@ -380,24 +442,50 @@ export default function PostModal({ post, onClose }: PostModalProps) {
       )
     }
 
-    // Enhanced text-only display - no more ugly "Text Post" placeholder!
+    // Enhanced text-only display with beautiful gradient and dynamic content
     return (
-      <div className="bg-gradient-to-br from-[#60A875] to-[#59B1E3] flex items-center justify-center p-8 min-h-[400px]">
-        <div className="text-center text-white max-w-md">
-          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Sparkles className="w-10 h-10" />
+      <div className="bg-gradient-to-br from-[#60A875] via-[#59B1E3] to-purple-500 flex items-center justify-center p-8 min-h-[400px] relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-10 right-10 w-24 h-24 bg-white rounded-full blur-2xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-white rounded-full blur-3xl animate-pulse delay-500"></div>
+        </div>
+        
+        <div className="text-center text-white max-w-lg relative z-10">
+          <div className="w-20 h-20 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+            <Sparkles className="w-10 h-10 text-white drop-shadow-lg" />
           </div>
-          <h3 className="text-2xl font-bold mb-4">AI Creation</h3>
-          <p className="text-white/90 text-lg leading-relaxed">
-            {post.content ? 
-              `"${post.content.length > 100 ? post.content.substring(0, 100) + '...' : post.content}"` :
-              "Discover this AI transformation on the right →"
-            }
-          </p>
-          <div className="mt-6 flex items-center justify-center gap-2 text-white/70">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm">Day {post.tidbit} Creation</span>
+          <h3 className="text-3xl font-bold mb-6 drop-shadow-lg">AI Creation</h3>
+          
+          {post.content ? (
+            <div className="space-y-4">
+              <p className="text-white/95 text-lg leading-relaxed font-medium drop-shadow-md">
+                "{post.content.length > 120 ? post.content.substring(0, 120) + '...' : post.content}"
+              </p>
+              {post.content.length > 120 && (
+                <p className="text-white/70 text-sm">
+                  Read the full creation below ↓
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-white/90 text-lg leading-relaxed">
+              "Discover this amazing AI transformation"
+            </p>
+          )}
+          
+          <div className="mt-8 flex items-center justify-center gap-3 text-white/80">
+            <Clock className="w-5 h-5" />
+            <span className="text-lg font-semibold">Day {post.tidbit} Creation</span>
           </div>
+          
+          {isPinned && (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white/90">
+              <Pin className="w-4 h-4" />
+              <span className="text-sm font-medium">Pinned Post</span>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -425,7 +513,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
           {/* Enhanced Content Section */}
           <div className="w-96 flex flex-col bg-white">
-            {/* Enhanced Header with better user info */}
+            {/* Enhanced Header with better user info and post management */}
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {post.user_avatar ? (
@@ -451,6 +539,12 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                     <span>Day {post.tidbit}</span>
                     <span>•</span>
                     <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                    {isPinned && (
+                      <>
+                        <span>•</span>
+                        <Pin className="w-3 h-3 text-[#60A875]" />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -471,11 +565,25 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                       onClick={() => setShowDropdown(!showDropdown)}
                       className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                     >
-                      <MoreHorizontal className="w-4 h-4" />
+                      <Settings className="w-4 h-4" />
                     </button>
 
                     {showDropdown && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[140px]">
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[180px]">
+                        <button
+                          onClick={toggleCommentsEnabled}
+                          className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                          {commentsEnabled ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                          {commentsEnabled ? 'Disable' : 'Enable'} Comments
+                        </button>
+                        <button
+                          onClick={togglePinned}
+                          className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                          {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                          {isPinned ? 'Unpin' : 'Pin'} Post
+                        </button>
                         <button
                           onClick={() => {
                             // Edit functionality - could be implemented later
@@ -485,8 +593,9 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                           className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
                         >
                           <Edit3 className="w-4 h-4" />
-                          Edit
+                          Edit Post
                         </button>
+                        <hr className="my-1" />
                         <button
                           onClick={() => {
                             setShowDeleteConfirm(true)
@@ -495,7 +604,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                           className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
                         >
                           <Trash2 className="w-4 h-4" />
-                          Delete
+                          Delete Post
                         </button>
                       </div>
                     )}
@@ -555,6 +664,13 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                     <MessageCircle className="w-5 h-5" />
                     <span className="font-medium">{comments.length}</span>
                   </div>
+
+                  {!commentsEnabled && isOwnPost && (
+                    <div className="flex items-center gap-2 text-gray-500 px-3 py-1 bg-gray-100 rounded-full text-sm">
+                      <Lock className="w-3 h-3" />
+                      <span>Comments disabled</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -563,6 +679,9 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <MessageCircle className="w-5 h-5" />
                   Comments ({comments.length})
+                  {!commentsEnabled && (
+                    <Lock className="w-4 h-4 text-gray-500" />
+                  )}
                 </h3>
 
                 {/* Comments List with better styling */}
@@ -582,8 +701,12 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                   ) : comments.length === 0 ? (
                     <div className="text-center py-8">
                       <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500 font-medium">No comments yet</p>
-                      <p className="text-gray-400 text-sm">Be the first to share your thoughts!</p>
+                      <p className="text-gray-500 font-medium">
+                        {commentsEnabled ? 'No comments yet' : 'Comments are disabled'}
+                      </p>
+                      <p className="text-gray-400 text-sm">
+                        {commentsEnabled ? 'Be the first to share your thoughts!' : 'The author has disabled comments for this post.'}
+                      </p>
                     </div>
                   ) : (
                     comments.map((comment) => (
@@ -613,7 +736,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                               <span className="text-xs text-gray-500">
                                 {new Date(comment.created_at).toLocaleDateString()}
                               </span>
-                              {currentUser?.id === comment.user_id && (
+                              {(currentUser?.id === comment.user_id || isOwnPost) && (
                                 <button
                                   onClick={() => handleDeleteComment(comment.id, comment.user_id)}
                                   className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-all ml-auto"
@@ -633,7 +756,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
             </div>
 
             {/* Enhanced Comment Input */}
-            {currentUser ? (
+            {currentUser && commentsEnabled ? (
               <div className="p-4 border-t border-gray-200 bg-gray-50">
                 <div className="flex gap-3">
                   <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
@@ -676,6 +799,21 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                   </div>
                 </div>
               </div>
+            ) : currentUser && !commentsEnabled ? (
+              <div className="p-4 border-t border-gray-200 bg-gray-50 text-center">
+                <div className="flex items-center justify-center gap-2 text-gray-500 mb-2">
+                  <Lock className="w-4 h-4" />
+                  <span className="text-sm font-medium">Comments are disabled for this post</span>
+                </div>
+                {isOwnPost && (
+                  <button
+                    onClick={toggleCommentsEnabled}
+                    className="text-sm text-[#60A875] hover:text-green-600 font-medium"
+                  >
+                    Enable comments
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="p-4 border-t border-gray-200 bg-gray-50 text-center">
                 <p className="text-gray-600 mb-3">Sign in to join the conversation</p>
@@ -690,6 +828,35 @@ export default function PostModal({ post, onClose }: PostModalProps) {
           </div>
         </div>
       </div>
+
+      {/* Share Menu Modal */}
+      {showShareMenu && (
+        <div className="fixed inset-0 bg-black/50 z-60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Share Post</h3>
+              <button
+                onClick={() => setShowShareMenu(false)}
+                className="p-2 hover:bg-gray-100 rounded-xl"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={copyToClipboard}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                {copySuccess ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-gray-600" />}
+                <span className="font-medium text-gray-900">
+                  {copySuccess ? 'Copied!' : 'Copy link'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Enhanced Delete Confirmation Modal */}
       {showDeleteConfirm && (

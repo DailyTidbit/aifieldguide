@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabaseClient'
 import PostModal from './PostModal'  // Import the working PostModal
 import { 
   User, 
-  Camera, 
   Edit3, 
   Save, 
   X, 
@@ -20,7 +19,15 @@ import {
   Grid3X3,
   Settings,
   LogOut,
-  MessageCircle
+  MessageCircle,
+  Send,
+  MessageSquare,
+  Trophy,
+  Zap,
+  Star,
+  Award,
+  Lock,
+  Pin
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -39,8 +46,63 @@ interface ProfileStats {
   postsCount: number
   likesReceived: number
   likesGiven: number
+  commentsGiven: number
+  commentsReceived: number
   joinedDaysAgo: number
 }
+
+// Retro Badge System
+interface Badge {
+  id: string
+  name: string
+  emoji: string
+  tagline: string
+  tier: 'starter' | 'arcade' | 'web' | 'hacker' | 'voyager' | 'neural' | 'quantum'
+  threshold: number
+  theme: string
+}
+
+const RETRO_BADGES: Badge[] = [
+  // Getting Started (1-10)
+  { id: 'first-bit', name: 'First Bit!', emoji: '🎉', tagline: 'Welcome to the Board', tier: 'starter', threshold: 1, theme: 'from-pink-500 to-red-500' },
+  { id: 'bit-curious', name: 'Bit Curious', emoji: '👀', tagline: "You're poking around...", tier: 'starter', threshold: 3, theme: 'from-blue-500 to-cyan-500' },
+  { id: 'daily-dabbler', name: 'Daily Dabbler', emoji: '🧪', tagline: 'Starting to feel it?', tier: 'starter', threshold: 5, theme: 'from-green-500 to-emerald-500' },
+  { id: 'early-adapter', name: 'Early Adapter', emoji: '💾', tagline: "You're plugged in now", tier: 'starter', threshold: 10, theme: 'from-purple-500 to-violet-500' },
+  
+  // Arcade Era (11-50)
+  { id: 'bit-bouncer', name: 'Bit Bouncer', emoji: '🕹️', tagline: "You're bouncing back daily", tier: 'arcade', threshold: 15, theme: 'from-yellow-500 to-orange-500' },
+  { id: 'pixel-pusher', name: 'Pixel Pusher', emoji: '🎮', tagline: 'That rhythm tho', tier: 'arcade', threshold: 20, theme: 'from-indigo-500 to-purple-500' },
+  { id: 'console-committer', name: 'Console Committer', emoji: '👾', tagline: "That's a quarter milestone!", tier: 'arcade', threshold: 25, theme: 'from-green-500 to-teal-500' },
+  { id: 'coinop-regular', name: 'Coin-Op Regular', emoji: '🪙', tagline: "You've earned your high score", tier: 'arcade', threshold: 30, theme: 'from-amber-500 to-yellow-500' },
+  { id: 'level-grinder', name: 'Level Grinder', emoji: '🧠', tagline: 'This is more than a phase', tier: 'arcade', threshold: 40, theme: 'from-rose-500 to-pink-500' },
+  { id: 'game-saved', name: 'Game Saved', emoji: '💽', tagline: 'Press start to continue', tier: 'arcade', threshold: 50, theme: 'from-cyan-500 to-blue-500' },
+  
+  // Old Web Explorer (51-100)
+  { id: 'dialup-devotee', name: 'Dial-Up Devotee', emoji: '📞', tagline: "It's noisy, but it connects", tier: 'web', threshold: 60, theme: 'from-gray-500 to-slate-500' },
+  { id: 'sitebuilder', name: 'Sitebuilder', emoji: '🧱', tagline: "You're stacking bits", tier: 'web', threshold: 75, theme: 'from-orange-500 to-red-500' },
+  { id: 'web1-legend', name: 'Web 1.0 Legend', emoji: '🌐', tagline: 'A full century of days?! 🫡', tier: 'web', threshold: 100, theme: 'from-violet-500 to-purple-500' },
+  
+  // The Hacker's Lounge (101-250)
+  { id: 'command-champ', name: 'Command Line Champ', emoji: '⌨️', tagline: 'You speak fluent prompts now', tier: 'hacker', threshold: 125, theme: 'from-emerald-500 to-green-500' },
+  { id: 'syntax-sorcerer', name: 'Syntax Sorcerer', emoji: '✨', tagline: "You're remixing everything", tier: 'hacker', threshold: 150, theme: 'from-purple-500 to-indigo-500' },
+  { id: 'terminal-traveler', name: 'Terminal Traveler', emoji: '🧳', tagline: "You're in deep — and loving it", tier: 'hacker', threshold: 200, theme: 'from-blue-500 to-cyan-500' },
+  { id: 'root-access', name: 'Root Access', emoji: '🔓', tagline: 'You run this machine now', tier: 'hacker', threshold: 250, theme: 'from-red-500 to-orange-500' },
+  
+  // Bit Voyager (251-500)
+  { id: 'bitstream-surfer', name: 'Bitstream Surfer', emoji: '🏄', tagline: 'You make it look easy', tier: 'voyager', threshold: 300, theme: 'from-teal-500 to-cyan-500' },
+  { id: 'creative-compiler', name: 'Creative Compiler', emoji: '⚙️', tagline: 'Ideas. In. Code. In. Style.', tier: 'voyager', threshold: 400, theme: 'from-pink-500 to-rose-500' },
+  { id: 'warp-drive', name: 'Warp Drive Activated', emoji: '🚀', tagline: 'Halfway to four digits. Woah.', tier: 'voyager', threshold: 500, theme: 'from-indigo-500 to-violet-500' },
+  
+  // Neural Explorer (501-750)
+  { id: 'prompt-poet', name: 'Prompt Poet', emoji: '✍️', tagline: 'Your style? Unmistakable.', tier: 'neural', threshold: 600, theme: 'from-amber-500 to-orange-500' },
+  { id: 'language-modeler', name: 'Language Modeler', emoji: '📚', tagline: 'You could teach a model a thing or two', tier: 'neural', threshold: 700, theme: 'from-green-500 to-emerald-500' },
+  { id: 'synapse-syncer', name: 'Synapse Syncer', emoji: '🧬', tagline: "You're wired for this now", tier: 'neural', threshold: 750, theme: 'from-purple-500 to-pink-500' },
+  
+  // The Reflection Zone (751-1000)
+  { id: 'bit-philosopher', name: 'Bit Philosopher', emoji: '🪞', tagline: "You've seen it all. Now what?", tier: 'quantum', threshold: 800, theme: 'from-slate-500 to-gray-500' },
+  { id: 'echo-mapper', name: 'Echo Mapper', emoji: '🛰️', tagline: 'Your thoughts ripple across the board', tier: 'quantum', threshold: 900, theme: 'from-cyan-500 to-blue-500' },
+  { id: 'quantum-bitmaster', name: 'Quantum Bitmaster', emoji: '🧠💡', tagline: "One thousand. You're legend.", tier: 'quantum', threshold: 1000, theme: 'from-yellow-500 to-amber-500' }
+]
 
 // Enhanced Profile Component
 export default function UserProfile({ userId, isOwnProfile = false }: {
@@ -54,8 +116,9 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [activeStatsFilter, setActiveStatsFilter] = useState<'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented'>('all')
+  const [activeStatsFilter, setActiveStatsFilter] = useState<'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented' | 'received'>('all')
   const [selectedPost, setSelectedPost] = useState<any>(null)
+  const [userBadges, setUserBadges] = useState<Badge[]>([])
   
   // Form state
   const [formData, setFormData] = useState({
@@ -66,6 +129,18 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   })
   
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Calculate earned badges based on stats
+  const calculateEarnedBadges = (stats: ProfileStats) => {
+    const totalActiveDays = stats.joinedDaysAgo
+    const earnedBadges = RETRO_BADGES.filter(badge => totalActiveDays >= badge.threshold)
+    return earnedBadges
+  }
+
+  // Get current tier badge (highest earned)
+  const getCurrentTierBadge = (badges: Badge[]) => {
+    return badges.length > 0 ? badges[badges.length - 1] : null
+  }
 
   // Fetch profile data
   const fetchProfile = async () => {
@@ -99,7 +174,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Fetch user statistics
+  // Enhanced fetch stats with comment counts
   const fetchStats = async () => {
     try {
       // Get posts count
@@ -115,18 +190,34 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .eq('user_id', userId)
 
       let likesReceived = 0
+      let commentsReceived = 0
       if (userPosts && userPosts.length > 0) {
         const postIds = userPosts.map(post => post.id)
-        const { count } = await supabase
+        
+        // Likes received
+        const { count: likesCount } = await supabase
           .from('likes')
           .select('*', { count: 'exact', head: true })
           .in('post_id', postIds)
-        likesReceived = count || 0
+        likesReceived = likesCount || 0
+
+        // Comments received
+        const { count: commentsCount } = await supabase
+          .from('comments')
+          .select('*', { count: 'exact', head: true })
+          .in('post_id', postIds)
+        commentsReceived = commentsCount || 0
       }
 
       // Get likes given by user
       const { count: likesGiven } = await supabase
         .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+
+      // Get comments given by user
+      const { count: commentsGiven } = await supabase
+        .from('comments')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
@@ -141,15 +232,36 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         ? Math.floor((new Date().getTime() - new Date(profileData.created_at).getTime()) / (1000 * 60 * 60 * 24))
         : 0
 
-      setStats({
+      const newStats = {
         postsCount: postsCount || 0,
         likesReceived,
         likesGiven: likesGiven || 0,
+        commentsGiven: commentsGiven || 0,
+        commentsReceived,
         joinedDaysAgo
-      })
+      }
+
+      setStats(newStats)
+
+      // Calculate badges
+      const badges = calculateEarnedBadges(newStats)
+      setUserBadges(badges)
     } catch (err) {
       console.error('Error fetching stats:', err)
     }
+  }
+
+  // Enhanced website field handling
+  const handleWebsiteChange = (value: string) => {
+    setFormData(prev => ({ ...prev, website: value }))
+  }
+
+  const formatWebsiteForSave = (website: string) => {
+    if (!website.trim()) return ''
+    if (website.startsWith('http://') || website.startsWith('https://')) {
+      return website
+    }
+    return `https://${website}`
   }
 
   // Handle avatar upload
@@ -171,13 +283,11 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         throw new Error('Image must be smaller than 5MB')
       }
 
-      // Create unique filename (just the filename, no path)
+      // Create unique filename
       const fileExt = file.name.split('.').pop()?.toLowerCase()
       const fileName = `${userId}.${fileExt}`
 
-      console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type)
-
-      // Upload to Supabase Storage (fileName only, no folder path)
+      // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, { 
@@ -185,19 +295,12 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
           contentType: file.type 
         })
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        throw uploadError
-      }
-
-      console.log('Upload successful:', uploadData)
+      if (uploadError) throw uploadError
 
       // Get public URL
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName)
-
-      console.log('Public URL:', urlData.publicUrl)
 
       // Update profile
       const { error: updateError } = await supabase
@@ -205,10 +308,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .update({ avatar_url: urlData.publicUrl })
         .eq('id', userId)
 
-      if (updateError) {
-        console.error('Profile update error:', updateError)
-        throw updateError
-      }
+      if (updateError) throw updateError
 
       // Refresh profile
       await fetchProfile()
@@ -246,7 +346,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
           username: formData.username || null,
           full_name: formData.full_name || null,
           bio: formData.bio || null,
-          website: formData.website || null,
+          website: formatWebsiteForSave(formData.website),
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
@@ -271,7 +371,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   // Handle modal close
   const handleModalClose = () => {
     setSelectedPost(null)
-    // Refresh posts after modal closes (in case post was deleted)
     fetchProfile()
   }
 
@@ -287,15 +386,15 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="relative h-48 bg-gradient-to-r from-[#60A875] to-[#59B1E3] animate-pulse"></div>
-          <div className="relative px-6 pb-6">
-            <div className="flex items-end gap-6 -mt-16">
-              <div className="w-32 h-32 bg-gray-200 rounded-full animate-pulse border-4 border-white"></div>
+          <div className="relative h-32 sm:h-48 bg-gradient-to-r from-[#60A875] to-[#59B1E3] animate-pulse"></div>
+          <div className="relative px-4 sm:px-6 pb-6">
+            <div className="flex items-end gap-4 sm:gap-6 -mt-12 sm:-mt-16">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 rounded-full animate-pulse border-4 border-white"></div>
               <div className="flex-1 space-y-3 pb-4">
-                <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
-                <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                <div className="h-4 sm:h-6 bg-gray-200 rounded w-32 sm:w-48 animate-pulse"></div>
+                <div className="h-3 sm:h-4 bg-gray-200 rounded w-24 sm:w-32 animate-pulse"></div>
               </div>
             </div>
           </div>
@@ -306,7 +405,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   if (!profile) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
         <div className="text-center py-12">
           <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Profile not found</h3>
@@ -316,13 +415,15 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     )
   }
 
+  const currentBadge = getCurrentTierBadge(userBadges)
+
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Error Banner */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600" />
-          <span className="text-red-700">{error}</span>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
+          <span className="text-red-700 text-sm sm:text-base">{error}</span>
           <button
             onClick={() => setError(null)}
             className="ml-auto text-red-600 hover:text-red-800"
@@ -334,22 +435,17 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
       {/* Profile Header */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Cover Image */}
-        <div className="relative h-48 bg-gradient-to-r from-[#60A875] to-[#59B1E3]">
+        {/* Cover Image - Back to Original Gradient */}
+        <div className="relative h-32 sm:h-48 bg-gradient-to-r from-[#60A875] to-[#59B1E3]">
           <div className="absolute inset-0 bg-black/10"></div>
-          {isOwnProfile && (
-            <button className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur-sm rounded-lg text-white hover:bg-white/30 transition-colors">
-              <Camera className="w-5 h-5" />
-            </button>
-          )}
         </div>
 
         {/* Profile Info */}
-        <div className="relative px-6 pb-6">
-          <div className="flex flex-col lg:flex-row lg:items-end gap-6 -mt-16">
+        <div className="relative px-4 sm:px-6 pb-6">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4 sm:gap-6 -mt-12 sm:-mt-16">
             {/* Avatar */}
             <div className="relative">
-              <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-gray-100 overflow-hidden">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-lg bg-gray-100 overflow-hidden">
                 {profile.avatar_url ? (
                   <Image
                     src={profile.avatar_url}
@@ -360,7 +456,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-[#60A875] to-[#59B1E3] flex items-center justify-center">
-                    <span className="text-4xl font-bold text-white">
+                    <span className="text-2xl sm:text-4xl font-bold text-white">
                       {(profile.full_name || profile.username || 'U').charAt(0).toUpperCase()}
                     </span>
                   </div>
@@ -368,7 +464,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                 
                 {uploadingAvatar && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-6 sm:h-6 text-white animate-spin" />
                   </div>
                 )}
               </div>
@@ -376,10 +472,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
               {isOwnProfile && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-2 right-2 p-2 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200 hover:scale-110 active:scale-95 hover:bg-gray-50 group"
+                  className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 p-1.5 sm:p-2 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200 hover:scale-110 active:scale-95 hover:bg-gray-50 group"
                   disabled={uploadingAvatar}
                 >
-                  <Camera className="w-4 h-4 text-gray-600 group-hover:text-[#60A875] transition-colors duration-200" />
+                  <Edit3 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600 group-hover:text-[#60A875] transition-colors duration-200" />
                 </button>
               )}
 
@@ -395,7 +491,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
             {/* User Info */}
             <div className="flex-1 lg:pb-4">
               {editing ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Display Name
@@ -404,7 +500,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                       type="text"
                       value={formData.full_name}
                       onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base"
                       placeholder="Your display name"
                     />
                   </div>
@@ -416,34 +512,35 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                       type="text"
                       value={formData.username}
                       onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base"
                       placeholder="username"
                     />
                   </div>
                 </div>
               ) : (
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                     {profile.full_name || profile.username || 'Anonymous User'}
                   </h1>
                   {profile.username && (
-                    <p className="text-lg text-gray-600 mb-4">@{profile.username}</p>
+                    <p className="text-base sm:text-lg text-gray-600 mb-2 sm:mb-4">@{profile.username}</p>
                   )}
+                  {/* Remove redundant badge preview since it's in the meta section now */}
                 </div>
               )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3 lg:pb-4">
+            {/* Action Buttons - Mobile Friendly */}
+            <div className="flex items-center gap-2 lg:pb-4">
               {isOwnProfile ? (
                 editing ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full lg:w-auto">
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 text-sm sm:text-base flex-1 lg:flex-initial justify-center"
                     >
-                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {saving ? <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" /> : <Save className="w-3 h-3 sm:w-4 sm:h-4" />}
                       Save
                     </button>
                     <button
@@ -456,33 +553,34 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                           website: profile.website || ''
                         })
                       }}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm sm:text-base"
                     >
-                      <X className="w-4 h-4" />
-                      Cancel
+                      <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">Cancel</span>
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full lg:w-auto">
                     <button
                       onClick={() => setEditing(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm sm:text-base flex-1 lg:flex-initial justify-center"
                     >
-                      <Edit3 className="w-4 h-4" />
-                      Edit Profile
+                      <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">Edit Profile</span>
+                      <span className="sm:hidden">Edit</span>
                     </button>
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                      className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm sm:text-base"
                     >
-                      <LogOut className="w-4 h-4" />
-                      Logout
+                      <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">Logout</span>
                     </button>
                   </div>
                 )
               ) : (
-                <button className="flex items-center gap-2 px-4 py-2 bg-[#59B1E3] text-white rounded-lg hover:bg-blue-600 transition-colors">
-                  <Heart className="w-4 h-4" />
+                <button className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#59B1E3] text-white rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base">
+                  <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
                   Follow
                 </button>
               )}
@@ -490,7 +588,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
           </div>
 
           {/* Bio and Links */}
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 sm:mt-6 space-y-4">
             {editing ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
@@ -501,7 +599,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                     value={formData.bio}
                     onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base"
                     placeholder="Tell us about yourself..."
                   />
                 </div>
@@ -509,13 +607,23 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Website
                   </label>
-                  <input
-                    type="url"
-                    value={formData.website}
-                    onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
-                    placeholder="https://yourwebsite.com"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.website}
+                      onChange={(e) => handleWebsiteChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base"
+                      placeholder="yourwebsite.com"
+                    />
+                    {formData.website && !formData.website.startsWith('http') && (
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 text-sm pointer-events-none">
+                        https://
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    We'll automatically add https:// if needed
+                  </p>
                 </div>
               </div>
             ) : (
@@ -523,7 +631,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                 <div>
                   {profile.bio && (
                     <div className="mb-4">
-                      <p className="text-gray-700 leading-relaxed">{profile.bio}</p>
+                      <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{profile.bio}</p>
                     </div>
                   )}
                   
@@ -543,6 +651,13 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                       <Calendar className="w-4 h-4" />
                       Joined {stats?.joinedDaysAgo === 0 ? 'today' : `${stats?.joinedDaysAgo} days ago`}
                     </div>
+                    {/* Subtle Current Badge Display */}
+                    {currentBadge && (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <span>{currentBadge.emoji}</span>
+                        <span className="font-medium">{currentBadge.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -551,98 +666,85 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         </div>
       </div>
 
-      {/* Enhanced Stats Grid with Click Actions */}
+      {/* Enhanced Stats Grid - Mobile Optimized */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           <button
-            onClick={() => {
-              console.log('Clicked Posts Created')
-              setActiveStatsFilter('created')
-            }}
-            className={`bg-white rounded-xl p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
+            onClick={() => setActiveStatsFilter('created')}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
               activeStatsFilter === 'created' ? 'border-[#60A875] ring-2 ring-[#60A875]/20' : 'border-gray-200 hover:border-[#60A875]'
             }`}
           >
-            <div className="text-2xl font-bold text-[#60A875] mb-1">{stats.postsCount}</div>
-            <div className="text-sm text-gray-600">Posts Created</div>
+            <div className="text-xl sm:text-2xl font-bold text-[#60A875] mb-1">{stats.postsCount}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Posts Created</div>
             {activeStatsFilter === 'created' && (
-              <div className="text-xs text-[#60A875] mt-1 font-medium">● Active Filter</div>
+              <div className="text-xs text-[#60A875] mt-1 font-medium">● Active</div>
             )}
           </button>
           
           <button
-            onClick={() => {
-              console.log('Clicked Posts with Likes - setting filter to TOP')
-              setActiveStatsFilter('top')
-            }}
-            className={`bg-white rounded-xl p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
+            onClick={() => setActiveStatsFilter('top')}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
               activeStatsFilter === 'top' ? 'border-[#59B1E3] ring-2 ring-[#59B1E3]/20' : 'border-gray-200 hover:border-[#59B1E3]'
             }`}
           >
-            <div className="text-2xl font-bold text-[#59B1E3] mb-1">{stats.likesReceived}</div>
-            <div className="text-sm text-gray-600">Posts with Likes</div>
+            <div className="text-xl sm:text-2xl font-bold text-[#59B1E3] mb-1">{stats.likesReceived}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Posts with Likes</div>
             {activeStatsFilter === 'top' && (
-              <div className="text-xs text-[#59B1E3] mt-1 font-medium">● Active Filter</div>
+              <div className="text-xs text-[#59B1E3] mt-1 font-medium">● Active</div>
             )}
           </button>
           
           <button
-            onClick={() => {
-              console.log('Clicked Likes Given')
-              setActiveStatsFilter('liked')
-            }}
-            className={`bg-white rounded-xl p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
+            onClick={() => setActiveStatsFilter('liked')}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
               activeStatsFilter === 'liked' ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-gray-200 hover:border-orange-500'
             }`}
           >
-            <div className="text-2xl font-bold text-orange-500 mb-1">{stats.likesGiven}</div>
-            <div className="text-sm text-gray-600">Likes Given</div>
+            <div className="text-xl sm:text-2xl font-bold text-orange-500 mb-1">{stats.likesGiven}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Likes Given</div>
             {activeStatsFilter === 'liked' && (
-              <div className="text-xs text-orange-500 mt-1 font-medium">● Active Filter</div>
+              <div className="text-xs text-orange-500 mt-1 font-medium">● Active</div>
             )}
           </button>
 
+          {/* Comments Received */}
           <button
-            onClick={() => {
-              console.log('Clicked Posts Commented')
-              setActiveStatsFilter('commented')
-            }}
-            className={`bg-white rounded-xl p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'commented' ? 'border-green-500 ring-2 ring-green-500/20' : 'border-gray-200 hover:border-green-500'
+            onClick={() => setActiveStatsFilter('received')}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
+              activeStatsFilter === 'received' ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-gray-200 hover:border-purple-500'
             }`}
           >
-            <div className="text-2xl font-bold text-green-500 mb-1">
-              <MessageCircle className="w-6 h-6 mx-auto" />
-            </div>
-            <div className="text-sm text-gray-600">Posts Commented</div>
-            {activeStatsFilter === 'commented' && (
-              <div className="text-xs text-green-500 mt-1 font-medium">● Active Filter</div>
+            <div className="text-xl sm:text-2xl font-bold text-purple-500 mb-1">{stats.commentsReceived}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Comments Received</div>
+            {activeStatsFilter === 'received' && (
+              <div className="text-xs text-purple-500 mt-1 font-medium">● Active</div>
             )}
           </button>
           
+          {/* Comments Received - Match Other Cards Style */}
           <button
-            onClick={() => {
-              console.log('Clicked Days Active')
-              setActiveStatsFilter('timeline')
-            }}
-            className={`bg-white rounded-xl p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'timeline' ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-gray-200 hover:border-purple-500'
+            onClick={() => setActiveStatsFilter('commented')}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
+              activeStatsFilter === 'commented' ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-gray-200 hover:border-purple-500'
             }`}
           >
-            <div className="text-2xl font-bold text-purple-500 mb-1">{stats.joinedDaysAgo}</div>
-            <div className="text-sm text-gray-600">Days Active</div>
-            {activeStatsFilter === 'timeline' && (
-              <div className="text-xs text-purple-500 mt-1 font-medium">● Timeline View</div>
+            <div className="text-xl sm:text-2xl font-bold text-purple-500 mb-1">{stats.commentsReceived}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Comments Received</div>
+            {activeStatsFilter === 'commented' && (
+              <div className="text-xs text-purple-500 mt-1 font-medium">● Active</div>
             )}
           </button>
         </div>
       )}
 
+      {/* Remove the big Badge Collection section since it's now subtle */}
+
       {/* User's Posts Grid */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Grid3X3 className="w-6 h-6 text-[#60A875]" />
-          <h2 className="text-xl font-bold text-gray-900">Recent Posts</h2>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <Grid3X3 className="w-5 h-5 sm:w-6 sm:h-6 text-[#60A875]" />
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Posts</h2>
         </div>
         
         <UserPostsGrid userId={userId} filter={activeStatsFilter} onPostClick={handlePostClick} />
@@ -659,23 +761,34 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   )
 }
 
-// Component to display user's posts in a grid with filtering
+// Component to display user's posts in a grid with filtering and privacy support
 function UserPostsGrid({ userId, filter = 'all', onPostClick }: { 
   userId: string
-  filter?: 'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented'
+  filter?: 'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented' | 'received'
   onPostClick?: (post: any) => void
 }) {
   const [posts, setPosts] = useState<any[]>([])
   const [likedPosts, setLikedPosts] = useState<any[]>([])
   const [commentedPosts, setCommentedPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUser(user)
+    }
+    getCurrentUser()
+  }, [])
+
+  const isOwnProfile = currentUser?.id === userId
 
   useEffect(() => {
     const fetchUserPosts = async () => {
       try {
         setLoading(true)
         
-        // Simple approach: get posts first, then get like counts separately
+        // Get created posts
         const { data: createdPosts, error: postsError } = await supabase
           .from('posts')
           .select('*')
@@ -683,8 +796,6 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
           .order('created_at', { ascending: false })
 
         if (postsError) throw postsError
-
-        console.log('Fetched posts:', createdPosts?.length || 0)
 
         // Get like counts for each post
         const postsWithLikes = await Promise.all(
@@ -694,14 +805,9 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
               .select('*', { count: 'exact', head: true })
               .eq('post_id', post.id)
 
-            if (countError) {
-              console.error('Error counting likes for post', post.id, countError)
-              return { ...post, likes_count: 0 }
-            }
-
             return {
               ...post,
-              likes_count: count || 0
+              likes_count: countError ? 0 : (count || 0)
             }
           })
         )
@@ -721,10 +827,6 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
           })
         )
 
-        // Only log summary, not individual posts
-        const totalLikes = postsWithComments.reduce((sum, post) => sum + (post.likes_count || 0), 0)
-        const totalComments = postsWithComments.reduce((sum, post) => sum + (post.comments_count || 0), 0)
-        console.log(`✅ Loaded ${postsWithComments.length} posts with ${totalLikes} total likes and ${totalComments} total comments`)
         setPosts(postsWithComments)
 
         // Fetch posts the user has liked
@@ -736,28 +838,27 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
           `)
           .eq('user_id', userId)
 
-        if (likesError) throw likesError
-
-        const likedPostsData = userLikes?.map(like => like.posts).filter(Boolean) || []
-        setLikedPosts(likedPostsData)
+        if (!likesError && userLikes) {
+          const likedPostsData = userLikes.map(like => like.posts).filter(Boolean)
+          setLikedPosts(likedPostsData)
+        }
 
         // Fetch posts the user has commented on
         const { data: userComments, error: commentsError } = await supabase
           .from('comments')
           .select(`
             post_id,
-            posts (*)
+            posts!inner(*)
           `)
           .eq('user_id', userId)
 
-        if (commentsError) throw commentsError
-
-        const commentedPostsData = userComments?.map(comment => comment.posts).filter(Boolean) || []
-        // Remove duplicates in case user commented multiple times on same post
-        const uniqueCommentedPosts = commentedPostsData.filter((post: any, index: number, self: any[]) => 
-          index === self.findIndex((p: any) => p.id === post.id)
-        )
-        setCommentedPosts(uniqueCommentedPosts)
+        if (!commentsError && userComments) {
+          const commentedPostsData = userComments.map(comment => comment.posts).filter(Boolean)
+          const uniqueCommentedPosts = commentedPostsData.filter((post: any, index: number, self: any[]) => 
+            index === self.findIndex((p: any) => p.id === post.id)
+          )
+          setCommentedPosts(uniqueCommentedPosts)
+        }
       } catch (err) {
         console.error('Error fetching user posts:', err)
       } finally {
@@ -773,32 +874,19 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
     switch (filter) {
       case 'created':
         return posts.slice().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        
       case 'liked':
         return likedPosts
-        
       case 'commented':
         return commentedPosts
-        
+      case 'received':
+        // For received comments, show posts that have comments on them
+        const postsWithComments = posts.filter(post => (post.comments_count || 0) > 0)
+        return postsWithComments.sort((a, b) => (b.comments_count || 0) - (a.comments_count || 0))
       case 'top':
-        // Show ONLY posts that have received likes (Option 1)
         const postsWithLikes = posts.filter(post => (post.likes_count || 0) > 0)
-        const topResult = postsWithLikes.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0))
-        
-        // Clean logging - only log when filter is active
-        console.log(`🎯 POSTS WITH LIKES FILTER: Showing ${topResult.length} posts with likes (filtered from ${posts.length} total)`)
-        if (topResult.length > 0) {
-          console.log('📊 TOP 5 POSTS BY LIKES:')
-          topResult.slice(0, 5).forEach((post, index) => {
-            console.log(`  ${index + 1}. ${post.likes_count || 0} likes`)
-          })
-        }
-        
-        return topResult
-        
+        return postsWithLikes.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0))
       case 'timeline':
         return posts.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        
       case 'all':
       default:
         return posts.slice().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -810,29 +898,24 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
   // Get filter title
   const getFilterTitle = () => {
     switch (filter) {
-      case 'created':
-        return 'Posts Created (Recent First)'
-      case 'liked':
-        return 'Posts You Liked'
-      case 'commented':
-        return 'Posts You Commented On'
-      case 'top':
-        return 'Posts with Likes (Most Liked First)'
-      case 'timeline':
-        return 'Timeline (Oldest First)'
+      case 'created': return 'Posts Created (Recent First)'
+      case 'liked': return 'Posts You Liked'
+      case 'commented': return 'Posts You Commented On'
+      case 'received': return 'Posts with Comments Received'
+      case 'top': return 'Posts with Likes (Most Liked First)'
+      case 'timeline': return 'Timeline (Oldest First)'
       case 'all':
-      default:
-        return 'Recent Posts'
+      default: return 'Recent Posts'
     }
   }
 
   if (loading) {
     return (
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Loading...</h3>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Loading...</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="aspect-square bg-gray-200 rounded-lg animate-pulse"></div>
           ))}
@@ -844,29 +927,25 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
   if (filteredPosts.length === 0) {
     const getEmptyMessage = () => {
       switch (filter) {
-        case 'created':
-          return "No posts created yet."
-        case 'liked':
-          return "No liked posts yet."
-        case 'commented':
-          return "No commented posts yet."
-        case 'top':
-          return "No posts have received likes yet."
-        default:
-          return "No posts yet."
+        case 'created': return "No posts created yet."
+        case 'liked': return "No liked posts yet."
+        case 'commented': return "No commented posts yet."
+        case 'received': return "No posts have received comments yet."
+        case 'top': return "No posts have received likes yet."
+        default: return "No posts yet."
       }
     }
 
     return (
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">{getFilterTitle()}</h3>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{getFilterTitle()}</h3>
           <span className="text-sm text-gray-500">{filteredPosts.length} posts</span>
         </div>
-        <div className="text-center py-12">
-          <Grid3X3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">{getEmptyMessage()}</h3>
-          <p className="text-gray-600">
+        <div className="text-center py-8 sm:py-12">
+          <Grid3X3 className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">{getEmptyMessage()}</h3>
+          <p className="text-gray-600 text-sm sm:text-base">
             {filter === 'liked' 
               ? "Start liking posts to see them here!"
               : filter === 'commented'
@@ -883,13 +962,12 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">{getFilterTitle()}</h3>
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900">{getFilterTitle()}</h3>
         <span className="text-sm text-gray-500">{filteredPosts.length} posts</span>
       </div>
       
-      {/* Show all posts for created filter, but limit others to 12 for performance */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {(filter === 'created' ? filteredPosts : filteredPosts.slice(0, 12)).map((post) => (
           <div
             key={post.id}
@@ -905,21 +983,37 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-[#60A875]/20 to-[#59B1E3]/20 flex items-center justify-center p-4">
-                <p className="text-sm text-gray-700 line-clamp-4 text-center">
+              <div className="w-full h-full bg-gradient-to-br from-[#60A875]/20 to-[#59B1E3]/20 flex items-center justify-center p-3 sm:p-4">
+                <p className="text-xs sm:text-sm text-gray-700 line-clamp-4 text-center leading-relaxed">
                   {post.content}
                 </p>
               </div>
             )}
             
-            {/* Hover overlay with better click indication */}
+            {/* Privacy indicator for private posts */}
+            {post.is_private && isOwnProfile && (
+              <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
+                <Lock className="w-3 h-3" />
+                Private
+              </div>
+            )}
+            
+            {/* Pin indicator for pinned posts */}
+            {post.is_pinned && (
+              <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
+                <Pin className="w-3 h-3" />
+                Pinned
+              </div>
+            )}
+            
+            {/* Hover overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="absolute bottom-3 left-3 right-3 text-white">
+              <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 right-2 sm:right-3 text-white">
                 <div className="flex items-center justify-between">
                   <span className="text-xs bg-black/50 px-2 py-1 rounded-full backdrop-blur-sm">
                     Day {post.tidbit}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-full backdrop-blur-sm">
                       <Heart className="w-3 h-3" />
                       <span className="text-xs">{post.likes_count || 0}</span>
@@ -930,10 +1024,9 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
                     </div>
                   </div>
                 </div>
-                {/* Click to view indicator */}
-                <div className="text-center mt-2">
-                  <span className="text-xs bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                    Click to view
+                <div className="text-center mt-1 sm:mt-2">
+                  <span className="text-xs bg-white/20 px-2 sm:px-3 py-1 rounded-full backdrop-blur-sm">
+                    Tap to view
                   </span>
                 </div>
               </div>
@@ -941,21 +1034,6 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
           </div>
         ))}
       </div>
-
-      {/* Show "Show All" button for created filter if there are more than 12 posts */}
-      {filter === 'created' && posts.length > 12 && filteredPosts.length <= 12 && (
-        <div className="text-center mt-6">
-          <button
-            onClick={() => {
-              // This would need to be implemented to show all posts
-              console.log('Show all posts clicked')
-            }}
-            className="px-6 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors"
-          >
-            Show All {posts.length} Posts
-          </button>
-        </div>
-      )}
     </div>
   )
 }
