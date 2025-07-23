@@ -66,21 +66,54 @@ async function TodaysTidbit() {
       throw tidbitError
     }
 
-    // Mock community data for now - you can replace with actual API call later
-    const mockCommunityPosts: CommunityPost[] = [
-      {
-        id: '1',
-        content: 'Just rewrote my entire email using this technique - went from rambling mess to clear and confident! 🎯',
-        author: 'Sarah M.',
-        created_at: '2 hours ago'
-      },
-      {
-        id: '2', 
-        content: 'This saved me so much time on my work presentations. The AI suggestions were spot on!',
-        author: 'Mike R.',
-        created_at: '5 hours ago'
+    // Fetch real community posts from BitBoard
+    let communityPosts: CommunityPost[] = []
+    try {
+      // First get posts
+      const { data: postsData, error: postsError } = await supabase
+        .from('posts')
+        .select('id, content, created_at, user_id')
+        .eq('is_private', false)
+        .not('content', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(3)
+
+      if (postsError) {
+        console.error('Error fetching posts:', postsError)
+      } else if (postsData && postsData.length > 0) {
+        // Get unique user IDs
+        const userIds = [...new Set(postsData.map(post => post.user_id).filter(Boolean))]
+        
+        // Fetch profiles separately
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, full_name')
+          .in('id', userIds)
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError)
+        }
+
+        // Combine posts with profile data
+        communityPosts = postsData.map(post => {
+          const profile = profilesData?.find(p => p.id === post.user_id)
+          return {
+            id: post.id,
+            content: post.content,
+            author: profile?.full_name || profile?.username || 'Community Member',
+            created_at: new Date(post.created_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            })
+          }
+        })
       }
-    ]
+    } catch (error) {
+      console.error('Error fetching community posts:', error)
+      // Fall back to empty array if posts can't be loaded
+    }
 
     const todaysTip: TodaysTip | null = tidbitData ? {
       day_number: tidbitData.day_number,
@@ -171,10 +204,6 @@ async function TodaysTidbit() {
         </div>
 
         <div className="relative bg-gray-900 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl aspect-video mb-4 sm:mb-6 w-full max-w-full">
-          <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-10 bg-[#60A875] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold">
-            DAY {todaysTip.day_number}
-          </div>
-          
           <video 
             className="w-full h-full object-cover"
             controls
@@ -204,16 +233,32 @@ async function TodaysTidbit() {
             <Users className="w-4 sm:w-5 h-4 sm:h-5" />
             Community Examples
           </h3>
-          <div className="space-y-3">
-            {mockCommunityPosts.map((post) => (
-              <div key={post.id} className="bg-white/70 p-3 sm:p-4 rounded-lg border border-purple-200">
-                <p className="text-sm sm:text-base text-gray-700 mb-2">{post.content}</p>
-                <div className="text-xs sm:text-sm text-purple-600 font-medium">
-                  — {post.author} • {post.created_at}
+          {communityPosts.length > 0 ? (
+            <div className="space-y-3">
+              {communityPosts.map((post) => (
+                <div key={post.id} className="bg-white/70 p-3 sm:p-4 rounded-lg border border-purple-200">
+                  <p className="text-sm sm:text-base text-gray-700 mb-2">
+                    {post.content.length > 150 
+                      ? `${post.content.substring(0, 150)}...` 
+                      : post.content
+                    }
+                  </p>
+                  <div className="text-xs sm:text-sm text-purple-600 font-medium">
+                    — {post.author} • {post.created_at}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white/70 p-3 sm:p-4 rounded-lg border border-purple-200 text-center">
+              <p className="text-sm sm:text-base text-gray-600 mb-2">
+                No community posts yet for this tidbit.
+              </p>
+              <p className="text-xs text-purple-600">
+                Be the first to share your creation!
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-center px-4 sm:px-0">
@@ -270,18 +315,6 @@ export default async function HomePage() {
           />
           
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            {/* Logo section */}
-            <div className="mb-8 sm:mb-12">
-              <Image
-                src="https://cdn.dailytidbit.org/Logo/herologo.png"
-                alt="Daily Tidbit Logo"
-                width={1200}
-                height={300}
-                className="w-full max-w-sm sm:max-w-md lg:max-w-lg mx-auto h-auto"
-                priority
-              />
-            </div>
-
             {/* Today's Tidbit with Suspense for better loading */}
             <Suspense fallback={<TodaysTidbitSkeleton />}>
               <TodaysTidbit />

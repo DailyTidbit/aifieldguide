@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Clock, Star, Tag, Play, Users, ArrowRight, CheckCircle, Lightbulb, Target, Camera } from 'lucide-react'
 import TidbitTutor from '../../components/TidbitTutor'
 import RotatingWord from '../../components/RotatingWord'
+import WalkthroughBitBoardCTA from '../../components/WalkthroughBitBoardCTA' // ✅ Import the new component
 import { supabase } from '../../lib/supabaseClient'
 
 interface DayPageProps {
@@ -23,7 +24,6 @@ export default function DayPage({ params }: DayPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [latestConversation, setLatestConversation] = useState<TutorConversation | null>(null)
   const [user, setUser] = useState<any>(null)
-  const [postingToBitBoard, setPostingToBitBoard] = useState(false)
 
   // Progress tracking functions
   const markTidbitViewed = async (tidbitNumber: number) => {
@@ -86,28 +86,6 @@ export default function DayPage({ params }: DayPageProps) {
 
       if (error) {
         console.error('Error marking AI practiced:', error)
-      }
-    } catch (error) {
-      console.error('Error updating progress:', error)
-    }
-  }
-
-  const markPostCreated = async (tidbitNumber: number) => {
-    if (!user) return
-
-    try {
-      const { error } = await supabase
-        .from('user_tidbit_progress')
-        .upsert({
-          user_id: user.id,
-          tidbit_number: tidbitNumber,
-          created_post: true
-        }, {
-          onConflict: 'user_id,tidbit_number'
-        })
-
-      if (error) {
-        console.error('Error marking post created:', error)
       }
     } catch (error) {
       console.error('Error updating progress:', error)
@@ -189,49 +167,6 @@ export default function DayPage({ params }: DayPageProps) {
   const handleWalkthroughComplete = async () => {
     if (user && tidbit) {
       await markTidbitCompleted(tidbit.day_number)
-    }
-  }
-
-  // Post to BitBoard using TidbitTutor conversation
-  const postTutorConversationToBitBoard = async () => {
-    if (!user) {
-      alert("Please sign in to post to BitBoard!")
-      return
-    }
-
-    if (!latestConversation) {
-      alert("Try the Tidbit Tutor above first to create something to share!")
-      return
-    }
-
-    setPostingToBitBoard(true)
-
-    try {
-      const { error } = await supabase.from('posts').insert({
-        user_id: user.id,
-        content: `Used AI to improve my writing with Daily Tidbit #${tidbit.day_number}! "${tidbit.title}"`,
-        before_text: latestConversation.userInput,
-        after_text: latestConversation.aiOutput,
-        tidbit: tidbit.day_number,
-        type: 'tidbit_tutor_conversation',
-        description: `AI writing improvement from Tidbit Tutor - Day ${tidbit.day_number}`
-      })
-
-      if (error) throw error
-
-      // Mark post as created for progress tracking
-      await markPostCreated(tidbit.day_number)
-
-      // Success feedback
-      if (confirm("Posted successfully! 🎉 Want to see it on BitBoard?")) {
-        window.open('/bitboard', '_blank')
-      }
-
-    } catch (error) {
-      console.error("Error posting to BitBoard:", error)
-      alert("Failed to post. Please try again.")
-    } finally {
-      setPostingToBitBoard(false)
     }
   }
 
@@ -352,7 +287,7 @@ export default function DayPage({ params }: DayPageProps) {
               </h3>
             </div>
 
-            {/* Enhanced Tidbit Tutor with BitBoard Integration */}
+            {/* Enhanced Tidbit Tutor */}
             <div className="bg-gradient-to-br from-[#60A875]/5 to-[#59B1E3]/5 rounded-2xl p-8 border border-[#60A875]/20 mb-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-lg bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white">
@@ -369,14 +304,14 @@ export default function DayPage({ params }: DayPageProps) {
                 Paste a rough message and ask it to rewrite it. Then say: "Make it more confident" or "Add humor."
               </p>
               
-              {/* Enhanced Tidbit Tutor with conversation tracking and progress */}
+              {/* Tidbit Tutor with conversation tracking */}
               <TidbitTutor 
                 tidbitNumber={tidbit.day_number}
                 tidbitTitle={tidbit.title}
                 onConversationUpdate={handleConversationUpdate}
               />
               
-              {/* Additional CTA after using the tutor */}
+              {/* Subtle hint after using the tutor */}
               <div className="mt-6 p-4 bg-white/50 rounded-xl border border-[#59B1E3]/20">
                 <div className="flex items-center gap-2 text-[#59B1E3] mb-2">
                   <Users className="w-5 h-5" />
@@ -418,86 +353,15 @@ export default function DayPage({ params }: DayPageProps) {
             </div>
           </section>
 
-          {/* Community CTA - Enhanced with direct posting and progress tracking */}
-          {tidbit.bitboard_url && (
-            <div className="bg-gradient-to-br from-[#59B1E3]/10 to-[#60A875]/10 rounded-2xl p-12 border border-[#59B1E3]/20 text-center">
-              <div className="max-w-2xl mx-auto">
-                <div className="mb-6">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-[#59B1E3] rounded-full mb-4">
-                    <Users className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-4" style={{fontFamily: "'Playfair Display', serif"}}>
-                    Post Your <RotatingWord /> to The Tidbit Creators Board
-                  </h3>
-                  <p className="text-xl text-gray-700 leading-relaxed mb-8" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-                    Share your AI transformations and see what others have created with this tidbit. 
-                    Connect with fellow learners and get inspired by the community!
-                  </p>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  {/* Main CTA - Post to BitBoard */}
-                  {user ? (
-                    <button
-                      onClick={postTutorConversationToBitBoard}
-                      disabled={postingToBitBoard || !latestConversation}
-                      className={`inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl ${
-                        latestConversation 
-                          ? 'bg-[#59B1E3] text-white hover:bg-blue-600' 
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {postingToBitBoard ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Posting...
-                        </>
-                      ) : latestConversation ? (
-                        <>
-                          <Target className="w-5 h-5" />
-                          POST TO BITBOARD
-                        </>
-                      ) : (
-                        <>
-                          <Target className="w-5 h-5" />
-                          TRY TUTOR FIRST
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center gap-3 bg-gray-300 text-gray-500 px-8 py-4 rounded-xl font-semibold text-lg cursor-not-allowed">
-                        <Target className="w-5 h-5" />
-                        SIGN IN TO POST
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Secondary CTA - Browse BitBoard */}
-                  <a
-                    href="/bitboard"
-                    className="inline-flex items-center justify-center gap-3 border-2 border-[#60A875] text-[#60A875] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#60A875] hover:text-white transition-all duration-200"
-                  >
-                    <Users className="w-5 h-5" />
-                    BROWSE COMMUNITY
-                  </a>
-                </div>
-                
-                {/* Dynamic hint based on state */}
-                <div className="mt-6 text-sm text-gray-600 italic">
-                  {!user ? (
-                    "🔐 Sign in to share your AI creations with the community"
-                  ) : !latestConversation ? (
-                    "💡 Use the Tidbit Tutor above to practice, then share your results!"
-                  ) : (
-                    `✨ Ready to share: "${latestConversation.userInput.slice(0, 50)}${latestConversation.userInput.length > 50 ? '...' : ''}"`
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          {/* 🚀 NEW: Dynamic BitBoard CTA - Replace the old static one */}
+          <WalkthroughBitBoardCTA 
+            tidbitNumber={tidbit.day_number}
+            tidbitTitle={tidbit.title}
+            user={user}
+            latestConversation={latestConversation}
+          />
 
-          {/* Try Other AI Tools - New Section */}
+          {/* Try Other AI Tools - Optional Section */}
           {tidbit.explore_more && (
             <Section 
               title="Try Other AI Tools" 
@@ -631,7 +495,6 @@ function RichContent({ children }: { children: string }) {
 
     // Handle images
     if (trimmed.startsWith('<img')) {
-      // Extract alt text for better accessibility
       const altMatch = trimmed.match(/alt="([^"]*)"/)
       const altText = altMatch ? altMatch[1] : 'Tidbit image'
       
@@ -647,7 +510,7 @@ function RichContent({ children }: { children: string }) {
       return
     }
 
-    // Handle callout boxes with appropriate icons and styling
+    // Handle callout boxes
     if (trimmed.startsWith('✅')) {
       elements.push(
         <div key={`callout-${i}`} className="bg-green-50 border border-green-200 rounded-lg p-4 my-6">
@@ -719,7 +582,7 @@ function RichContent({ children }: { children: string }) {
 
     // Handle example callouts
     if (trimmed.toLowerCase().startsWith('example:')) {
-      const exampleText = trimmed.slice(8).trim() // Remove "Example:" prefix
+      const exampleText = trimmed.slice(8).trim()
       elements.push(
         <div key={`example-${i}`} className="bg-amber-50 border border-amber-200 rounded-lg p-4 my-6">
           <div className="flex items-start gap-3">
@@ -746,17 +609,7 @@ function RichContent({ children }: { children: string }) {
       return
     }
 
-    // Handle "Dear" or "Hi" greetings (email-like content)
-    if (trimmed.match(/^(Dear|Hi|Hello)/i)) {
-      elements.push(
-        <div key={`greeting-${i}`} className="bg-gray-50 border-l-4 border-gray-300 pl-4 py-2 my-4">
-          <p className="text-gray-700 leading-relaxed italic">{parseInlineFormatting(trimmed)}</p>
-        </div>
-      )
-      return
-    }
-
-    // Handle website URLs (like www.chatgpt.com)
+    // Handle website URLs
     if (trimmed.match(/^www\./)) {
       elements.push(
         <div key={`url-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center my-6">

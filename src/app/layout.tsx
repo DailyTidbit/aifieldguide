@@ -45,7 +45,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={`${playfairDisplay.variable} ${spaceGrotesk.variable}`}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} antialiased min-h-screen bg-gray-50 font-space-grotesk`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} antialiased min-h-screen bg-white font-space-grotesk`}
       >
         <Navigation />
         <main>

@@ -1,5 +1,9 @@
 import TidbitSearch from '../components/TidbitSearch'
 
 export default function SearchPage() {
-  return <TidbitSearch />
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <TidbitSearch />
+    </div>
+  )
 }

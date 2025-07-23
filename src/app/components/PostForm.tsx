@@ -12,7 +12,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
   const [beforeText, setBeforeText] = useState('')
   const [afterText, setAfterText] = useState('')
   const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const [isPrivate, setIsPrivate] = useState(false) // New privacy state
+  const [isPrivate, setIsPrivate] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const searchParams = useSearchParams()
@@ -26,6 +26,21 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
     const tidbitParam = searchParams.get('tidbit')
     if (tidbitParam) {
       setTidbit(Number(tidbitParam))
+    }
+
+    // Pre-fill content from URL params (from walkthrough)
+    const contentParam = searchParams.get('content')
+    const beforeParam = searchParams.get('before')
+    const afterParam = searchParams.get('after')
+
+    if (contentParam) {
+      setContent(decodeURIComponent(contentParam))
+    }
+    if (beforeParam) {
+      setBeforeText(decodeURIComponent(beforeParam))
+    }
+    if (afterParam) {
+      setAfterText(decodeURIComponent(afterParam))
     }
   }, [searchParams])
 
@@ -83,7 +98,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       media_url,
       tidbit,
       type: 'text',
-      is_private: isPrivate, // Include privacy setting
+      is_private: isPrivate,
     })
 
     if (error) {
@@ -93,17 +108,38 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       // Track progress - mark that user created a post for this tidbit
       await markPostCreated(tidbit)
       
-      const privacyMessage = isPrivate ? 'Private post created!' : 'Post shared to BitBoard!'
-      alert(privacyMessage)
+      // 🚀 FIXED: Better success handling with options
+      const successMessage = isPrivate 
+        ? '🔒 Private post saved successfully!' 
+        : '🎉 Posted to BitBoard successfully!'
+      
+      if (isPrivate) {
+        // For private posts, offer to view profile
+        const viewProfile = confirm(`${successMessage}\n\nWant to see it in your private collection?`)
+        if (viewProfile) {
+          window.open('/profile', '_blank')
+        }
+      } else {
+        // For public posts, offer to view BitBoard
+        const viewBitBoard = confirm(`${successMessage}\n\nWant to see it on BitBoard?`)
+        if (viewBitBoard) {
+          window.open('/bitboard', '_blank')
+        }
+      }
+      
+      // Reset form
       setContent('')
       setBeforeText('')
       setAfterText('')
       setMediaFile(null)
       setIsPrivate(false)
+      
+      // Close the modal/form (calls parent component)
       onPostSubmit()
-
-      // Redirect back to the walkthrough page
-      router.push(`https://www.dailytidbit.org/tidbits/day-${tidbit}#bitboard`)
+      
+      // 🚀 FIXED: No more broken redirects!
+      // Instead of redirecting, we stay on the current page
+      // The modal will close and user stays where they were
     }
 
     setSubmitting(false)
