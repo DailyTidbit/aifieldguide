@@ -73,35 +73,56 @@ const AISlide: React.FC<AISlideProps> = ({
       </div>
       
       {/* Main content card */}
-      <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50">
-        {/* Title */}
-        <h4 
-          className={`text-2xl md:text-3xl font-bold ${colors.text} mb-6 text-center leading-tight`}
-          style={{ fontFamily: "var(--font-playfair, 'Playfair Display'), serif" }}
-        >
-          {title}
-        </h4>
+      <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50 overflow-hidden">
+        {/* AI Host background image for all slides */}
+        <>
+          {/* Host image background - positioned more to the right */}
+          <div 
+            className="absolute bottom-0 right-0 w-64 h-64 md:w-96 md:h-96 opacity-40 pointer-events-none"
+            style={{
+              backgroundImage: 'url(https://cdn.dailytidbit.org/Host/hosttransparent.png)',
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'bottom center',
+              filter: 'blur(0.2px)',
+              transform: 'translateX(18%) translateY(15%)'
+            }}
+          />
+          {/* Lighter overlay for text readability */}
+          <div className="absolute inset-0 bg-white/55 pointer-events-none rounded-3xl"></div>
+        </>
         
-        {/* Content */}
-        <div 
-          className="text-lg text-gray-700 leading-relaxed space-y-4 text-center"
-          style={{ fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif" }}
-        >
-          {content}
-        </div>
-        
-        {/* Button if present */}
-        {hasButton && buttonText && (
-          <div className="mt-8 text-center">
-            <button 
-              onClick={buttonAction}
-              className={`${colors.bgAccent} text-white px-8 py-4 rounded-xl hover:opacity-90 hover:scale-105 transition-all duration-300 inline-flex items-center gap-3 font-semibold text-lg shadow-lg`}
-            >
-              {buttonText}
-              <span className="text-xl">→</span>
-            </button>
+        {/* Content with higher z-index */}
+        <div className="relative z-20">
+          {/* Title */}
+          <h4 
+            className={`text-2xl md:text-3xl font-bold ${colors.text} mb-6 text-center leading-tight`}
+            style={{ fontFamily: "var(--font-playfair, 'Playfair Display'), serif" }}
+          >
+            {title}
+          </h4>
+          
+          {/* Content */}
+          <div 
+            className="text-lg text-gray-700 leading-relaxed space-y-4 text-center"
+            style={{ fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif" }}
+          >
+            {content}
           </div>
-        )}
+          
+          {/* Button if present */}
+          {hasButton && buttonText && (
+            <div className="mt-8 text-center">
+              <button 
+                onClick={buttonAction}
+                className={`${colors.bgAccent} text-white px-8 py-4 rounded-xl hover:opacity-90 hover:scale-105 transition-all duration-300 inline-flex items-center gap-3 font-semibold text-lg shadow-lg`}
+              >
+                {buttonText}
+                <span className="text-xl">→</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Floating elements for visual interest */}

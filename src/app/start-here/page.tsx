@@ -105,7 +105,7 @@ function CarouselComponent() {
           {Array.from({ length: totalSlides }).map((_, slideIndex) => (
             <div
               key={slideIndex}
-              className="w-full flex-shrink-0" // Each slide takes full width of the visible container
+              className="w-full flex-shrink-0 pr-6" // Added pr-6 for spacing between slides
             >
               <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-3'}`}>
                 {dailyTidbits
@@ -274,9 +274,6 @@ export default function StartHerePage() {
                 <p>
                   We'll show you how, one smart tip a day. Simple. Fast. Useful.
                 </p>
-                <p>
-                  <strong>Real tools. Real results.</strong> <strong className="text-[#59B1E3]">Real people.</strong>
-                </p>
               </div>
 
               {/* Value Props Carousel */}
@@ -286,13 +283,6 @@ export default function StartHerePage() {
                   autoPlay={true}
                   autoPlayDelay={4000}
                 />
-              </div>
-
-              {/* Moved Bob Marley line below the benefits box */}
-              <div className="mt-6 text-center lg:text-left animate-fade-in-up delay-600">
-                <p className="text-lg text-gray-700 italic leading-relaxed" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-                  <strong>No tech talk. No pressure.</strong> And don't worry 'bout a thing — every little tip's gonna be alright. 🎶
-                </p>
               </div>
 
               {/* Action buttons */}
@@ -309,10 +299,11 @@ export default function StartHerePage() {
                   
                   <button 
                     onClick={() => scrollToSection('how-it-works')}
-                    className="border-2 border-[#60A875] text-[#60A875] px-8 py-4 rounded-xl hover:bg-[#60A875] hover:text-white transition-all duration-300 flex items-center gap-3 group"
+                    className="bg-[#59B1E3] text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-blue-600 hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden"
                   >
-                    <span className="body-bold text-lg">What's AI?</span>
-                    <span className="group-hover:translate-x-1 transition-transform duration-200">✨</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                    <span className="body-bold text-lg relative z-10">What's AI?</span>
+                    <span className="group-hover:translate-x-1 transition-transform duration-200 relative z-10">✨</span>
                   </button>
                 </div>
               </div>
@@ -321,13 +312,13 @@ export default function StartHerePage() {
         </div>
       </section>
 
-      {/* IMPROVED: What Can You Do With AI Section - Lighter background with gradient */}
-      <section id="what-is-ai" className="bg-gradient-to-br from-green-50/50 via-orange-50/30 to-yellow-50/40 px-6 md:px-12 py-20">
+      {/* UPDATED: What Can You Do With AI Section - White background with card shadows */}
+      <section id="what-is-ai" className="bg-white px-6 md:px-12 py-20">
         <div className="max-w-6xl mx-auto">
           {/* IMPROVED: Header with more pop */}
           <div className="text-center mb-16">
             <h2 
-              className="heading-section text-4xl md:text-5xl text-[#60A875] mb-6 leading-tight font-bold"
+              className="heading-section text-4xl md:text-5xl text-[#60A875] mb-6 leading-tight font-bold drop-shadow-sm"
               style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}
             >
               💡 Real Tools. Real Use Cases.
@@ -341,8 +332,8 @@ export default function StartHerePage() {
             </p>
           </div>
 
-          {/* Carousel Container */}
-          <div className="px-4">
+          {/* Carousel Container with enhanced shadows */}
+          <div className="px-4 drop-shadow-lg">
             <CarouselComponent />
           </div>
 
@@ -352,16 +343,16 @@ export default function StartHerePage() {
               className="text-lg text-gray-600 italic"
               style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
             >
-              Real tips from real people doing <strong className="text-[#60A875]">real things</strong> with AI.
+              And don't worry 'bout a thing — every little tip's gonna be alright. 🎶
             </p>
           </div>
         </div>
       </section>
 
-      {/* IMPROVED: How It Works Section - Now a Carousel */}
-      <section id="how-it-works" className="bg-gradient-to-br from-blue-50/70 to-slate-100/50 px-6 md:px-12 py-20 relative overflow-hidden">
-        <div className="absolute top-10 left-10 w-20 h-20 bg-blue-200/30 rounded-full blur-xl"></div>
-        <div className="absolute bottom-10 right-10 w-32 h-32 bg-green-200/30 rounded-full blur-xl"></div>
+      {/* UPDATED: How It Works Section - Soft lavender to icy blue gradient */}
+      <section id="how-it-works" className="bg-gradient-to-b from-[#F4F5FF] to-[#E6F6F9] px-6 md:px-12 py-20 relative overflow-hidden">
+        <div className="absolute top-10 left-10 w-20 h-20 bg-blue-200/20 rounded-full blur-xl"></div>
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-purple-200/20 rounded-full blur-xl"></div>
         
         <div className="max-w-6xl mx-auto relative z-10">
           <h3 className="heading-section text-4xl md:text-5xl text-[#59B1E3] mb-6 text-center">
@@ -375,8 +366,8 @@ export default function StartHerePage() {
         </div>
       </section>
 
-      {/* REDESIGNED: How Daily Tidbit Works - Interactive Steps */}
-      <section id="how-daily-tidbit-works" className="bg-gradient-to-br from-orange-50/60 to-yellow-50/60 px-6 md:px-12 py-20">
+      {/* UPDATED: How Daily Tidbit Works - White background with enhanced card shadows */}
+      <section id="how-daily-tidbit-works" className="bg-white px-6 md:px-12 py-20">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-16">
@@ -386,19 +377,18 @@ export default function StartHerePage() {
             </p>
           </div>
           
-          {/* Interactive 3-Step Flow */}
-          <div className="grid md:grid-cols-3 gap-8 mb-16 relative">
-            {/* Connection lines for desktop */}
-            <div className="hidden md:block absolute top-1/2 left-1/3 right-1/3 h-0.5 bg-gradient-to-r from-[#59B1E3] via-purple-400 to-orange-400 -translate-y-1/2 z-0"></div>
+          {/* Interactive 3-Step Flow - Clean layout without connection lines */}
+          <div className="grid md:grid-cols-3 gap-8 mb-16"
+          >
             
-            {/* Step 1: Watch */}
+            {/* Step 1: Watch - Pastel Blue */}
             <div className="group relative z-10">
-              <div className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-105 border-2 border-[#59B1E3]/20 hover:border-[#59B1E3]/40 relative overflow-hidden">
+              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border border-[#C7E6F7] relative overflow-hidden">
                 {/* Top accent */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#59B1E3] to-blue-400"></div>
+                <div className="absolute top-0 left-0 w-full h-2 bg-[#C7E6F7]"></div>
                 
                 {/* Step number */}
-                <div className="w-12 h-12 bg-[#59B1E3] text-white rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-110 transition-transform duration-300">
+                <div className="w-12 h-12 bg-[#C7E6F7] text-[#59B1E3] rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300">
                   1
                 </div>
                 
@@ -417,27 +407,24 @@ export default function StartHerePage() {
                 <p className="text-gray-700 leading-relaxed" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
                   Start with a quick 60-second video that shows the AI tip in the real world — no jargon, just results.
                 </p>
-                
-                {/* Hover effect background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#59B1E3]/5 to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
               </div>
             </div>
 
-            {/* Step 2: Try */}
+            {/* Step 2: Try - Pastel Green */}
             <div className="group relative z-10">
-              <div className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-105 border-2 border-purple-400/20 hover:border-purple-400/40 relative overflow-hidden">
+              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border border-[#C6E8D3] relative overflow-hidden">
                 {/* Top accent */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-400 to-purple-500"></div>
+                <div className="absolute top-0 left-0 w-full h-2 bg-[#C6E8D3]"></div>
                 
                 {/* Step number */}
-                <div className="w-12 h-12 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-110 transition-transform duration-300">
+                <div className="w-12 h-12 bg-[#C6E8D3] text-[#60A875] rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300">
                   2
                 </div>
                 
                 {/* Icon and title */}
                 <div className="mb-6">
                   <div className="text-4xl mb-4">💡</div>
-                  <h4 className="text-2xl font-bold text-purple-600 mb-2" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
+                  <h4 className="text-2xl font-bold text-[#60A875] mb-2" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
                     Try
                   </h4>
                   <p className="text-lg font-semibold text-gray-700 mb-4" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
@@ -447,29 +434,26 @@ export default function StartHerePage() {
                 
                 {/* Description */}
                 <p className="text-gray-700 leading-relaxed" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-                  Test the idea instantly using Tidbit Tutor — a hands-on practice space powered by GPT, right in your browser.
+                  Watch the walkthrough, then test the idea instantly using a real AI tool — right in your browser.
                 </p>
-                
-                {/* Hover effect background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-400/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
               </div>
             </div>
 
-            {/* Step 3: Share */}
+            {/* Step 3: Share - Pastel Yellow/Gold */}
             <div className="group relative z-10">
-              <div className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-105 border-2 border-orange-400/20 hover:border-orange-400/40 relative overflow-hidden">
+              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border border-[#FDE5B6] relative overflow-hidden">
                 {/* Top accent */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-400 to-orange-500"></div>
+                <div className="absolute top-0 left-0 w-full h-2 bg-[#FDE5B6]"></div>
                 
                 {/* Step number */}
-                <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-110 transition-transform duration-300">
+                <div className="w-12 h-12 bg-[#FDE5B6] text-[#D97706] rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300">
                   3
                 </div>
                 
                 {/* Icon and title */}
                 <div className="mb-6">
                   <div className="text-4xl mb-4">📢</div>
-                  <h4 className="text-2xl font-bold text-orange-600 mb-2" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
+                  <h4 className="text-2xl font-bold text-[#D97706] mb-2" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
                     Share
                   </h4>
                   <p className="text-lg font-semibold text-gray-700 mb-4" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
@@ -481,84 +465,71 @@ export default function StartHerePage() {
                 <p className="text-gray-700 leading-relaxed" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
                   Join the community on BitBoard. Show off your creation, get inspired, and see what others are doing too.
                 </p>
-                
-                {/* Hover effect background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-400/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
               </div>
             </div>
           </div>
 
-          {/* REDESIGNED: Clean Impact Section - Replacing Day 1 card and blue text */}
-          <div className="text-center mb-16">
-            {/* Optional subheading */}
-            <h4 className="text-lg font-semibold text-gray-600 mb-8 uppercase tracking-wider" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-              What You'll Actually Get
-            </h4>
-            
-            {/* Main callout box */}
-            <div className="bg-gradient-to-br from-green-50/80 to-blue-50/80 p-10 lg:p-12 rounded-3xl shadow-lg border border-green-200/30 max-w-4xl mx-auto relative overflow-hidden">
-              {/* Subtle background accent */}
+          {/* UPDATED: Final section with green-to-blue gradient - Simplified */}
+          <div className="bg-gradient-to-br from-green-200 to-blue-200 p-12 lg:p-16 rounded-3xl shadow-lg relative overflow-hidden">
+            {/* Main content - just the impact line */}
+            <div className="text-center max-w-4xl mx-auto relative z-10 mb-12">
+              {/* Subtle background accents */}
               <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[#60A875]/10 to-[#59B1E3]/10 rounded-full blur-2xl"></div>
               <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-br from-[#59B1E3]/10 to-purple-400/10 rounded-full blur-xl"></div>
               
-              <div className="relative z-10">
-                <p className="text-xl md:text-2xl text-gray-800 mb-6 leading-relaxed" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-                  <strong>Every day, we give you one quick AI idea</strong> — something useful, fun, or creative you can try instantly with free tools.
-                </p>
-                
-                <p className="text-lg md:text-xl text-gray-700 mb-8 leading-relaxed" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-                  No fluff. No pressure. Just clear, step-by-step guidance that works.
-                </p>
-                
-                {/* Impact line - larger and bold */}
-                <p className="text-2xl md:text-3xl font-bold text-[#60A875] leading-tight" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
-                  Simple ideas. Real results. For real people.
-                </p>
-              </div>
+              {/* Impact line - larger and bold */}
+              <p className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight relative z-10 mb-12" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
+                Simple ideas. Real results. For real people.
+              </p>
             </div>
-          </div>
 
-          {/* New 3-Button CTA Layout */}
-          <div className="text-center">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-              {/* Today's Tidbit Button */}
-              <button 
-                onClick={() => window.location.href = '/day/today'}
-                className="bg-[#60A875] text-white px-6 py-5 rounded-xl hover:bg-green-600 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
-              >
-                <div className="text-2xl mb-1">🟩</div>
-                <div className="text-lg font-bold">Today's Tidbit</div>
-                <div className="text-sm opacity-90 flex items-center gap-2">
-                  Jump into today's AI tip
-                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                </div>
-              </button>
+            {/* New 3-Button CTA Layout */}
+            <div className="text-center">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
+                {/* Today's Tidbit Button */}
+                <button 
+                  onClick={() => window.location.href = '/day/today'}
+                  className="bg-[#60A875] text-white px-6 py-5 rounded-xl hover:bg-green-600 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
+                >
+                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🌺</div>
+                  <div className="text-lg font-bold">Today's Tidbit</div>
+                  <div className="text-sm opacity-90 flex items-center gap-2">
+                    Jump into today's AI tip
+                    <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                  </div>
+                </button>
+                
+                {/* Tidbit Library Button */}
+                <button 
+                  onClick={() => window.location.href = '/TidbitLibrary'}
+                  className="bg-[#59B1E3] text-white px-6 py-5 rounded-xl hover:bg-blue-600 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
+                >
+                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🐚</div>
+                  <div className="text-lg font-bold">Tidbit Library</div>
+                  <div className="text-sm opacity-90 flex items-center gap-2">
+                    Explore all past tips
+                    <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                  </div>
+                </button>
+                
+                {/* BitBoard Button */}
+                <button 
+                  onClick={() => window.location.href = '/bitboard'}
+                  className="bg-[#F5C26B] text-gray-800 px-6 py-5 rounded-xl hover:bg-yellow-500 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
+                >
+                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🌴</div>
+                  <div className="text-lg font-bold">BitBoard</div>
+                  <div className="text-sm opacity-80 flex items-center gap-2">
+                    See what people are making
+                    <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                  </div>
+                </button>
+              </div>
               
-              {/* Tidbit Library Button */}
-              <button 
-                onClick={() => window.location.href = '/TidbitLibrary'}
-                className="bg-[#59B1E3] text-white px-6 py-5 rounded-xl hover:bg-blue-600 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
-              >
-                <div className="text-2xl mb-1">🟦</div>
-                <div className="text-lg font-bold">Tidbit Library</div>
-                <div className="text-sm opacity-90 flex items-center gap-2">
-                  Explore all past tips
-                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                </div>
-              </button>
-              
-              {/* BitBoard Button */}
-              <button 
-                onClick={() => window.location.href = '/bitboard'}
-                className="bg-[#F5C26B] text-gray-800 px-6 py-5 rounded-xl hover:bg-yellow-500 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
-              >
-                <div className="text-2xl mb-1">🟨</div>
-                <div className="text-lg font-bold">BitBoard</div>
-                <div className="text-sm opacity-80 flex items-center gap-2">
-                  See what people are making
-                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                </div>
-              </button>
+              {/* New italic tagline */}
+              <p className="text-gray-700 italic text-lg" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
+                Feel the rhythm. Hit the keys.
+              </p>
             </div>
           </div>
         </div>
