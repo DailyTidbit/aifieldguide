@@ -69,34 +69,43 @@ async function TodaysTidbit() {
     // Fetch real community posts from BitBoard
     let communityPosts: CommunityPost[] = []
     try {
-      // First get posts
+      // Simplified query - just get posts first
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
         .select('id, content, created_at, user_id')
         .eq('is_private', false)
         .not('content', 'is', null)
+        .neq('content', '')
         .order('created_at', { ascending: false })
         .limit(3)
+
+      console.log('Posts query result:', { postsData, postsError })
 
       if (postsError) {
         console.error('Error fetching posts:', postsError)
       } else if (postsData && postsData.length > 0) {
         // Get unique user IDs
         const userIds = [...new Set(postsData.map(post => post.user_id).filter(Boolean))]
+        console.log('User IDs to fetch:', userIds)
         
-        // Fetch profiles separately
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, username, full_name')
-          .in('id', userIds)
+        // Fetch profiles separately if we have user IDs
+        let profilesData: Array<{id: string, username: string | null, full_name: string | null}> = []
+        if (userIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, full_name')
+            .in('id', userIds)
 
-        if (profilesError) {
-          console.error('Error fetching profiles:', profilesError)
+          console.log('Profiles query result:', { profiles, profilesError })
+          
+          if (!profilesError && profiles) {
+            profilesData = profiles
+          }
         }
 
         // Combine posts with profile data
         communityPosts = postsData.map(post => {
-          const profile = profilesData?.find(p => p.id === post.user_id)
+          const profile = profilesData.find(p => p.id === post.user_id)
           return {
             id: post.id,
             content: post.content,
@@ -109,6 +118,8 @@ async function TodaysTidbit() {
             })
           }
         })
+
+        console.log('Final community posts:', communityPosts)
       }
     } catch (error) {
       console.error('Error fetching community posts:', error)
@@ -217,17 +228,13 @@ async function TodaysTidbit() {
         <div className="mb-6 sm:mb-8 px-4 sm:px-0">
           <Link
             href={`/day/${todaysTip.day_number}`}
-            className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-[#60A875] to-green-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-2xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 font-bold text-lg sm:text-xl w-full sm:w-auto shadow-lg border-2 border-green-700/20"
+            className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full hover:shadow-2xl transform hover:scale-110 transition-all duration-300 font-bold text-lg sm:text-xl w-full sm:w-auto shadow-lg dance-button hover:animate-pulse"
           >
-            <span>Get Full Walkthrough</span>
-            <ArrowRight className="w-6 h-6" />
+            <span>Walkthrough: {todaysTip.title}</span>
+            <ArrowRight className="w-6 h-6 animate-pulse" />
           </Link>
         </div>
         
-        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 px-2" style={{ fontFamily: "'Playfair Display', serif" }}>
-          {todaysTip.title}
-        </h2>
-
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 sm:p-6 rounded-xl border border-purple-200 mb-6 sm:mb-8">
           <h3 className="text-lg sm:text-xl font-bold text-purple-900 mb-3 sm:mb-4 flex items-center gap-2">
             <Users className="w-4 sm:w-5 h-4 sm:h-5" />
