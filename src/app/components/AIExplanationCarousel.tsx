@@ -51,9 +51,9 @@ const AISlide: React.FC<AISlideProps> = ({
 
   return (
     <div 
-      className={`w-full h-full flex flex-col justify-center items-center p-8 ${colors.bgLight} relative overflow-hidden`}
+      className={`w-full h-full flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 ${colors.bgLight} relative overflow-hidden`}
       style={{ 
-        minHeight: '500px',
+        minHeight: '400px', // Reduced from 500px for mobile 
         boxSizing: 'border-box'
       }}
     >
@@ -62,72 +62,73 @@ const AISlide: React.FC<AISlideProps> = ({
         <div className={`w-full h-full bg-gradient-to-br ${colors.gradient}`}></div>
       </div>
       
-      {/* Step indicator */}
-      <div className="absolute top-6 left-6 flex items-center gap-3">
-        <div className={`w-10 h-10 ${colors.bgAccent} text-white rounded-full flex items-center justify-center font-bold text-lg`}>
+      {/* Step indicator - Responsive positioning */}
+      <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-3">
+        <div className={`w-8 h-8 sm:w-10 sm:h-10 ${colors.bgAccent} text-white rounded-full flex items-center justify-center font-bold text-sm sm:text-lg`}>
           {stepNumber}
         </div>
-        <div className="text-sm text-gray-500 font-medium">
+        <div className="text-xs sm:text-sm text-gray-500 font-medium">
           Step {stepNumber} of 3
         </div>
       </div>
       
-      {/* Main content card */}
-      <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50 overflow-hidden">
-        {/* AI Host background image for all slides */}
+      {/* Main content card - Better mobile spacing */}
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 lg:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50 overflow-hidden">
+        {/* AI Host background image for all slides - Mobile optimized */}
         <>
-          {/* Host image background - positioned more to the right */}
+          {/* Host image background - Better mobile positioning */}
           <div 
-            className="absolute bottom-0 right-0 w-64 h-64 md:w-96 md:h-96 opacity-40 pointer-events-none"
+            className="absolute bottom-0 right-0 w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 lg:w-96 lg:h-96 opacity-30 sm:opacity-40 pointer-events-none"
             style={{
               backgroundImage: 'url(https://cdn.dailytidbit.org/Host/hosttransparent.png)',
               backgroundSize: 'contain',
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'bottom center',
               filter: 'blur(0.2px)',
-              transform: 'translateX(18%) translateY(15%)'
+              transform: 'translateX(10%) translateY(10%) scale(0.8)', // Better mobile scaling
+              transformOrigin: 'bottom right'
             }}
           />
-          {/* Lighter overlay for text readability */}
-          <div className="absolute inset-0 bg-white/55 pointer-events-none rounded-3xl"></div>
+          {/* Lighter overlay for text readability - More opaque on mobile */}
+          <div className="absolute inset-0 bg-white/65 sm:bg-white/55 pointer-events-none rounded-2xl sm:rounded-3xl"></div>
         </>
         
-        {/* Content with higher z-index */}
+        {/* Content with higher z-index - Mobile optimized spacing */}
         <div className="relative z-20">
-          {/* Title */}
+          {/* Title - Responsive text sizing */}
           <h4 
-            className={`text-2xl md:text-3xl font-bold ${colors.text} mb-6 text-center leading-tight`}
+            className={`text-xl sm:text-2xl md:text-3xl font-bold ${colors.text} mb-4 sm:mb-6 text-center leading-tight`}
             style={{ fontFamily: "var(--font-playfair, 'Playfair Display'), serif" }}
           >
             {title}
           </h4>
           
-          {/* Content */}
+          {/* Content - Responsive text sizing and spacing */}
           <div 
-            className="text-lg text-gray-700 leading-relaxed space-y-4 text-center"
+            className="text-base sm:text-lg text-gray-700 leading-relaxed space-y-3 sm:space-y-4 text-center"
             style={{ fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif" }}
           >
             {content}
           </div>
           
-          {/* Button if present */}
+          {/* Button if present - Mobile optimized */}
           {hasButton && buttonText && (
-            <div className="mt-8 text-center">
+            <div className="mt-6 sm:mt-8 text-center">
               <button 
                 onClick={buttonAction}
-                className={`${colors.bgAccent} text-white px-8 py-4 rounded-xl hover:opacity-90 hover:scale-105 transition-all duration-300 inline-flex items-center gap-3 font-semibold text-lg shadow-lg`}
+                className={`${colors.bgAccent} text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:opacity-90 hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 sm:gap-3 font-semibold text-base sm:text-lg shadow-lg`}
               >
                 {buttonText}
-                <span className="text-xl">→</span>
+                <span className="text-lg sm:text-xl">→</span>
               </button>
             </div>
           )}
         </div>
       </div>
       
-      {/* Floating elements for visual interest */}
-      <div className={`absolute top-20 right-12 w-16 h-16 ${colors.bgAccent}/10 rounded-full blur-xl animate-pulse`}></div>
-      <div className={`absolute bottom-20 left-12 w-12 h-12 ${colors.bgAccent}/15 rounded-full blur-lg animate-pulse delay-1000`}></div>
+      {/* Floating elements for visual interest - Mobile hidden to reduce clutter */}
+      <div className={`hidden sm:block absolute top-20 right-12 w-16 h-16 ${colors.bgAccent}/10 rounded-full blur-xl animate-pulse`}></div>
+      <div className={`hidden sm:block absolute bottom-20 left-12 w-12 h-12 ${colors.bgAccent}/15 rounded-full blur-lg animate-pulse delay-1000`}></div>
     </div>
   );
 };
@@ -143,16 +144,16 @@ const AIExplanationCarousel: React.FC = () => {
       title: "The Model = The Brain",
       content: (
         <>
-          <p className="text-xl mb-4">
+          <p className="text-lg sm:text-xl mb-3 sm:mb-4">
             It's trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
           </p>
-          <p className="mb-4">
+          <p className="mb-3 sm:mb-4">
             Some models write, some generate images, others make music, synthesize voices, or even help with code.
           </p>
-          <p className="mb-4">
+          <p className="mb-3 sm:mb-4">
             You don't see the model — and you don't have to.
           </p>
-          <p className="font-bold text-[#60A875] text-lg">
+          <p className="font-bold text-[#60A875] text-base sm:text-lg">
             It all happens in the background, but that's where the magic lives.
           </p>
         </>
@@ -164,13 +165,13 @@ const AIExplanationCarousel: React.FC = () => {
       title: "The Tool = What You See",
       content: (
         <>
-          <p className="text-xl mb-4">
+          <p className="text-lg sm:text-xl mb-3 sm:mb-4">
             Most people don't interact with the model directly. Instead, they use websites or apps that make it easy.
           </p>
-          <p className="mb-4">
+          <p className="mb-3 sm:mb-4">
             These tools give you a simple interface — like a chat box, design screen, or form.
           </p>
-          <p className="font-bold text-[#59B1E3] text-lg">
+          <p className="font-bold text-[#59B1E3] text-base sm:text-lg">
             You just type what you want, and the tool talks to the model behind the scenes to make it happen.
           </p>
         </>
@@ -182,13 +183,13 @@ const AIExplanationCarousel: React.FC = () => {
       title: "Where Daily Tidbit Fits In",
       content: (
         <>
-          <p className="text-xl mb-4">
+          <p className="text-lg sm:text-xl mb-3 sm:mb-4">
             We make AI feel easy — and honestly? Fun.
           </p>
-          <p className="mb-4">
+          <p className="mb-3 sm:mb-4">
             One smart tip a day to help you write better, create faster, and save time with free tools anyone can use.
           </p>
-          <p className="mb-6">
+          <p className="mb-4 sm:mb-6">
             You don't need to be technical. <span className="font-bold text-purple-600">You just need to show up.</span>
           </p>
         </>
@@ -301,12 +302,27 @@ const AIExplanationCarousel: React.FC = () => {
         maxWidth: '900px',
         margin: '0 auto',
         position: 'relative',
-        height: '600px', // Fixed height for vertical sliding
+        height: '550px', // Increased height to accommodate content
         overflow: 'hidden',
-        borderRadius: '24px',
+        borderRadius: '16px', // Smaller radius on mobile
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
       }}
     >
+      {/* Responsive height via CSS media queries */}
+      <style jsx>{`
+        @media (max-width: 640px) {
+          .ai-explanation-carousel {
+            height: 500px !important;
+            border-radius: 16px !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .ai-explanation-carousel {
+            height: 480px !important;
+          }
+        }
+      `}</style>
+
       {/* Vertical sliding container */}
       <div
         style={{
@@ -331,7 +347,7 @@ const AIExplanationCarousel: React.FC = () => {
         ))}
       </div>
 
-      {/* Vertical navigation buttons */}
+      {/* Vertical navigation buttons - Mobile optimized */}
       {totalSlides > 1 && (
         <>
           <button
@@ -339,15 +355,15 @@ const AIExplanationCarousel: React.FC = () => {
             disabled={isTransitioning || currentIndex === 0}
             style={{
               position: 'absolute',
-              top: '20px',
-              right: '20px',
+              top: '15px', // Closer to edge on mobile
+              right: '15px',
               zIndex: 20,
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(10px)',
               border: 'none',
               borderRadius: '50%',
-              width: '48px',
-              height: '48px',
+              width: '40px', // Smaller on mobile
+              height: '40px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -368,7 +384,7 @@ const AIExplanationCarousel: React.FC = () => {
             }}
             aria-label="Previous slide (swipe down)"
           >
-            <ChevronUp style={{ width: '24px', height: '24px', color: '#60A875' }} />
+            <ChevronUp style={{ width: '20px', height: '20px', color: '#60A875' }} />
           </button>
           
           <button
@@ -376,15 +392,15 @@ const AIExplanationCarousel: React.FC = () => {
             disabled={isTransitioning || currentIndex === totalSlides - 1}
             style={{
               position: 'absolute',
-              bottom: '20px',
-              right: '20px',
+              bottom: '15px', // Closer to edge on mobile
+              right: '15px',
               zIndex: 20,
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(10px)',
               border: 'none',
               borderRadius: '50%',
-              width: '48px',
-              height: '48px',
+              width: '40px', // Smaller on mobile
+              height: '40px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -405,27 +421,27 @@ const AIExplanationCarousel: React.FC = () => {
             }}
             aria-label="Next slide (swipe up)"
           >
-            <ChevronDown style={{ width: '24px', height: '24px', color: '#60A875' }} />
+            <ChevronDown style={{ width: '20px', height: '20px', color: '#60A875' }} />
           </button>
         </>
       )}
 
-      {/* Vertical progress indicator (like Instagram stories) */}
+      {/* Vertical progress indicator - Mobile optimized */}
       <div style={{
         position: 'absolute',
-        top: '20px',
-        left: '20px',
+        top: '15px', // Closer to edge on mobile
+        left: '15px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px',
+        gap: '6px', // Smaller gap on mobile
         zIndex: 20
       }}>
         {slides.map((_, index) => (
           <div
             key={`progress-${index}`}
             style={{
-              width: '4px',
-              height: '60px',
+              width: '3px', // Thinner on mobile
+              height: '50px', // Shorter on mobile
               borderRadius: '2px',
               background: 'rgba(255, 255, 255, 0.3)',
               position: 'relative',
@@ -465,13 +481,13 @@ const AIExplanationCarousel: React.FC = () => {
         ))}
       </div>
 
-      {/* Story-like instruction hint */}
+      {/* Story-like instruction hint - Mobile optimized */}
       <div style={{
         position: 'absolute',
-        bottom: '20px',
-        left: '20px',
+        bottom: '15px',
+        left: '15px',
         color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: '12px',
+        fontSize: '11px', // Smaller on mobile
         fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
       }}>
         Swipe up ↑ or use arrows

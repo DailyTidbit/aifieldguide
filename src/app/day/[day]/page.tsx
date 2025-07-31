@@ -7,6 +7,16 @@ import RotatingWord from '../../components/RotatingWord'
 import WalkthroughBitBoardCTA from '../../components/WalkthroughBitBoardCTA' // ✅ Import the new component
 import { supabase } from '../../lib/supabaseClient'
 
+interface TidbitStep {
+  id: string
+  tidbit_day: number
+  step_number: number
+  icon?: string
+  title: string
+  content: string
+  created_at: string
+}
+
 interface DayPageProps {
   params: Promise<{ day: string }>
 }
@@ -20,6 +30,7 @@ interface TutorConversation {
 export default function DayPage({ params }: DayPageProps) {
   const [resolvedParams, setResolvedParams] = useState<{ day: string } | null>(null)
   const [tidbit, setTidbit] = useState<any>(null)
+  const [tidbitSteps, setTidbitSteps] = useState<TidbitStep[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [latestConversation, setLatestConversation] = useState<TutorConversation | null>(null)
@@ -102,6 +113,7 @@ export default function DayPage({ params }: DayPageProps) {
         const { day } = resolvedParams
         console.log('Day param:', day)
 
+        // Fetch main tidbit data
         const { data, error } = await supabase
           .from('tidbits')
           .select('*')
@@ -111,6 +123,20 @@ export default function DayPage({ params }: DayPageProps) {
         if (error || !data) {
           setError(error?.message || 'Tidbit not found')
           return
+        }
+
+        // Fetch tidbit steps
+        const { data: stepsData, error: stepsError } = await supabase
+          .from('tidbit_steps')
+          .select('*')
+          .eq('tidbit_day', Number(day))
+          .order('step_number', { ascending: true })
+
+        if (stepsError) {
+          console.error('Error fetching steps:', stepsError)
+          // Don't fail the whole page if steps can't be loaded
+        } else {
+          setTidbitSteps(stepsData || [])
         }
 
         const processedTidbit = {
@@ -213,21 +239,10 @@ export default function DayPage({ params }: DayPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-green-50/30 to-blue-50/30">
+    <main className="min-h-screen bg-gradient-to-br from-green-200 via-emerald-100 to-cyan-200">
       {/* Hero Section */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white/95 backdrop-blur-sm border-b border-emerald-100">
         <div className="max-w-4xl mx-auto px-6 py-12">
-          {/* Label Row - Right Aligned */}
-          <div className="flex items-center justify-end gap-3 mb-8">
-            <span className={`px-4 py-2 rounded-full text-sm font-semibold border ${getDifficultyColor(tidbit.difficulty_level)}`}>
-              {getDifficultyLabel(tidbit.difficulty_level)}
-            </span>
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-full text-gray-700">
-              <Clock className="w-4 h-4" />
-              <span className="text-sm font-medium">{tidbit.estimated_time} min</span>
-            </div>
-          </div>
-
           {/* Video as Hero */}
           {tidbit.video_url && (
             <div className="max-w-3xl mx-auto mb-8">
@@ -246,9 +261,9 @@ export default function DayPage({ params }: DayPageProps) {
 
           {/* Short Description */}
           <div className="text-center">
-            <p className="text-xl text-gray-700 max-w-2xl mx-auto leading-relaxed" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-              Take a rough message — like a text, post, or email — and rewrite it in seconds using AI.
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900 max-w-2xl mx-auto leading-tight" style={{fontFamily: "'Playfair Display', serif"}}>
+              {tidbit.title}
+            </h1>
           </div>
         </div>
       </div>
@@ -258,36 +273,68 @@ export default function DayPage({ params }: DayPageProps) {
         {/* Single Column Layout */}
         <div className="space-y-12">
           
-          {/* Intro Section */}
-          <Section 
-            title="What You'll Learn" 
-            icon={<Lightbulb className="w-6 h-6" />}
-            gradient="from-blue-500 to-cyan-500"
-          >
-            {tidbit.walkthrough_intro}
-          </Section>
+          {/* What You'll Learn & What You Need - Combined White Box */}
+          <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
+            <div className="space-y-8">
+              {/* What You'll Learn */}
+              <div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+                    <Lightbulb className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                    What You'll Learn
+                  </h3>
+                </div>
+                <RichContent>{tidbit.walkthrough_intro}</RichContent>
+              </div>
 
-          {/* What You Need */}
-          <Section 
-            title="What You Need" 
-            icon={<CheckCircle className="w-6 h-6" />}
-            gradient="from-green-500 to-emerald-500"
-          >
-            {tidbit.what_you_need}
-          </Section>
+              {/* What You Need */}
+              <div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+                    <CheckCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                    What You Need
+                  </h3>
+                </div>
+                <RichContent>{tidbit.what_you_need}</RichContent>
+              </div>
+            </div>
+          </section>
 
-          {/* Step-by-Step Guide */}
-          <section className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-200 shadow-sm">
+          {/* 🍍 The Daily Tidbit Formula */}
+          <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
             <div className="flex items-center gap-3 mb-8">
               <div className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
                 <Target className="w-6 h-6" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
-                Step-by-Step Guide
+                🍍 The Daily Tidbit Formula
               </h3>
             </div>
 
-            {/* Enhanced Tidbit Tutor */}
+            {/* Dynamic Steps from tidbit_steps table */}
+            <div className="space-y-6 mb-8">
+              {tidbitSteps.map((step, index) => (
+                <div key={step.id} className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-xl p-6 border border-[#60A875]/20">
+                  <div className="flex items-start gap-4">
+                    <div className="flex items-center justify-center w-8 h-8 bg-[#60A875] text-white rounded-full font-bold text-sm flex-shrink-0">
+                      {step.step_number}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-xl font-bold text-gray-900 mb-3" style={{fontFamily: "'Playfair Display', serif"}}>
+                        Step {step.step_number}
+                      </h4>
+                      <RichContent>{step.content}</RichContent>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Enhanced Tidbit Tutor - Now below the steps */}
             <div className="bg-gradient-to-br from-[#60A875]/5 to-[#59B1E3]/5 rounded-2xl p-8 border border-[#60A875]/20 mb-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-lg bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white">
@@ -297,11 +344,8 @@ export default function DayPage({ params }: DayPageProps) {
                   Try It Right Here with Tidbit Tutor
                 </h4>
               </div>
-              <p className="text-gray-700 text-lg mb-4" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-                {tidbit.tutor_intro}
-              </p>
               <p className="text-gray-600 text-base mb-6 italic" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-                Paste a rough message and ask it to rewrite it. Then say: "Make it more confident" or "Add humor."
+                Try it out right here on our site before you visit the direct sites below where you get additional features and a better user experience.
               </p>
               
               {/* Tidbit Tutor with conversation tracking */}
@@ -315,30 +359,12 @@ export default function DayPage({ params }: DayPageProps) {
               <div className="mt-6 p-4 bg-white/50 rounded-xl border border-[#59B1E3]/20">
                 <div className="flex items-center gap-2 text-[#59B1E3] mb-2">
                   <Users className="w-5 h-5" />
-                  <span className="font-semibold">Love your results?</span>
+                  <span className="font-semibold">🌴 Post It to the BitBoard</span>
                 </div>
                 <p className="text-gray-700 text-sm">
-                  Share your before & after transformation to inspire others in the Daily Tidbit community!
+                  Post your before & after to inspire other creators.
                 </p>
               </div>
-            </div>
-
-            {/* Part 1: Rewrite It with AI */}
-            <div className="mb-8">
-              <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2" style={{fontFamily: "'Playfair Display', serif"}}>
-                <span className="bg-[#60A875] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
-                Rewrite It with AI
-              </h4>
-              <RichContent>{tidbit.step_by_step}</RichContent>
-            </div>
-
-            {/* Part 2: Tweak the Tone */}
-            <div>
-              <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2" style={{fontFamily: "'Playfair Display', serif"}}>
-                <span className="bg-[#59B1E3] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
-                Tweak the Tone
-              </h4>
-              <RichContent>{tidbit.try_it}</RichContent>
             </div>
 
             {/* Completion Button - Mark walkthrough as complete */}
@@ -363,13 +389,17 @@ export default function DayPage({ params }: DayPageProps) {
 
           {/* Try Other AI Tools - Optional Section */}
           {tidbit.explore_more && (
-            <Section 
-              title="Try Other AI Tools" 
-              icon={<Target className="w-6 h-6" />}
-              gradient="from-indigo-500 to-purple-500"
-            >
-              {tidbit.explore_more}
-            </Section>
+            <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+                  <Target className="w-6 h-6" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                  Try Other AI Tools
+                </h3>
+              </div>
+              <RichContent>{tidbit.explore_more}</RichContent>
+            </section>
           )}
 
         </div>
@@ -392,7 +422,7 @@ function Section({
   highlight?: boolean
 }) {
   return (
-    <section className={`${highlight ? 'bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-200 shadow-sm' : ''}`}>
+    <section className={`${highlight ? 'bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg' : ''}`}>
       <div className="flex items-center gap-3 mb-6">
         <div className={`p-2 rounded-lg bg-gradient-to-r ${gradient} text-white`}>
           {icon}

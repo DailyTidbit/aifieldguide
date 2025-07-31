@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import ValuePropCarousel, { ValuePropCardProps } from '../components/ValuePropCarousel'
 import AIExplanationCarousel from '../components/AIExplanationCarousel'
+import CTASection from '../components/CTASection'
+import CarouselComponent from '../components/CarouselComponent'
 
 // Value Props Cards Data
 const valuePropsCards: ValuePropCardProps[] = [
@@ -38,155 +39,6 @@ const valuePropsCards: ValuePropCardProps[] = [
     accent: "pink"
   }
 ];
-
-// Carousel Component
-function CarouselComponent() {
-  const [currentSlide, setCurrentSlide] = useState(0)
-  const [isMobile, setIsMobile] = useState(false)
-  const carouselRef = useRef<HTMLDivElement>(null)
-
-  const dailyTidbits = [
-    { id: 1, image: "https://cdn.dailytidbit.org/Day-1/Day-1.png", href: "/day/1" },
-    { id: 2, image: "https://cdn.dailytidbit.org/Day-2/Day-2.png", href: "/day/2" },
-    { id: 3, image: "https://cdn.dailytidbit.org/Day-3/Day-3.png", href: "/day/3" },
-    { id: 4, image: "https://cdn.dailytidbit.org/Day-4/Day-4.png", href: "/day/4" },
-    { id: 5, image: "https://cdn.dailytidbit.org/Day-5/Day-5.png", href: "/day/5" }
-  ]
-
-  // Check if mobile on mount and resize
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
-  // Calculate slides
-  const itemsPerSlide = isMobile ? 1 : 3
-  const totalSlides = Math.ceil(dailyTidbits.length / itemsPerSlide)
-
-  // Navigation functions
-  const goToSlide = (slideIndex: number) => {
-    if (slideIndex < 0) slideIndex = totalSlides - 1
-    if (slideIndex >= totalSlides) slideIndex = 0
-    
-    setCurrentSlide(slideIndex)
-    
-    // Scroll to position
-    if (carouselRef.current) {
-      // Each "slide" is a full width block containing 1 or 3 cards.
-      // We scroll by the width of this block.
-      const slideWidth = carouselRef.current.offsetWidth
-      carouselRef.current.scrollTo({
-        left: slideIndex * slideWidth,
-        behavior: 'smooth'
-      })
-    }
-  }
-
-  const nextSlide = () => goToSlide(currentSlide + 1)
-  const prevSlide = () => goToSlide(currentSlide - 1)
-
-  return (
-    <div className="relative w-full max-w-7xl mx-auto"> {/* Added max-w-7xl and mx-auto for better centering and width control */}
-      {/* Carousel Container - now relative for arrows */}
-      <div className="overflow-hidden relative px-12"> {/* Added px-12 for arrow space */}
-        <div
-          ref={carouselRef}
-          className="flex transition-transform duration-300 ease-in-out"
-          style={{
-            transform: `translateX(-${currentSlide * 100}%)`,
-          }}
-        >
-          {/* Generate slides */}
-          {Array.from({ length: totalSlides }).map((_, slideIndex) => (
-            <div
-              key={slideIndex}
-              className="w-full flex-shrink-0 pr-6" // Added pr-6 for spacing between slides
-            >
-              <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-3'}`}>
-                {dailyTidbits
-                  .slice(slideIndex * itemsPerSlide, (slideIndex + 1) * itemsPerSlide)
-                  .map((tidbit) => (
-                    <div
-                      key={tidbit.id}
-                      className="group cursor-pointer"
-                      onClick={() => window.location.href = tidbit.href}
-                    >
-                      <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.005]">
-                        {/* Image Container */}
-                        <div className="bg-gray-50 rounded-t-xl overflow-hidden">
-                          <img
-                            src={tidbit.image}
-                            alt={`Daily Tidbit Day ${tidbit.id} - AI tip cover`}
-                            className="w-full h-auto block transition-transform duration-500"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = `data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='100%25' height='100%25' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial, sans-serif' font-size='24' fill='%2360A875' text-anchor='middle' dy='.3em'%3EDay ${tidbit.id}%3C/text%3E%3C/svg%3E`;
-                            }}
-                          />
-                        </div>
-                        
-                        {/* Card Footer */}
-                        <div className="p-4">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-gray-800" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-                              Day {tidbit.id}
-                            </h3>
-                            <div className="w-8 h-8 bg-[#60A875] rounded-full flex items-center justify-center text-white text-sm font-medium group-hover:bg-green-600 transition-colors duration-300">
-                              →
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Navigation Arrows - moved inside the overflow-hidden div and adjusted positioning */}
-        <button
-          onClick={prevSlide}
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 ml-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center text-gray-600 hover:text-[#60A875] transition-all duration-300 hover:scale-110 disabled:opacity-50"
-          disabled={currentSlide === 0 && totalSlides <= 1}
-        >
-          <ChevronLeft size={24} />
-        </button>
-        
-        <button
-          onClick={nextSlide}
-          className="absolute right-0 top-1/2 transform -translate-y-1/2 mr-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center text-gray-600 hover:text-[#60A875] transition-all duration-300 hover:scale-110 disabled:opacity-50"
-          disabled={currentSlide === totalSlides - 1 && totalSlides <= 1}
-        >
-          <ChevronRight size={24} />
-        </button>
-      </div>
-
-      {/* Pagination Dots */}
-      {totalSlides > 1 && (
-        <div className="flex justify-center mt-8 gap-2">
-          {Array.from({ length: totalSlides }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentSlide
-                  ? 'bg-[#60A875] scale-110'
-                  : 'bg-gray-300 hover:bg-gray-400'
-              }`}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function StartHerePage() {
   const [isVisible, setIsVisible] = useState(false)
@@ -371,15 +223,16 @@ export default function StartHerePage() {
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-16">
-            <h3 className="heading-section text-4xl md:text-5xl text-[#60A875] mb-4 text-center">How Daily Tidbit Works</h3>
+            <h3 className="heading-section text-4xl md:text-5xl mb-4 text-center" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
+              🍍 The <span style={{color: '#60A875'}}>D</span><span style={{color: '#59B1E3'}}>ai</span><span style={{color: '#60A875'}}>ly Tidbit</span> Formula
+            </h3>
             <p className="text-xl text-gray-600 font-medium" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-              One tip. Three simple steps. Try it today.
+              Like a cheat code for real life — watch, try, repeat.
             </p>
           </div>
           
           {/* Interactive 3-Step Flow - Clean layout without connection lines */}
-          <div className="grid md:grid-cols-3 gap-8 mb-16"
-          >
+          <div className="grid md:grid-cols-3 gap-8">
             
             {/* Step 1: Watch - Pastel Blue */}
             <div className="group relative z-10">
@@ -468,72 +321,11 @@ export default function StartHerePage() {
               </div>
             </div>
           </div>
-
-          {/* UPDATED: Final section with green-to-blue gradient - Simplified */}
-          <div className="bg-gradient-to-br from-green-200 to-blue-200 p-12 lg:p-16 rounded-3xl shadow-lg relative overflow-hidden">
-            {/* Main content - just the impact line */}
-            <div className="text-center max-w-4xl mx-auto relative z-10 mb-12">
-              {/* Subtle background accents */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[#60A875]/10 to-[#59B1E3]/10 rounded-full blur-2xl"></div>
-              <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-br from-[#59B1E3]/10 to-purple-400/10 rounded-full blur-xl"></div>
-              
-              {/* Impact line - larger and bold */}
-              <p className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight relative z-10 mb-12" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
-                Simple ideas. Real results. For real people.
-              </p>
-            </div>
-
-            {/* New 3-Button CTA Layout */}
-            <div className="text-center">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
-                {/* Today's Tidbit Button */}
-                <button 
-                  onClick={() => window.location.href = '/day/today'}
-                  className="bg-[#60A875] text-white px-6 py-5 rounded-xl hover:bg-green-600 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
-                >
-                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🌺</div>
-                  <div className="text-lg font-bold">Today's Tidbit</div>
-                  <div className="text-sm opacity-90 flex items-center gap-2">
-                    Jump into today's AI tip
-                    <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                  </div>
-                </button>
-                
-                {/* Tidbit Library Button */}
-                <button 
-                  onClick={() => window.location.href = '/TidbitLibrary'}
-                  className="bg-[#59B1E3] text-white px-6 py-5 rounded-xl hover:bg-blue-600 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
-                >
-                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🐚</div>
-                  <div className="text-lg font-bold">Tidbit Library</div>
-                  <div className="text-sm opacity-90 flex items-center gap-2">
-                    Explore all past tips
-                    <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                  </div>
-                </button>
-                
-                {/* BitBoard Button */}
-                <button 
-                  onClick={() => window.location.href = '/bitboard'}
-                  className="bg-[#F5C26B] text-gray-800 px-6 py-5 rounded-xl hover:bg-yellow-500 hover:scale-105 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center gap-2 font-semibold shadow-lg group min-h-[120px]"
-                >
-                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🌴</div>
-                  <div className="text-lg font-bold">BitBoard</div>
-                  <div className="text-sm opacity-80 flex items-center gap-2">
-                    See what people are making
-                    <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                  </div>
-                </button>
-              </div>
-              
-              {/* New italic tagline */}
-              <p className="text-gray-700 italic text-lg" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
-                Feel the rhythm. Hit the keys.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
+
+      {/* Using shared CTA Component instead of inline version */}
+      <CTASection />
     </main>
   );
 }

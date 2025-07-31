@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from './lib/supabaseClient'
 import { Suspense } from 'react'
+import CTASection from './components/CTASection'
 
 interface TodaysTip {
   day_number: number
@@ -329,60 +330,8 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Quick Links Section - Simplified and faster */}
-        <section className="py-12 sm:py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-              <Link href="/TidbitLibrary" className="group">
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 sm:p-8 rounded-2xl text-center hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-purple-200">
-                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-3 sm:p-4 rounded-xl w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                    <Target className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
-                  </div>
-                  <h4 className="text-lg sm:text-xl font-bold text-purple-800 mb-2 sm:mb-3">Tidbit Library</h4>
-                  <p className="text-purple-700 text-xs sm:text-sm leading-relaxed">
-                    Explore all our daily AI tips and find exactly what you need
-                  </p>
-                </div>
-              </Link>
-              
-              <Link href="/start-here" className="group">
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 sm:p-8 rounded-2xl text-center hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-orange-200">
-                  <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-3 sm:p-4 rounded-xl w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                    <BookOpen className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
-                  </div>
-                  <h4 className="text-lg sm:text-xl font-bold text-orange-800 mb-2 sm:mb-3">Learn More</h4>
-                  <p className="text-orange-700 text-xs sm:text-sm leading-relaxed">
-                    Understand what AI is and how it can help you every day
-                  </p>
-                </div>
-              </Link>
-              
-              <Link href="/bitboard" className="group">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 sm:p-8 rounded-2xl text-center hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-blue-200">
-                  <div className="bg-gradient-to-br from-[#59B1E3] to-blue-600 p-3 sm:p-4 rounded-xl w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                    <Users className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
-                  </div>
-                  <h4 className="text-lg sm:text-xl font-bold text-blue-800 mb-2 sm:mb-3">Join Community</h4>
-                  <p className="text-blue-700 text-xs sm:text-sm leading-relaxed">
-                    Share your AI creations and see what others are building
-                  </p>
-                </div>
-              </Link>
-              
-              <div className="group cursor-pointer">
-                <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 sm:p-8 rounded-2xl text-center hover:shadow-xl transform hover:scale-105 transition-all duration-300 border border-green-200">
-                  <div className="bg-gradient-to-br from-[#60A875] to-green-600 p-3 sm:p-4 rounded-xl w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                    <Brain className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
-                  </div>
-                  <h4 className="text-lg sm:text-xl font-bold text-green-800 mb-2 sm:mb-3">Tidbit Tutor</h4>
-                  <p className="text-green-700 text-xs sm:text-sm leading-relaxed">
-                    Get personalized help with any AI tip from our custom assistant
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Updated Quick Links Section - Now using Client Component */}
+        <CTASection />
 
         {/* Footer - kept simple for faster loading */}
         <footer className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-12 sm:py-16">
@@ -416,7 +365,7 @@ export default async function HomePage() {
                   </a>
                   <a href="#" className="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center transition-colors">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.083.402-.09.402-.294 1.116-.334 1.272-.051.201-.402.244-.402.244-.402-.06-2.477-1.647-2.477-3.956 0-4.915 3.568-9.425 10.294-9.425 5.401 0 9.6 3.848 9.6 8.987 0 5.36-3.38 9.674-8.069 9.674-1.574 0-3.056-.818-3.56-1.797l-.969 3.691c-.351 1.35-1.302 3.04-1.939 4.078C8.69 23.81 10.316 24.029 12.017 24.029c6.624 0 11.99-5.367 11.99-11.987C24.007 5.367 18.641.001 12.017.001z"/>
+                      <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.083.402-.09.402-.294 1.116-.334 1.272-.051.201-.402.244-.402.244-.402-.06-2.477-1.647-2.477-3.956 0-4.915 3.568-9.425 10.294-9.425 5.401 0 9.6 3.848 9.6 8.987 0 5.36-3.38 9.674-8.069 9.674-1.574 0-3.056-.818-3.56-1.797l-.969 3.691c-.351 1.35-1.302 3.04-1.939 4.078C8.69 23.81 10.316 24.029 12.017 24.029c6.624 0 11.99-5.367 11.90-11.987C24.007 5.367 18.641.001 12.017.001z"/>
                     </svg>
                   </a>
                 </div>

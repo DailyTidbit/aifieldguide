@@ -1,6 +1,3 @@
-/* === Font Imports (Google Fonts) === */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Space+Grotesk:wght@300;400;500;600&display=swap');
-
 /* === Tailwind CSS v4 Import === */
 @import "tailwindcss";
 
@@ -25,7 +22,7 @@
 body {
   background: var(--background);
   color: #111827; /* FIXED: Changed from var(--foreground) to dark gray */
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-space-grotesk), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Override any light text colors */
@@ -49,7 +46,7 @@ input::placeholder, textarea::placeholder {
 
 /* === Typography Utilities (converted from @apply) === */
 .heading-hero {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-playfair), serif;
   font-weight: 700;
   font-size: 3rem;
   line-height: 1.1;
@@ -57,7 +54,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .heading-section {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-playfair), serif;
   font-weight: 600;
   font-size: 1.875rem;
   line-height: 1.3;
@@ -65,7 +62,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .heading-subsection {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-playfair), serif;
   font-weight: 400;
   font-size: 1.25rem;
   line-height: 1.6;
@@ -73,7 +70,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .body-large {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-space-grotesk), sans-serif;
   font-weight: 400;
   font-size: 1.125rem;
   line-height: 1.6;
@@ -81,7 +78,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .body-medium {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-space-grotesk), sans-serif;
   font-weight: 400;
   font-size: 1rem;
   line-height: 1.5;
@@ -89,7 +86,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .body-small {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-space-grotesk), sans-serif;
   font-weight: 300;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -97,7 +94,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .body-bold {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-space-grotesk), sans-serif;
   font-weight: 600;
   font-size: 1rem;
   line-height: 1.5;
@@ -124,7 +121,7 @@ input::placeholder, textarea::placeholder {
 /* Test utility */
 .test-font {
   color: #16a34a;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-space-grotesk), sans-serif;
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -154,6 +151,82 @@ input::placeholder, textarea::placeholder {
 .text-gray-900 {
   color: #111827 !important;
 }
+
+/* === CAROUSEL FIX - ADD THIS SECTION === */
+/* Force single card display for value prop carousel */
+.dailytidbit-carousel-container {
+  max-width: 420px !important;
+  margin: 0 auto !important;
+  overflow: hidden !important;
+  position: relative !important;
+  width: 100% !important;
+}
+
+.dailytidbit-carousel-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+/* Override any grid or flexbox interference */
+.dailytidbit-carousel-wrapper *,
+.dailytidbit-carousel-container * {
+  box-sizing: border-box !important;
+}
+
+/* Ensure no flex interference */
+.dailytidbit-carousel-wrapper > div:first-child {
+  display: block !important;
+  width: 100% !important;
+  position: relative !important;
+}
+
+/* Progressive enhancement - hide scrollbars completely */
+.dailytidbit-carousel-wrapper::-webkit-scrollbar,
+.dailytidbit-carousel-container::-webkit-scrollbar {
+  display: none !important;
+}
+
+.dailytidbit-carousel-wrapper,
+.dailytidbit-carousel-container {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Reset any inherited styles that might interfere */
+.dailytidbit-carousel-wrapper,
+.dailytidbit-carousel-wrapper *,
+.dailytidbit-carousel-container,
+.dailytidbit-carousel-container * {
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  text-decoration: none;
+  list-style: none;
+}
+
+/* Ensure transform works properly */
+.dailytidbit-carousel-wrapper [style*="transform"] {
+  will-change: transform !important;
+  backface-visibility: hidden !important;
+}
+
+/* Force single card layout */
+.single-card-only {
+  display: block !important;
+  width: 100% !important;
+  max-width: 420px !important;
+  margin: 0 auto !important;
+}
+
+.single-card-only * {
+  flex: none !important;
+  grid-column: unset !important;
+  grid-row: unset !important;
+}
+/* === END CAROUSEL FIX === */
 
 /* === Custom Animations === */
 @keyframes fade-in {
