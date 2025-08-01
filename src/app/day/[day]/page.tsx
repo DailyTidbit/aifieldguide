@@ -334,39 +334,6 @@ export default function DayPage({ params }: DayPageProps) {
               ))}
             </div>
 
-            {/* Enhanced Tidbit Tutor - Now below the steps */}
-            <div className="bg-gradient-to-br from-[#60A875]/5 to-[#59B1E3]/5 rounded-2xl p-8 border border-[#60A875]/20 mb-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-lg bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white">
-                  <span className="text-xl">🤖</span>
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
-                  Try It Right Here with Tidbit Tutor
-                </h4>
-              </div>
-              <p className="text-gray-600 text-base mb-6 italic" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-                Try it out right here on our site before you visit the direct sites below where you get additional features and a better user experience.
-              </p>
-              
-              {/* Tidbit Tutor with conversation tracking */}
-              <TidbitTutor 
-                tidbitNumber={tidbit.day_number}
-                tidbitTitle={tidbit.title}
-                onConversationUpdate={handleConversationUpdate}
-              />
-              
-              {/* Subtle hint after using the tutor */}
-              <div className="mt-6 p-4 bg-white/50 rounded-xl border border-[#59B1E3]/20">
-                <div className="flex items-center gap-2 text-[#59B1E3] mb-2">
-                  <Users className="w-5 h-5" />
-                  <span className="font-semibold">🌴 Post It to the BitBoard</span>
-                </div>
-                <p className="text-gray-700 text-sm">
-                  Post your before & after to inspire other creators.
-                </p>
-              </div>
-            </div>
-
             {/* Completion Button - Mark walkthrough as complete */}
             <div className="mt-8 text-center">
               <button
@@ -377,6 +344,17 @@ export default function DayPage({ params }: DayPageProps) {
                 Mark as Complete
               </button>
             </div>
+          </section>
+
+          {/* NEW: Separate Tidbit Tutor Section */}
+          <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
+            {/* TidbitTutor component now handles its own header with inline AI selector */}
+            <TidbitTutor 
+              tidbitNumber={tidbit.day_number}
+              tidbitTitle={tidbit.title}
+              onConversationUpdate={handleConversationUpdate}
+              embedded={true}
+            />
           </section>
 
           {/* 🚀 NEW: Dynamic BitBoard CTA - Replace the old static one */}
