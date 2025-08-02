@@ -35,8 +35,6 @@ export type Post = {
   user_id: string | null
   type: string
   content: string
-  before_text: string | null
-  after_text: string | null
   media_url: string | null
   tidbit: number
   likes_count?: number
@@ -46,6 +44,7 @@ export type Post = {
   user_full_name?: string | null
   comments_enabled?: boolean
   is_pinned?: boolean
+  is_private?: boolean
 }
 
 // Comment type
@@ -94,7 +93,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
   const hasValidImage = typeof post.media_url === 'string' &&
     isValidMediaUrl(post.media_url) && !isAudioLink && !imageError
 
-  const hasTextContent = Boolean(post.content || post.before_text || post.after_text)
+  const hasTextContent = Boolean(post.content)
 
   // Fetch current user and check if they liked this post
   useEffect(() => {
@@ -493,199 +492,274 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
-        <div className="flex h-full max-h-[95vh]">
-          {/* Enhanced Media Section */}
-          <div className="flex-1 bg-black flex items-center justify-center relative">
-            {renderMediaSection()}
-
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors z-10"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Enhanced Content Section */}
-          <div className="w-96 flex flex-col bg-white">
-            {/* Enhanced Header with better user info and post management */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                {post.user_avatar ? (
-                  <Image
-                    src={post.user_avatar}
-                    alt={post.username || 'User'}
-                    width={44}
-                    height={44}
-                    className="rounded-full ring-2 ring-gray-100"
-                  />
-                ) : (
-                  <div className="w-11 h-11 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">
-                      {(post.username || post.user_full_name || 'A').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-gray-900 truncate">
-                    {post.user_full_name || post.username || 'Anonymous User'}
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span>Day {post.tidbit}</span>
-                    <span>•</span>
-                    <span>{new Date(post.created_at).toLocaleDateString()}</span>
-                    {isPinned && (
-                      <>
-                        <span>•</span>
-                        <Pin className="w-3 h-3 text-[#60A875]" />
-                      </>
-                    )}
-                  </div>
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+        {/* Mobile-First Stacked Layout */}
+        <div className="flex flex-col h-full max-h-[95vh]">
+          {/* Header with Close Button */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {post.user_avatar ? (
+                <Image
+                  src={post.user_avatar}
+                  alt={post.username || 'User'}
+                  width={40}
+                  height={40}
+                  className="rounded-full ring-2 ring-gray-100"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold">
+                    {(post.username || post.user_full_name || 'A').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-gray-900 truncate text-sm sm:text-base">
+                  {post.user_full_name || post.username || 'Anonymous User'}
+                </p>
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
+                  <span>Day {post.tidbit}</span>
+                  <span>•</span>
+                  <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                  {isPinned && (
+                    <>
+                      <span>•</span>
+                      <Pin className="w-3 h-3 text-[#60A875]" />
+                    </>
+                  )}
                 </div>
               </div>
+            </div>
 
-              {/* Enhanced Options Menu */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleShare}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Share post"
-                >
-                  <Share className="w-4 h-4 text-gray-600" />
-                </button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleShare}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Share post"
+              >
+                <Share className="w-4 h-4 text-gray-600" />
+              </button>
 
-                {isOwnPost && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowDropdown(!showDropdown)}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <Settings className="w-4 h-4" />
-                    </button>
+              {isOwnPost && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
 
-                    {showDropdown && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[180px]">
-                        <button
-                          onClick={toggleCommentsEnabled}
-                          className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
-                        >
-                          {commentsEnabled ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                          {commentsEnabled ? 'Disable' : 'Enable'} Comments
-                        </button>
-                        <button
-                          onClick={togglePinned}
-                          className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
-                        >
-                          {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
-                          {isPinned ? 'Unpin' : 'Pin'} Post
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Edit functionality - could be implemented later
-                            setShowDropdown(false)
-                            alert('Edit functionality coming soon!')
-                          }}
-                          className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                          Edit Post
-                        </button>
-                        <hr className="my-1" />
-                        <button
-                          onClick={() => {
-                            setShowDeleteConfirm(true)
-                            setShowDropdown(false)
-                          }}
-                          className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete Post
-                        </button>
+                  {showDropdown && (
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[180px]">
+                      <button
+                        onClick={toggleCommentsEnabled}
+                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        {commentsEnabled ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                        {commentsEnabled ? 'Disable' : 'Enable'} Comments
+                      </button>
+                      <button
+                        onClick={togglePinned}
+                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                        {isPinned ? 'Unpin' : 'Pin'} Post
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowDropdown(false)
+                          alert('Edit functionality coming soon!')
+                        }}
+                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        Edit Post
+                      </button>
+                      <hr className="my-1" />
+                      <button
+                        onClick={() => {
+                          setShowDeleteConfirm(true)
+                          setShowDropdown(false)
+                        }}
+                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Post
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Media Section - Only show if media exists */}
+          {(hasValidImage || isAudioLink) && (
+            <div className="relative bg-black flex items-center justify-center max-h-[50vh] overflow-hidden">
+              {hasValidImage ? (
+                <div className="relative w-full h-full min-h-[300px] bg-black flex items-center justify-center">
+                  {!imageLoaded && (
+                    <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3 text-gray-400">
+                        <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm">Loading image...</span>
                       </div>
-                    )}
+                    </div>
+                  )}
+                  
+                  <Image
+                    src={post.media_url!}
+                    alt="Post media"
+                    fill
+                    className={`object-contain transition-opacity duration-500 ${
+                      imageLoaded ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    onLoad={() => setImageLoaded(true)}
+                    onError={() => setImageError(true)}
+                  />
+                </div>
+              ) : isAudioLink ? (
+                <div className="bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center p-8 w-full min-h-[200px]">
+                  <div className="text-center text-white">
+                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Volume2 className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-3">Audio Content</h3>
+                    <p className="text-white/80 mb-4">Listen to this AI-generated audio</p>
+                    <a
+                      href={post.media_url!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open in {post.media_url!.includes('suno.ai') ? 'Suno' : 'Udio'}
+                    </a>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* Content and Comments Container */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Main Content Section */}
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              {post.content && (
+                <div className="space-y-4">
+                  {(() => {
+                    // Split content to separate main content from user commentary
+                    const parts = post.content.split('\n\n---\n\n');
+                    if (parts.length > 1) {
+                      const mainContent = parts[0];
+                      const userCommentary = parts[1];
+                      
+                      return (
+                        <>
+                          {/* User Commentary - Show prominently if it exists */}
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">💭</span>
+                              </div>
+                              <span className="text-sm font-semibold text-blue-800">Personal Thoughts</span>
+                            </div>
+                            <div className="whitespace-pre-wrap text-blue-900 leading-relaxed text-base">
+                              {userCommentary}
+                            </div>
+                          </div>
+                          
+                          {/* Show main content in collapsed/expandable section */}
+                          <details className="group bg-gray-50 rounded-lg overflow-hidden">
+                            <summary className="cursor-pointer p-4 hover:bg-gray-100 transition-colors flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <MessageCircle className="w-4 h-4 text-gray-600" />
+                                <span className="font-medium text-gray-700">View Original Conversation</span>
+                              </div>
+                              <span className="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                            </summary>
+                            <div className="p-4 pt-0 bg-white border-t border-gray-200">
+                              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm sm:text-base font-mono bg-gray-50 p-4 rounded-lg">
+                                {mainContent}
+                              </div>
+                            </div>
+                          </details>
+                        </>
+                      );
+                    } else {
+                      // No commentary, show content as normal
+                      return (
+                        <div className="whitespace-pre-wrap text-gray-800 text-base leading-relaxed">
+                          {post.content}
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              )}
+
+              {post.description && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-700 italic">{post.description}</p>
+                </div>
+              )}
+
+              {/* Enhanced Like and Comment buttons - Mobile Optimized */}
+              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
+                <button
+                  onClick={handleLike}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 ${
+                    isLiked 
+                      ? 'bg-red-50 text-red-600 border border-red-200' 
+                      : 'hover:bg-gray-50 text-gray-600 border border-gray-200'
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-current text-red-500' : ''}`} />
+                  <span className="font-medium text-sm sm:text-base">{likesCount}</span>
+                </button>
+                
+                <div className="flex items-center gap-2 text-gray-600 px-3 sm:px-4 py-2 border border-gray-200 rounded-full">
+                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="font-medium text-sm sm:text-base">{comments.length}</span>
+                </div>
+
+                {!commentsEnabled && isOwnPost && (
+                  <div className="flex items-center gap-2 text-gray-500 px-2 sm:px-3 py-1 bg-gray-100 rounded-full text-xs sm:text-sm">
+                    <Lock className="w-3 h-3" />
+                    <span className="hidden sm:inline">Comments disabled</span>
+                    <span className="sm:hidden">Disabled</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Enhanced Post Content */}
-            <div className="flex-1 overflow-y-auto">
-              {/* Main content */}
-              <div className="p-4 border-b border-gray-200">
-                {post.content && (
-                  <p className="whitespace-pre-wrap text-gray-800 mb-4 text-base leading-relaxed">
-                    {post.content}
-                  </p>
-                )}
-                
-                {(post.before_text || post.after_text) && (
-                  <div className="space-y-3">
-                    {post.before_text && (
-                      <div className="p-4 bg-red-50 rounded-lg border-l-4 border-red-400">
-                        <p className="text-sm font-medium text-red-800 mb-1">Before:</p>
-                        <p className="text-red-700">{post.before_text}</p>
-                      </div>
-                    )}
-                    {post.after_text && (
-                      <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-400">
-                        <p className="text-sm font-medium text-green-800 mb-1">After:</p>
-                        <p className="text-green-700">{post.after_text}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {post.description && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-700 italic">{post.description}</p>
-                  </div>
-                )}
-
-                {/* Enhanced Like and Comment buttons */}
-                <div className="flex items-center gap-4 mt-6 pt-4 border-t border-gray-100">
-                  <button
-                    onClick={handleLike}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 ${
-                      isLiked 
-                        ? 'bg-red-50 text-red-600 border border-red-200' 
-                        : 'hover:bg-gray-50 text-gray-600 border border-gray-200'
-                    }`}
-                  >
-                    <Heart className={`w-5 h-5 ${isLiked ? 'fill-current text-red-500' : ''}`} />
-                    <span className="font-medium">{likesCount}</span>
-                  </button>
-                  
-                  <div className="flex items-center gap-2 text-gray-600 px-4 py-2 border border-gray-200 rounded-full">
-                    <MessageCircle className="w-5 h-5" />
-                    <span className="font-medium">{comments.length}</span>
-                  </div>
-
-                  {!commentsEnabled && isOwnPost && (
-                    <div className="flex items-center gap-2 text-gray-500 px-3 py-1 bg-gray-100 rounded-full text-sm">
-                      <Lock className="w-3 h-3" />
-                      <span>Comments disabled</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Enhanced Comments Section */}
-              <div className="flex-1 p-4">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            {/* Enhanced Comments Section - Mobile Optimized */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="p-4 sm:p-6 border-b border-gray-200">
+                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-base sm:text-lg">
                   <MessageCircle className="w-5 h-5" />
                   Comments ({comments.length})
                   {!commentsEnabled && (
                     <Lock className="w-4 h-4 text-gray-500" />
                   )}
                 </h3>
+              </div>
 
-                {/* Comments List with better styling */}
-                <div className="space-y-4 mb-6 max-h-60 overflow-y-auto">
+              {/* Comments List - Scrollable */}
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6">
+                <div className="space-y-4 py-4">
                   {loadingComments ? (
                     <div className="space-y-3">
                       {Array.from({ length: 3 }).map((_, i) => (
@@ -699,7 +773,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                       ))}
                     </div>
                   ) : comments.length === 0 ? (
-                    <div className="text-center py-8">
+                    <div className="text-center py-8 sm:py-12">
                       <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                       <p className="text-gray-500 font-medium">
                         {commentsEnabled ? 'No comments yet' : 'Comments are disabled'}
@@ -717,10 +791,10 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                             alt={comment.username || 'User'}
                             width={32}
                             height={32}
-                            className="rounded-full"
+                            className="rounded-full flex-shrink-0"
                           />
                         ) : (
-                          <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-white text-xs font-bold">
                               {(comment.username || 'A').charAt(0).toUpperCase()}
                             </span>
@@ -729,7 +803,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                         
                         <div className="flex-1 min-w-0">
                           <div className="bg-gray-50 rounded-2xl rounded-tl-md p-3">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className="font-semibold text-sm text-gray-900">
                                 {comment.user_full_name || comment.username || 'Anonymous'}
                               </span>
@@ -745,7 +819,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                                 </button>
                               )}
                             </div>
-                            <p className="text-sm text-gray-700 leading-relaxed">{comment.content}</p>
+                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
                           </div>
                         </div>
                       </div>
@@ -755,9 +829,9 @@ export default function PostModal({ post, onClose }: PostModalProps) {
               </div>
             </div>
 
-            {/* Enhanced Comment Input */}
+            {/* Enhanced Comment Input - Mobile Optimized */}
             {currentUser && commentsEnabled ? (
-              <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
                 <div className="flex gap-3">
                   <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-xs font-bold">
@@ -771,7 +845,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder="Add a comment..."
                       rows={2}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none bg-white"
+                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none bg-white text-sm sm:text-base"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
@@ -781,26 +855,26 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                     />
                     <div className="flex justify-between items-center mt-2">
                       <span className="text-xs text-gray-500">
-                        Press Enter to send, Shift+Enter for new line
+                        Press Enter to send
                       </span>
                       <button
                         onClick={handleSubmitComment}
                         disabled={!newComment.trim() || isSubmittingComment}
-                        className="px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
+                        className="px-3 sm:px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium text-sm sm:text-base"
                       >
                         {isSubmittingComment ? (
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         ) : (
                           <Send className="w-4 h-4" />
                         )}
-                        Send
+                        <span className="hidden sm:inline">Send</span>
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
             ) : currentUser && !commentsEnabled ? (
-              <div className="p-4 border-t border-gray-200 bg-gray-50 text-center">
+              <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 text-center">
                 <div className="flex items-center justify-center gap-2 text-gray-500 mb-2">
                   <Lock className="w-4 h-4" />
                   <span className="text-sm font-medium">Comments are disabled for this post</span>
@@ -815,11 +889,11 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 )}
               </div>
             ) : (
-              <div className="p-4 border-t border-gray-200 bg-gray-50 text-center">
-                <p className="text-gray-600 mb-3">Sign in to join the conversation</p>
+              <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 text-center">
+                <p className="text-gray-600 mb-3 text-sm sm:text-base">Sign in to join the conversation</p>
                 <button 
                   onClick={onClose}
-                  className="px-6 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                  className="px-4 sm:px-6 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors font-medium text-sm sm:text-base"
                 >
                   Sign In
                 </button>

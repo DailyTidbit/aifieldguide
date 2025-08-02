@@ -39,10 +39,7 @@ export default function PostCard({
     !isAudioLink &&
     !imageError
 
-  const hasTextOnly =
-    !hasImage &&
-    !isAudioLink &&
-    (post.content || post.before_text || post.after_text)
+  const hasTextOnly = !hasImage && !isAudioLink && post.content
 
   const bgColor = bgColors[post.id.charCodeAt(0) % bgColors.length]
 
@@ -125,57 +122,28 @@ export default function PostCard({
         )}
 
         {/* Enhanced Text Content Section */}
-        {(post.content || post.before_text || post.after_text) && (
+        {post.content && (
           <div className={`p-6 text-gray-800 space-y-4 ${!hasImage && !isAudioLink ? bgColor : ''}`}>
-            {/* Main content with better typography */}
-            {post.content && (
-              <div>
-                <p className="text-gray-800 leading-relaxed font-medium text-lg line-clamp-8">
-                  {contentPreview}
-                </p>
+            {/* Main content with better typography - prioritize user commentary */}
+            <div>
+              <div className="text-gray-800 leading-relaxed font-medium text-lg line-clamp-8 whitespace-pre-wrap">
+                {(() => {
+                  // Check if content has user commentary (separated by ---)
+                  const parts = post.content.split('\n\n---\n\n');
+                  if (parts.length > 1) {
+                    // If there's commentary, show that instead of main content
+                    const commentary = parts[1];
+                    return commentary.length > 560 ? `${commentary.substring(0, 560)}...` : commentary;
+                  } else {
+                    // No commentary, show main content as before
+                    return contentPreview;
+                  }
+                })()}
               </div>
-            )}
-
-            {/* Enhanced Before/After display with more visual impact */}
-            {(post.before_text || post.after_text) && (
-              <div className="space-y-4 mt-4">
-                {post.before_text && (
-                  <div className="relative">
-                    <div className="absolute -left-2 top-0 bottom-0 w-1 bg-red-400 rounded-full"></div>
-                    <div className="pl-6 pr-4 py-4 bg-gradient-to-r from-red-50 to-red-25 rounded-xl border border-red-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">B</span>
-                        </div>
-                        <span className="font-semibold text-red-800 text-sm uppercase tracking-wide">Before</span>
-                      </div>
-                      <p className="text-red-700 leading-relaxed text-base">
-                        {post.before_text.length > 240 ? `${post.before_text.substring(0, 240)}...` : post.before_text}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {post.after_text && (
-                  <div className="relative">
-                    <div className="absolute -left-2 top-0 bottom-0 w-1 bg-green-400 rounded-full"></div>
-                    <div className="pl-6 pr-4 py-4 bg-gradient-to-r from-green-50 to-green-25 rounded-xl border border-green-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">A</span>
-                        </div>
-                        <span className="font-semibold text-green-800 text-sm uppercase tracking-wide">After</span>
-                      </div>
-                      <p className="text-green-700 leading-relaxed text-base">
-                        {post.after_text.length > 240 ? `${post.after_text.substring(0, 240)}...` : post.after_text}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            </div>
 
             {/* Add visual interest for text-only posts */}
-            {!hasImage && !isAudioLink && !post.before_text && !post.after_text && (
+            {!hasImage && !isAudioLink && (
               <div className="relative">
                 <div className="absolute top-4 right-4 opacity-20">
                   <Sparkles className="w-12 h-12 text-[#60A875]" />

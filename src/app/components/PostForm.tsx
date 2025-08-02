@@ -9,8 +9,6 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
   const [user, setUser] = useState<any>(null)
   const [tidbit, setTidbit] = useState<number | null>(null)
   const [content, setContent] = useState('')
-  const [beforeText, setBeforeText] = useState('')
-  const [afterText, setAfterText] = useState('')
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [isPrivate, setIsPrivate] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -30,17 +28,9 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
 
     // Pre-fill content from URL params (from walkthrough)
     const contentParam = searchParams.get('content')
-    const beforeParam = searchParams.get('before')
-    const afterParam = searchParams.get('after')
 
     if (contentParam) {
       setContent(decodeURIComponent(contentParam))
-    }
-    if (beforeParam) {
-      setBeforeText(decodeURIComponent(beforeParam))
-    }
-    if (afterParam) {
-      setAfterText(decodeURIComponent(afterParam))
     }
   }, [searchParams])
 
@@ -93,8 +83,6 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
     const { error } = await supabase.from('posts').insert({
       user_id: user.id,
       content,
-      before_text: beforeText || null,
-      after_text: afterText || null,
       media_url,
       tidbit,
       type: 'text',
@@ -108,7 +96,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       // Track progress - mark that user created a post for this tidbit
       await markPostCreated(tidbit)
       
-      // 🚀 FIXED: Better success handling with options
+      // Success handling
       const successMessage = isPrivate 
         ? '🔒 Private post saved successfully!' 
         : '🎉 Posted to BitBoard successfully!'
@@ -129,17 +117,11 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       
       // Reset form
       setContent('')
-      setBeforeText('')
-      setAfterText('')
       setMediaFile(null)
       setIsPrivate(false)
       
       // Close the modal/form (calls parent component)
       onPostSubmit()
-      
-      // 🚀 FIXED: No more broken redirects!
-      // Instead of redirecting, we stay on the current page
-      // The modal will close and user stays where they were
     }
 
     setSubmitting(false)
@@ -229,42 +211,23 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
         </div>
       </div>
 
+      {/* Single Content Field */}
       <label className="block">
-        <span className="text-sm text-gray-600 font-medium">What did you make?</span>
+        <span className="text-sm text-gray-600 font-medium">What did you create?</span>
         <textarea
-          className="border w-full mt-1 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#60A875]/20 focus:border-[#60A875] transition-colors"
-          rows={3}
+          className="border w-full mt-1 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#60A875]/20 focus:border-[#60A875] transition-colors font-mono text-sm"
+          rows={8}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           required
-          placeholder={isPrivate ? "Describe your personal creation..." : "Share what you created..."}
+          placeholder={isPrivate ? "Describe your personal creation..." : "Share your AI conversation, what you learned, or what you created..."}
         />
+        <div className="text-xs text-gray-500 mt-1">
+          {content.length}/1000 characters • Use **bold** for formatting
+        </div>
       </label>
 
-      <div className="grid grid-cols-2 gap-4">
-        <label>
-          <span className="text-sm text-gray-600 font-medium">Before (optional)</span>
-          <textarea
-            className="border w-full mt-1 rounded px-2 py-1 focus:ring-2 focus:ring-[#60A875]/20 focus:border-[#60A875] transition-colors"
-            rows={2}
-            value={beforeText}
-            onChange={(e) => setBeforeText(e.target.value)}
-            placeholder="Original state..."
-          />
-        </label>
-
-        <label>
-          <span className="text-sm text-gray-600 font-medium">After (optional)</span>
-          <textarea
-            className="border w-full mt-1 rounded px-2 py-1 focus:ring-2 focus:ring-[#60A875]/20 focus:border-[#60A875] transition-colors"
-            rows={2}
-            value={afterText}
-            onChange={(e) => setAfterText(e.target.value)}
-            placeholder="AI-enhanced result..."
-          />
-        </label>
-      </div>
-
+      {/* Media Upload */}
       <label className="block">
         <span className="text-sm text-gray-600 font-medium">Upload image, video, or audio (optional)</span>
         <input
@@ -275,6 +238,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
         />
       </label>
 
+      {/* Submit Button */}
       <button
         type="submit"
         className={`w-full px-6 py-3 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
