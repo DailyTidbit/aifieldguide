@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Clock, Star, Tag, Play, Users, ArrowRight, CheckCircle, Lightbulb, Target, Camera } from 'lucide-react'
 import TidbitTutor from '../../components/TidbitTutor'
 import RotatingWord from '../../components/RotatingWord'
-import WalkthroughBitBoardCTA from '../../components/WalkthroughBitBoardCTA' // ✅ Import the new component
+import TryOtherAITools from '../../components/TryOtherAITools'
 import { supabase } from '../../lib/supabaseClient'
 
 interface TidbitStep {
@@ -346,9 +346,8 @@ export default function DayPage({ params }: DayPageProps) {
             </div>
           </section>
 
-          {/* NEW: Separate Tidbit Tutor Section */}
+          {/* Tidbit Tutor Section */}
           <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
-            {/* TidbitTutor component now handles its own header with inline AI selector */}
             <TidbitTutor 
               tidbitNumber={tidbit.day_number}
               tidbitTitle={tidbit.title}
@@ -357,28 +356,8 @@ export default function DayPage({ params }: DayPageProps) {
             />
           </section>
 
-          {/* 🚀 NEW: Dynamic BitBoard CTA - Replace the old static one */}
-          <WalkthroughBitBoardCTA 
-            tidbitNumber={tidbit.day_number}
-            tidbitTitle={tidbit.title}
-            user={user}
-            latestConversation={latestConversation}
-          />
-
-          {/* Try Other AI Tools - Optional Section */}
-          {tidbit.explore_more && (
-            <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
-                  <Target className="w-6 h-6" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
-                  Try Other AI Tools
-                </h3>
-              </div>
-              <RichContent>{tidbit.explore_more}</RichContent>
-            </section>
-          )}
+          {/* NEW: Dynamic Try Other AI Tools Component */}
+          <TryOtherAITools />
 
         </div>
       </div>

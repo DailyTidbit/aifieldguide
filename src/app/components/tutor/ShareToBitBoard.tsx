@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Users, MessageCircle, Loader2, ExternalLink, CheckCircle2, X, Lock, Globe, Eye, EyeOff, Wand2 } from 'lucide-react';
+import { Sparkles, Users, MessageCircle, Loader2, ExternalLink, CheckCircle2, X, Lock, Globe, Eye, EyeOff, Wand2, RotateCcw, Edit3 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { API_PROVIDERS } from './AIProviderSelector';
 import type { Message } from './TutorChatArea';
 import type { ErrorType } from './TutorErrorDisplay';
+import RotatingWord from '../RotatingWord';
 
 interface TidbitData {
   id: number;
@@ -44,31 +45,33 @@ export function ShareToBitBoard({
   const [userCommentary, setUserCommentary] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [generatingAISummary, setGeneratingAISummary] = useState(false);
+  const [showOriginalConvo, setShowOriginalConvo] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [originalConversation, setOriginalConversation] = useState("");
 
-  // Format conversation for default display
-  const formatConversationDefault = () => {
+  // Format original conversation for reference
+  const formatOriginalConversation = () => {
     if (messages.length < 2) return "";
     
-    const firstUser = messages.find(m => m.role === "user");
-    const firstAI = messages.find(m => m.role === "assistant");
-    
-    if (!firstUser || !firstAI) return "";
-
-    const aiProvider = API_PROVIDERS.find(p => p.id === firstAI.provider)?.name || 'AI';
-    
-    return `**User:** ${firstUser.content}\n\n**${aiProvider}:** ${firstAI.content}`;
+    return messages
+      .map((msg, index) => {
+        const aiProvider = API_PROVIDERS.find(p => p.id === msg.provider)?.name || 'AI';
+        const role = msg.role === 'user' ? 'You' : aiProvider;
+        return `**${role}:** ${msg.content}`;
+      })
+      .join('\n\n');
   };
 
-  // Initialize default content when modal opens
+  // Auto-generate AI summary when modal opens
   useEffect(() => {
-    if (showModal && !postContent) {
-      const defaultContent = formatConversationDefault();
-      setPostContent(defaultContent);
+    if (showModal && messages.length >= 2 && !postContent && !generatingAISummary) {
+      generateAISummaryAuto();
+      setOriginalConversation(formatOriginalConversation());
     }
-  }, [showModal, messages]);
+  }, [showModal, messages.length]);
 
-  // Generate AI summary of entire conversation
-  const generateAISummary = async () => {
+  // Auto-generate AI summary of entire conversation
+  const generateAISummaryAuto = async () => {
     if (messages.length < 2) return;
 
     setGeneratingAISummary(true);
@@ -83,24 +86,49 @@ export function ShareToBitBoard({
         })
         .join('\n\n');
 
-      const prompt = `You are helping someone create an engaging social media post about their AI conversation experience.
+      // Count interactions
+      const userMessages = messages.filter(m => m.role === 'user');
+      const aiMessages = messages.filter(m => m.role === 'assistant');
 
-CONVERSATION:
+      const prompt = `You are creating a detailed, valuable social media post about someone's AI conversation experience that includes the actual useful content they discovered.
+
+CONVERSATION ANALYSIS:
 ${conversationText}
 
 CONTEXT:
 - This was from Daily Tidbit #${tidbitNumber}: "${tidbitTitle}"
-- They used ${messages.length} messages total
-- They want to share this on BitBoard (an AI learning community)
+- They had ${userMessages.length} questions/requests and ${aiMessages.length} AI responses
+- User started by asking about: "${userMessages[0]?.content.slice(0, 150)}..."
+- Final result/response included: "${aiMessages[aiMessages.length - 1]?.content.slice(0, 200)}..."
 
-TASK: Create an engaging social media post (max 280 characters) that:
-1. Captures the essence of their AI learning journey
-2. Shows what they accomplished or learned
-3. Sounds authentic and personal (not robotic)
-4. Would inspire others to try AI tools
-5. Mentions it's from Daily Tidbit #${tidbitNumber}
+TASK: Create a detailed social media post (500-800 characters) that follows this structure:
 
-STYLE: Write in first person, be enthusiastic but genuine. Focus on the transformation or insight they gained.
+**Opening Hook:** "Just used AI to accomplish [SPECIFIC_GOAL] with Daily Tidbit #${tidbitNumber}! Here's what happened:"
+
+**The Journey:** Show the conversation progression:
+- "🔸 I asked AI to [FIRST_REQUEST]"
+- "🔸 AI gave me [SPECIFIC_RESULT_WITH_DETAILS]" 
+- "🔸 Then I asked for [FOLLOW_UP]"
+- "🔸 Final result: [DETAILED_OUTCOME]"
+
+**Include the Valuable Content:** 
+- If they got a list (like towns, tips, recipes, etc.) - include the FULL list or key items
+- If they got a recipe - include the actual recipe steps
+- If they got code - include the key code snippets
+- If they got advice - include the specific actionable advice
+- If they got analysis - include the key insights
+
+**Closing:** End with takeaway: "💡 Key learning: [WHAT_THEY_DISCOVERED]"
+
+REQUIREMENTS:
+1. Write in first person ("I", "my")
+2. Include the ACTUAL valuable content from the conversation (full lists, recipes, code, specific advice, etc.)
+3. Use bullet points and emojis for readability
+4. Show clear conversation progression
+5. Make it genuinely useful to someone reading the post
+6. Be specific and detailed - this should provide real value
+7. 500-800 characters (much longer than typical social posts)
+8. Include Daily Tidbit #${tidbitNumber} reference
 
 RESPOND ONLY with the social media post text - no quotes, no extra text, just the post content.`;
 
@@ -126,10 +154,18 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
 
     } catch (error) {
       console.error('Error generating AI summary:', error);
-      onError('chat', 'Failed to generate AI summary. Please try again.');
+      // Fallback to original conversation format
+      setPostContent(formatOriginalConversation());
+      onError('chat', 'Failed to generate AI summary. Showing original conversation instead.');
     } finally {
       setGeneratingAISummary(false);
     }
+  };
+
+  // Regenerate AI summary
+  const regenerateAISummary = async () => {
+    setPostContent("");
+    await generateAISummaryAuto();
   };
 
   // Track progress when post is created
@@ -182,7 +218,6 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
         tidbit: tidbitNumber,
         type: 'text',
         is_private: isPrivate,
-        // Remove before_text and after_text - no longer used
       };
 
       console.log('Posting to BitBoard with data:', postData);
@@ -221,6 +256,8 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
       // Reset form
       setPostContent("");
       setUserCommentary("");
+      setIsEditing(false);
+      setShowOriginalConvo(false);
 
     } catch (error) {
       console.error("Post error:", error);
@@ -275,7 +312,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
           <h3 className="font-semibold text-gray-900">Love your result?</h3>
         </div>
         <p className="text-sm text-gray-700 mb-3">
-          Share your conversation with the community on BitBoard!
+          Share your AI conversation story with the community!
         </p>
         
         <button
@@ -284,7 +321,9 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Users className="w-4 h-4" />
-          Post to BitBoard
+          <span className="flex items-center gap-1">
+            Share Your <RotatingWord /> to BitBoard
+          </span>
         </button>
       </div>
 
@@ -297,10 +336,10 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center">
-                    <Users className="w-5 h-5 text-white" />
+                    <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">Share to BitBoard</h2>
+                    <h2 className="text-xl font-bold text-gray-900">Share Your AI Story</h2>
                     <p className="text-sm text-gray-600">Daily Tidbit #{tidbitNumber}: "{tidbitTitle}"</p>
                   </div>
                 </div>
@@ -356,96 +395,133 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
                 </div>
               </div>
 
-              {/* AI Summary Button */}
-              {messages.length > 2 && (
-                <div className="text-center">
-                  <button
-                    onClick={generateAISummary}
-                    disabled={generatingAISummary}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-colors font-semibold disabled:opacity-50"
-                  >
-                    {generatingAISummary ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Generating AI Summary...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="w-5 h-5" />
-                        ✨ AI Generated Chat Summary
-                      </>
-                    )}
-                  </button>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Let AI create an engaging summary of your entire conversation
-                  </p>
+              {/* AI Generated Summary Loading */}
+              {generatingAISummary && (
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 text-center border border-purple-200">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mx-auto mb-4 flex items-center justify-center animate-pulse">
+                    <Sparkles className="w-8 h-8 text-white animate-spin" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Creating your AI story...</h3>
+                  <p className="text-gray-600">Analyzing your conversation to create the perfect post</p>
                 </div>
               )}
 
               {/* Post Content */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Post Content
-                </label>
-                <textarea
-                  value={postContent}
-                  onChange={(e) => setPostContent(e.target.value)}
-                  rows={8}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none font-mono text-sm"
-                  placeholder="Your conversation will appear here..."
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {postContent.length}/1000 characters
-                </p>
-              </div>
+              {!generatingAISummary && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      ✨ Your AI Story
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsEditing(!isEditing)}
+                        className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        {isEditing ? 'Preview' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={regenerateAISummary}
+                        className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 transition-colors"
+                        disabled={generatingAISummary}
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+
+                  {isEditing ? (
+                    <textarea
+                      value={postContent}
+                      onChange={(e) => setPostContent(e.target.value)}
+                      rows={6}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none"
+                      placeholder="Edit your AI story..."
+                    />
+                  ) : (
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{postContent}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-gray-500">
+                      {postContent.length}/1000 characters
+                    </p>
+                    <button
+                      onClick={() => setShowOriginalConvo(!showOriginalConvo)}
+                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+                    >
+                      {showOriginalConvo ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {showOriginalConvo ? 'Hide' : 'Show'} original conversation
+                    </button>
+                  </div>
+
+                  {/* Original Conversation (Collapsible) */}
+                  {showOriginalConvo && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Original Conversation:</h4>
+                      <div className="text-xs text-gray-600 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto">
+                        {originalConversation}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* User Commentary */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Add Your Thoughts (Optional)
-                </label>
-                <textarea
-                  value={userCommentary}
-                  onChange={(e) => setUserCommentary(e.target.value)}
-                  rows={3}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none"
-                  placeholder="Share your thoughts about this conversation, what you learned, or how you plan to use it..."
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Your personal commentary will be added below the main content
-                </p>
-              </div>
+              {!generatingAISummary && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Add Your Thoughts (Optional)
+                  </label>
+                  <textarea
+                    value={userCommentary}
+                    onChange={(e) => setUserCommentary(e.target.value)}
+                    rows={3}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none"
+                    placeholder="Share your thoughts about this conversation, what you learned, or how you plan to use it..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Your personal commentary will be added below the main content
+                  </p>
+                </div>
+              )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePostToBitBoard}
-                  disabled={loadingState === 'posting' || !postContent.trim()}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl transition-colors font-semibold disabled:opacity-50 text-white ${
-                    isPrivate 
-                      ? 'bg-orange-500 hover:bg-orange-600' 
-                      : 'bg-[#60A875] hover:bg-green-600'
-                  }`}
-                >
-                  {loadingState === 'posting' ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Posting...
-                    </>
-                  ) : (
-                    <>
-                      {isPrivate ? <Lock className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
-                      {isPrivate ? 'Save Privately' : 'Share to BitBoard'}
-                    </>
-                  )}
-                </button>
-              </div>
+              {!generatingAISummary && (
+                <div className="flex gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePostToBitBoard}
+                    disabled={loadingState === 'posting' || !postContent.trim()}
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl transition-colors font-semibold disabled:opacity-50 text-white ${
+                      isPrivate 
+                        ? 'bg-orange-500 hover:bg-orange-600' 
+                        : 'bg-[#60A875] hover:bg-green-600'
+                    }`}
+                  >
+                    {loadingState === 'posting' ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Posting...
+                      </>
+                    ) : (
+                      <>
+                        {isPrivate ? <Lock className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
+                        {isPrivate ? 'Save Privately' : 'Share to BitBoard'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
