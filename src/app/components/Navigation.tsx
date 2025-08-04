@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, User, Menu, X, Bell, Sparkles } from 'lucide-react'
+import { Search, User, Menu, X, Bell, Sparkles, Compass } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '../lib/supabaseClient'
@@ -79,6 +79,16 @@ export default function Navigation() {
               AI FOR REAL PEOPLE
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
             </Link>
+
+            {/* 🆕 NEW: Field Guide Link */}
+            <Link 
+              href="/field-guide" 
+              className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#59B1E3] relative group flex items-center gap-2"
+            >
+              <Compass className="w-4 h-4" />
+              FIELD GUIDE
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#59B1E3] transition-all duration-300 group-hover:w-full"></span>
+            </Link>
             
             <Link 
               href="/TidbitLibrary" 
@@ -104,7 +114,7 @@ export default function Navigation() {
               </Link>
             )}
             
-            {/* ✅ RENAMED: BitBoard */}
+            {/* BitBoard */}
             <Link 
               href="/bitboard" 
               className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group"
@@ -213,6 +223,16 @@ export default function Navigation() {
               >
                 AI FOR REAL PEOPLE
               </Link>
+
+              {/* 🆕 NEW: Mobile Field Guide Link */}
+              <Link 
+                href="/field-guide" 
+                className="block py-2 text-gray-700 hover:text-[#59B1E3] font-medium transition-colors duration-300 flex items-center gap-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Compass className="w-4 h-4" />
+                FIELD GUIDE
+              </Link>
               
               <Link 
                 href="/TidbitLibrary" 
@@ -236,7 +256,7 @@ export default function Navigation() {
                 </Link>
               )}
               
-              {/* ✅ Mobile BitBoard */}
+              {/* Mobile BitBoard */}
               <Link 
                 href="/bitboard" 
                 className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300"
