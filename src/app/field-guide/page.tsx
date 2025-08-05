@@ -50,7 +50,7 @@ export default function FieldGuidePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 px-6 md:px-12 py-20">
+      <main className="min-h-screen bg-white px-6 md:px-12 py-20">
         <div className="max-w-6xl mx-auto">
           <div className="text-center">
             <div className="animate-spin w-12 h-12 border-4 border-[#60A875] border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -63,11 +63,8 @@ export default function FieldGuidePage() {
 
   return (
     <main className="min-h-screen">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-green-50 to-blue-50 px-6 md:px-12 py-20 relative overflow-hidden">
-        {/* Floating background elements */}
-        <div className="absolute top-20 right-10 w-32 h-32 bg-green-200/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute bottom-20 left-10 w-24 h-24 bg-blue-200/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+      {/* Hero Section - Much darker gradient */}
+      <section className="bg-gradient-to-br from-green-200 via-green-100 to-blue-200 px-6 md:px-12 py-20">
         
         <div className={`max-w-6xl mx-auto text-center transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <h1 
@@ -142,7 +139,7 @@ export default function FieldGuidePage() {
       </section>
 
       {/* Call to Action */}
-      <section className="bg-gradient-to-br from-gray-50 to-gray-100 px-6 md:px-12 py-20">
+      <section className="bg-gradient-to-br from-gray-200 via-gray-100 to-blue-100 px-6 md:px-12 py-20">
         <div className="max-w-4xl mx-auto text-center">
           <h3 
             className="text-4xl md:text-5xl mb-6 text-[#60A875] font-bold"

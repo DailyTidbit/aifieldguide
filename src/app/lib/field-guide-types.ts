@@ -25,3 +25,17 @@ export interface AITool {
   access_notes?: string
   created_at: string
 }
+
+// Simplified tool details - just the description
+export interface ToolDetail {
+  id: string
+  tool_id: string
+  detailed_description: string
+  created_at: string
+  updated_at: string
+}
+
+// Combined tool with details
+export interface ToolWithDetails extends AITool {
+  details?: ToolDetail
+}

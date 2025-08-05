@@ -1,6 +1,6 @@
 // src/app/lib/field-guide-api.ts
 import { supabase } from './supabaseClient'
-import { FieldGuideSection, AITool } from './field-guide-types'
+import { FieldGuideSection, AITool, ToolDetail } from './field-guide-types'
 
 export class FieldGuideAPI {
   static async getAllSections(): Promise<FieldGuideSection[]> {
@@ -61,6 +61,36 @@ export class FieldGuideAPI {
 
     if (error) return 0
     return count || 0
+  }
+
+  // NEW: Get tool details
+  static async getToolDetails(toolId: string): Promise<ToolDetail | null> {
+    const { data, error } = await supabase
+      .from('tool_details')
+      .select('*')
+      .eq('tool_id', toolId)
+      .single()
+
+    if (error) {
+      console.log('No details found for tool:', toolId)
+      return null
+    }
+    return data
+  }
+
+  // NEW: Get tool with details
+  static async getToolWithDetails(toolId: string): Promise<{ tool: AITool; details: ToolDetail | null }> {
+    const [toolResult, detailsResult] = await Promise.all([
+      supabase.from('ai_tools').select('*').eq('id', toolId).single(),
+      this.getToolDetails(toolId)
+    ])
+
+    if (toolResult.error) throw toolResult.error
+    
+    return {
+      tool: toolResult.data,
+      details: detailsResult
+    }
   }
 
   // Added method for getting tools by category directly (for flexibility)
