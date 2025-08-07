@@ -1,9 +1,8 @@
 // src/app/components/ToolModal.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
-import { AITool, ToolDetail } from '../lib/field-guide-types'
-import { FieldGuideAPI } from '../lib/field-guide-api'
+import { useEffect } from 'react'
+import { AITool } from '../lib/field-guide-types'
 
 interface ToolModalProps {
   tool: AITool
@@ -13,19 +12,6 @@ interface ToolModalProps {
 }
 
 export default function ToolModal({ tool, sectionColor, isOpen, onClose }: ToolModalProps) {
-  const [details, setDetails] = useState<ToolDetail | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (isOpen && !details) {
-      setLoading(true)
-      FieldGuideAPI.getToolDetails(tool.id)
-        .then(setDetails)
-        .catch(console.error)
-        .finally(() => setLoading(false))
-    }
-  }, [isOpen, tool.id, details])
-
   // Close modal on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -113,155 +99,147 @@ export default function ToolModal({ tool, sectionColor, isOpen, onClose }: ToolM
 
         {/* Content */}
         <div className="p-8 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full"></div>
-              <span className="ml-3 text-gray-600">Loading details...</span>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-4 gap-8">
-              
-              {/* Main Article Content */}
-              <div className="md:col-span-3">
-                {details?.detailed_description ? (
-                  <div className="prose prose-lg max-w-none">
+          <div className="grid md:grid-cols-4 gap-8">
+            
+            {/* Main Article Content */}
+            <div className="md:col-span-3">
+              {tool.detailed_description ? (
+                <div className="prose prose-lg max-w-none">
+                  <div 
+                    className="text-gray-800 leading-relaxed"
+                    style={{
+                      fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
+                      fontSize: "1.125rem",
+                      lineHeight: "1.7"
+                    }}
+                  >
+                    {/* Render everything as one continuous block with proper formatting */}
                     <div 
-                      className="text-gray-800 leading-relaxed"
-                      style={{
-                        fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                        fontSize: "1.125rem",
-                        lineHeight: "1.7"
+                      dangerouslySetInnerHTML={{
+                        __html: tool.detailed_description
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                          .replace(/\n\*/g, '<br/>• ') // Convert line breaks + asterisks to bullet points
+                          .replace(/^\*/g, '• ') // Convert first asterisk to bullet
+                          .replace(/\n(Pricing|Login & Model|Features|Enterprise|Overview):/g, '<br/><strong>$1:</strong>') // Only bold specific common headers
+                          .replace(/\n/g, '<br/>') // Convert remaining line breaks to HTML breaks
                       }}
-                    >
-                      {/* Render everything as one continuous block with proper formatting */}
-                      <div 
-                        dangerouslySetInnerHTML={{
-                          __html: details.detailed_description
-                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                            .replace(/\n\*/g, '<br/>• ') // Convert line breaks + asterisks to bullet points
-                            .replace(/^\*/g, '• ') // Convert first asterisk to bullet
-                            .replace(/\n/g, '<br/>') // Convert remaining line breaks to HTML breaks
-                        }}
-                      />
-                    </div>
+                    />
                   </div>
-                ) : (
-                  /* Fallback to basic description */
-                  <div className="prose prose-lg max-w-none">
-                    <div 
-                      className="text-gray-700 leading-relaxed text-lg"
-                      style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-                    >
-                      <p className="mb-6">{tool.description}</p>
-                      
-                      {tool.use_cases && (
-                        <div className="mt-8">
-                          <h4 
-                            className="text-xl font-bold mb-3"
-                            style={{ 
-                              color: sectionColor,
-                              fontFamily: "var(--font-playfair, 'Playfair Display'), serif"
-                            }}
-                          >
-                            Use Cases
-                          </h4>
-                          <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-xl border border-blue-200">
-                            {tool.use_cases}
-                          </p>
-                        </div>
-                      )}
-
-                      {tool.access_notes && (
-                        <div className="mt-8">
-                          <h4 
-                            className="text-xl font-bold mb-3"
-                            style={{ 
-                              color: sectionColor,
-                              fontFamily: "var(--font-playfair, 'Playfair Display'), serif"
-                            }}
-                          >
-                            Access Notes
-                          </h4>
-                          <p className="text-gray-700 leading-relaxed bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                            {tool.access_notes}
-                          </p>
-                        </div>
-                      )}
-
-                      {!details && (
-                        <div className="mt-8 text-center py-8 bg-gray-50 rounded-xl">
-                          <div className="text-4xl mb-2">📋</div>
-                          <p className="text-gray-600">
-                            Detailed information coming soon for this tool.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Sidebar */}
-              <div className="md:col-span-1 space-y-6">
-                
-                {/* CTA Button */}
-                {tool.website && (
-                  <div>
-                    <a
-                      href={tool.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full text-white px-6 py-4 rounded-xl font-bold text-center transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
-                      style={{
-                        background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}ee, ${sectionColor}cc)`
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`
-                      }}
-                    >
-                      <span>Try {tool.name}</span>
-                      <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                  </div>
-                )}
-
-                {/* Quick Facts */}
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h4 className="text-lg font-bold mb-4 text-gray-800">Quick Facts</h4>
-                  <div className="space-y-4">
-                    <div className="flex flex-col space-y-1">
-                      <span className="text-sm text-gray-600">Category</span>
-                      <span className="text-sm font-medium text-gray-800">{tool.category}</span>
-                    </div>
-                    {tool.company && (
-                      <div className="flex flex-col space-y-1">
-                        <span className="text-sm text-gray-600">Company</span>
-                        <span className="text-sm font-medium text-gray-800">{tool.company}</span>
+                </div>
+              ) : (
+                /* Fallback to basic description */
+                <div className="prose prose-lg max-w-none">
+                  <div 
+                    className="text-gray-700 leading-relaxed text-lg"
+                    style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
+                  >
+                    <p className="mb-6">{tool.description}</p>
+                    
+                    {tool.use_cases && (
+                      <div className="mt-8">
+                        <h4 
+                          className="text-xl font-bold mb-3"
+                          style={{ 
+                            color: sectionColor,
+                            fontFamily: "var(--font-playfair, 'Playfair Display'), serif"
+                          }}
+                        >
+                          Use Cases
+                        </h4>
+                        <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-xl border border-blue-200">
+                          {tool.use_cases}
+                        </p>
                       </div>
                     )}
-                    <div className="flex flex-col space-y-1">
-                      <span className="text-sm text-gray-600">Free Tier</span>
-                      <span className={`text-sm font-medium ${tool.free_tier ? 'text-green-600' : 'text-orange-600'}`}>
-                        {tool.free_tier ? 'Available' : 'Not Available'}
-                      </span>
+
+                    {tool.access_notes && (
+                      <div className="mt-8">
+                        <h4 
+                          className="text-xl font-bold mb-3"
+                          style={{ 
+                            color: sectionColor,
+                            fontFamily: "var(--font-playfair, 'Playfair Display'), serif"
+                          }}
+                        >
+                          Access Notes
+                        </h4>
+                        <p className="text-gray-700 leading-relaxed bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                          {tool.access_notes}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-8 text-center py-8 bg-gray-50 rounded-xl">
+                      <div className="text-4xl mb-2">📋</div>
+                      <p className="text-gray-600">
+                        Detailed information coming soon for this tool.
+                      </p>
                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="md:col-span-1 space-y-6">
+              
+              {/* CTA Button */}
+              {tool.website && (
+                <div>
+                  <a
+                    href={tool.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-white px-6 py-4 rounded-xl font-bold text-center transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
+                    style={{
+                      background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}ee, ${sectionColor}cc)`
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`
+                    }}
+                  >
+                    <span>Try {tool.name}</span>
+                    <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              )}
+
+              {/* Quick Facts */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h4 className="text-lg font-bold mb-4 text-gray-800">Quick Facts</h4>
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm text-gray-600">Category</span>
+                    <span className="text-sm font-medium text-gray-800">{tool.category}</span>
+                  </div>
+                  {tool.company && (
                     <div className="flex flex-col space-y-1">
-                      <span className="text-sm text-gray-600">Login Required</span>
-                      <span className={`text-sm font-medium ${tool.login_required ? 'text-orange-600' : 'text-green-600'}`}>
-                        {tool.login_required ? 'Yes' : 'No'}
-                      </span>
+                      <span className="text-sm text-gray-600">Company</span>
+                      <span className="text-sm font-medium text-gray-800">{tool.company}</span>
                     </div>
+                  )}
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm text-gray-600">Free Tier</span>
+                    <span className={`text-sm font-medium ${tool.free_tier ? 'text-green-600' : 'text-orange-600'}`}>
+                      {tool.free_tier ? 'Available' : 'Not Available'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm text-gray-600">Login Required</span>
+                    <span className={`text-sm font-medium ${tool.login_required ? 'text-orange-600' : 'text-green-600'}`}>
+                      {tool.login_required ? 'Yes' : 'No'}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

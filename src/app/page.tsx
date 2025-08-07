@@ -18,13 +18,6 @@ interface TodaysTip {
   estimated_time: number
 }
 
-interface CommunityPost {
-  id: string
-  content: string
-  author: string
-  created_at: string
-}
-
 // Loading component for today's tidbit section
 function TodaysTidbitSkeleton() {
   return (
@@ -42,7 +35,6 @@ function TodaysTidbitSkeleton() {
 
       <div className="bg-gray-200 rounded-xl h-64 mb-4 sm:mb-6"></div>
       <div className="bg-gray-100 rounded-xl h-16 mb-6 sm:mb-8"></div>
-      <div className="bg-gray-100 rounded-xl h-48 mb-6 sm:mb-8"></div>
     </div>
   )
 }
@@ -67,66 +59,6 @@ async function TodaysTidbit() {
       throw tidbitError
     }
 
-    // Fetch real community posts from BitBoard
-    let communityPosts: CommunityPost[] = []
-    try {
-      // Simplified query - just get posts first
-      const { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select('id, content, created_at, user_id')
-        .eq('is_private', false)
-        .not('content', 'is', null)
-        .neq('content', '')
-        .order('created_at', { ascending: false })
-        .limit(3)
-
-      console.log('Posts query result:', { postsData, postsError })
-
-      if (postsError) {
-        console.error('Error fetching posts:', postsError)
-      } else if (postsData && postsData.length > 0) {
-        // Get unique user IDs
-        const userIds = [...new Set(postsData.map(post => post.user_id).filter(Boolean))]
-        console.log('User IDs to fetch:', userIds)
-        
-        // Fetch profiles separately if we have user IDs
-        let profilesData: Array<{id: string, username: string | null, full_name: string | null}> = []
-        if (userIds.length > 0) {
-          const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, username, full_name')
-            .in('id', userIds)
-
-          console.log('Profiles query result:', { profiles, profilesError })
-          
-          if (!profilesError && profiles) {
-            profilesData = profiles
-          }
-        }
-
-        // Combine posts with profile data
-        communityPosts = postsData.map(post => {
-          const profile = profilesData.find(p => p.id === post.user_id)
-          return {
-            id: post.id,
-            content: post.content,
-            author: profile?.full_name || profile?.username || 'Community Member',
-            created_at: new Date(post.created_at).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit'
-            })
-          }
-        })
-
-        console.log('Final community posts:', communityPosts)
-      }
-    } catch (error) {
-      console.error('Error fetching community posts:', error)
-      // Fall back to empty array if posts can't be loaded
-    }
-
     const todaysTip: TodaysTip | null = tidbitData ? {
       day_number: tidbitData.day_number,
       title: tidbitData.title,
@@ -139,22 +71,6 @@ async function TodaysTidbit() {
       difficulty_level: tidbitData.difficulty_level || 1,
       estimated_time: tidbitData.estimated_time || 5
     } : null
-
-    const getDifficultyLabel = (level: number) => {
-      const labels = { 1: "Beginner", 2: "Easy", 3: "Medium", 4: "Hard", 5: "Advanced" }
-      return labels[level as keyof typeof labels] || "Beginner"
-    }
-
-    const getDifficultyColor = (level: number) => {
-      const colors = {
-        1: "bg-green-100 text-green-800 border-green-300",
-        2: "bg-blue-100 text-blue-800 border-blue-300", 
-        3: "bg-yellow-100 text-yellow-800 border-yellow-300",
-        4: "bg-orange-100 text-orange-800 border-orange-300",
-        5: "bg-red-100 text-red-800 border-red-300"
-      }
-      return colors[level as keyof typeof colors] || colors[1]
-    }
 
     if (!todaysTip) {
       return (
@@ -226,7 +142,7 @@ async function TodaysTidbit() {
           </video>
         </div>
 
-        <div className="mb-6 sm:mb-8 px-4 sm:px-0">
+        <div className="flex justify-center px-4 sm:px-0">
           <Link
             href={`/day/${todaysTip.day_number}`}
             className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full hover:shadow-2xl transform hover:scale-110 transition-all duration-300 font-bold text-lg sm:text-xl w-full sm:w-auto shadow-lg dance-button hover:animate-pulse"
@@ -234,52 +150,6 @@ async function TodaysTidbit() {
             <span>Walkthrough: {todaysTip.title}</span>
             <ArrowRight className="w-6 h-6 animate-pulse" />
           </Link>
-        </div>
-        
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 sm:p-6 rounded-xl border border-purple-200 mb-6 sm:mb-8">
-          <h3 className="text-lg sm:text-xl font-bold text-purple-900 mb-3 sm:mb-4 flex items-center gap-2">
-            <Users className="w-4 sm:w-5 h-4 sm:h-5" />
-            Community Examples
-          </h3>
-          {communityPosts.length > 0 ? (
-            <div className="space-y-3">
-              {communityPosts.map((post) => (
-                <div key={post.id} className="bg-white/70 p-3 sm:p-4 rounded-lg border border-purple-200">
-                  <p className="text-sm sm:text-base text-gray-700 mb-2">
-                    {post.content.length > 150 
-                      ? `${post.content.substring(0, 150)}...` 
-                      : post.content
-                    }
-                  </p>
-                  <div className="text-xs sm:text-sm text-purple-600 font-medium">
-                    — {post.author} • {post.created_at}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white/70 p-3 sm:p-4 rounded-lg border border-purple-200 text-center">
-              <p className="text-sm sm:text-base text-gray-600 mb-2">
-                No community posts yet for this tidbit.
-              </p>
-              <p className="text-xs text-purple-600">
-                Be the first to share your creation!
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-center px-4 sm:px-0">
-          {todaysTip.bitboard_url && (
-            <Link
-              href={todaysTip.bitboard_url}
-              className="inline-flex items-center justify-center gap-2 border-2 border-[#59B1E3] text-[#59B1E3] px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:bg-[#59B1E3] hover:text-white transition-all duration-200 font-semibold text-base sm:text-lg w-full sm:w-auto"
-            >
-              <Users className="w-4 sm:w-5 h-4 sm:h-5" />
-              <span>See Community Examples</span>
-              <ExternalLink className="w-3 sm:w-4 h-3 sm:h-4" />
-            </Link>
-          )}
         </div>
       </div>
     )
@@ -310,18 +180,31 @@ async function TodaysTidbit() {
 
 export default async function HomePage() {
   return (
-    <div className="min-h-screen bg-white">
-      <main>
+    <div className="min-h-screen bg-white relative overflow-hidden">
+      {/* Beach Background Image - MUCH MORE VISIBLE */}
+      <div 
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'url(https://cdn.dailytidbit.org/media/beach.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.6,
+          zIndex: 0
+        }}
+      />
+      
+      {/* Lighter gradient overlay for text readability */}
+      <div 
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(255,255,255,0.2) 100%)',
+          zIndex: 1
+        }}
+      />
+
+      <main className="relative" style={{ zIndex: 10 }}>
         <section className="py-12 sm:py-20 text-center relative">
-          <div 
-            className="absolute inset-0 opacity-60"
-            style={{
-              background: 'linear-gradient(to bottom right, #F3FCF8, #F0F9FD)',
-              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)'
-            }}
-          />
-          
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             {/* Today's Tidbit with Suspense for better loading */}
             <Suspense fallback={<TodaysTidbitSkeleton />}>
@@ -334,7 +217,7 @@ export default async function HomePage() {
         <CTASection />
 
         {/* Footer - kept simple for faster loading */}
-        <footer className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-12 sm:py-16">
+        <footer className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-12 sm:py-16 relative z-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
               <div>

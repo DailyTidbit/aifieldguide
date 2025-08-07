@@ -1,41 +1,38 @@
 // src/app/lib/field-guide-types.ts
+
 export interface FieldGuideSection {
   id: string
   section_number: number
   section_name: string
   slug: string
   intro?: string
-  use_cases?: string
   summary?: string
-  created_at: string
-  updated_at: string
+  use_cases?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface AITool {
   id: string
   name: string
-  category: string
   company?: string
-  description?: string
+  category: string
+  description: string
+  detailed_description?: string  // NEW: Added detailed_description field
   use_cases?: string
-  login_required: boolean
-  free_tier: boolean
-  paid_tier: boolean
-  website?: string
   access_notes?: string
-  created_at: string
+  website?: string
+  free_tier: boolean
+  login_required: boolean
+  created_at?: string
+  updated_at?: string
 }
 
-// Simplified tool details - just the description
-export interface ToolDetail {
-  id: string
-  tool_id: string
-  detailed_description: string
-  created_at: string
-  updated_at: string
-}
-
-// Combined tool with details
-export interface ToolWithDetails extends AITool {
-  details?: ToolDetail
-}
+// REMOVED: ToolDetail interface since detailed_description is now in AITool
+// export interface ToolDetail {
+//   id: string
+//   tool_id: string
+//   detailed_description: string
+//   created_at?: string
+//   updated_at?: string
+// }

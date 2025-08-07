@@ -8,18 +8,35 @@ import { useSection } from '../../hooks/useFieldGuide'
 import { AITool } from '../../lib/field-guide-types'
 import ToolModal from '../../components/ToolModal'
 
-// Helper functions
+// Helper functions - FINAL NAMES
 function getSectionEmoji(sectionName: string): string {
   const emojiMap: Record<string, string> = {
-    'Language Models': '💬',
+    // FINAL category names
+    'AI Assistants': '💬',
     'Image Generation': '🎨',
-    'Video Generation': '🎬',
-    'Voice Synthesis': '🎤',
-    'Image Editing': '🖼️',
-    'Video Editing & Avatars': '👤',
-    'Music & Audio Tools': '🎵',
-    'AI Agents & Automation': '🤖',
+    'Video Generation': '🎬', 
+    'Music Creation': '🎵',
+    'Photo & Image Tools': '🖼️',
+    'Video Editing': '🎞️',
+    'AI Avatars': '👤',
+    'Speech & Voice': '🎤',
+    'Creative Writing & Storytelling': '✍️',
+    'Productivity Tools': '⚡',
     'AI Search Tools': '🔍',
+    'Education & Learning': '📚',
+    'Coding Assistants': '💻',
+    'Automation Tools': '🤖',
+    
+    // OLD names (backward compatibility during migration)
+    'Language Models': '💬',
+    'Music': '🎵',
+    'Music & Audio Tools': '🎵',
+    'AI Photo & Image Editors': '🖼️',
+    'Image Editing': '🖼️',
+    'Video Editing & Avatars': '🎞️',
+    'Video Editing & AI Avatars': '🎞️',
+    'Voice Synthesis': '🎤',
+    'AI Agents & Automation': '🤖',
     'Educational & Learning Tools': '📚'
   }
   return emojiMap[sectionName] || '🤖'
@@ -27,15 +44,32 @@ function getSectionEmoji(sectionName: string): string {
 
 function getSectionColor(sectionName: string): string {
   const colorMap: Record<string, string> = {
-    'Language Models': '#60A875',
+    // FINAL category names
+    'AI Assistants': '#60A875',
     'Image Generation': '#59B1E3',
     'Video Generation': '#F7936F',
-    'Voice Synthesis': '#4A9B8E',
+    'Music Creation': '#F39C12',
+    'Photo & Image Tools': '#9B59B6',
+    'Video Editing': '#E74C3C',
+    'AI Avatars': '#8E44AD',
+    'Speech & Voice': '#4A9B8E',
+    'Creative Writing & Storytelling': '#8E44AD',
+    'Productivity Tools': '#27AE60',
+    'AI Search Tools': '#3498DB',
+    'Education & Learning': '#E67E22',
+    'Coding Assistants': '#3B82F6',
+    'Automation Tools': '#2ECC71',
+    
+    // OLD names (backward compatibility during migration)
+    'Language Models': '#60A875',
+    'Music': '#F39C12',
+    'Music & Audio Tools': '#F39C12',
+    'AI Photo & Image Editors': '#9B59B6',
     'Image Editing': '#9B59B6',
     'Video Editing & Avatars': '#E74C3C',
-    'Music & Audio Tools': '#F39C12',
+    'Video Editing & AI Avatars': '#E74C3C',
+    'Voice Synthesis': '#4A9B8E',
     'AI Agents & Automation': '#2ECC71',
-    'AI Search Tools': '#3498DB',
     'Educational & Learning Tools': '#E67E22'
   }
   return colorMap[sectionName] || '#60A875'

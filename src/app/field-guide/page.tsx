@@ -9,15 +9,32 @@ import { FieldGuideSection } from '../lib/field-guide-types'
 // Helper function to get emoji for each section
 function getSectionEmoji(sectionName: string): string {
   const emojiMap: Record<string, string> = {
-    'Language Models': '💬',
+    // FINAL category names
+    'AI Assistants': '💬',
     'Image Generation': '🎨',
-    'Video Generation': '🎬',
-    'Voice Synthesis': '🎤',
-    'Image Editing': '🖼️',
-    'Video Editing & Avatars': '👤',
-    'Music & Audio Tools': '🎵',
-    'AI Agents & Automation': '🤖',
+    'Video Generation': '🎬', 
+    'Music Creation': '🎵',
+    'Photo & Image Tools': '🖼️',
+    'Video Editing': '🎞️',
+    'AI Avatars': '👤',
+    'Speech & Voice': '🎤',
+    'Creative Writing & Storytelling': '✍️',
+    'Productivity Tools': '⚡',
     'AI Search Tools': '🔍',
+    'Education & Learning': '📚',
+    'Coding Assistants': '💻',
+    'Automation Tools': '🤖',
+    
+    // OLD names (backward compatibility during migration)
+    'Language Models': '💬',
+    'Music': '🎵',
+    'Music & Audio Tools': '🎵',
+    'AI Photo & Image Editors': '🖼️',
+    'Image Editing': '🖼️',
+    'Video Editing & Avatars': '🎞️',
+    'Video Editing & AI Avatars': '🎞️',
+    'Voice Synthesis': '🎤',
+    'AI Agents & Automation': '🤖',
     'Educational & Learning Tools': '📚'
   }
   return emojiMap[sectionName] || '🤖'
@@ -26,19 +43,54 @@ function getSectionEmoji(sectionName: string): string {
 // Helper function to get brand color for each section
 function getSectionColor(sectionName: string): string {
   const colorMap: Record<string, string> = {
-    'Language Models': '#60A875',
+    // FINAL category names
+    'AI Assistants': '#60A875',
     'Image Generation': '#59B1E3',
     'Video Generation': '#F7936F',
-    'Voice Synthesis': '#4A9B8E',
+    'Music Creation': '#F39C12',
+    'Photo & Image Tools': '#9B59B6',
+    'Video Editing': '#E74C3C',
+    'AI Avatars': '#8E44AD',
+    'Speech & Voice': '#4A9B8E',
+    'Creative Writing & Storytelling': '#8E44AD',
+    'Productivity Tools': '#27AE60',
+    'AI Search Tools': '#3498DB',
+    'Education & Learning': '#E67E22',
+    'Coding Assistants': '#3B82F6',
+    'Automation Tools': '#2ECC71',
+    
+    // OLD names (backward compatibility during migration)
+    'Language Models': '#60A875',
+    'Music': '#F39C12',
+    'Music & Audio Tools': '#F39C12',
+    'AI Photo & Image Editors': '#9B59B6',
     'Image Editing': '#9B59B6',
     'Video Editing & Avatars': '#E74C3C',
-    'Music & Audio Tools': '#F39C12',
+    'Video Editing & AI Avatars': '#E74C3C',
+    'Voice Synthesis': '#4A9B8E',
     'AI Agents & Automation': '#2ECC71',
-    'AI Search Tools': '#3498DB',
     'Educational & Learning Tools': '#E67E22'
   }
   return colorMap[sectionName] || '#60A875'
 }
+
+// Define the desired order of sections (FINAL ORDER)
+const SECTION_ORDER = [
+  'AI Assistants',
+  'Image Generation', 
+  'Video Generation',
+  'Music Creation',
+  'Photo & Image Tools',
+  'Video Editing',
+  'AI Avatars',
+  'Speech & Voice',
+  'Creative Writing & Storytelling',
+  'Productivity Tools',
+  'AI Search Tools',
+  'Education & Learning',
+  'Coding Assistants',
+  'Automation Tools'
+]
 
 export default function FieldGuidePage() {
   const { sections, totalTools, loading } = useFieldGuide()
@@ -47,6 +99,18 @@ export default function FieldGuidePage() {
   useEffect(() => {
     setIsVisible(true)
   }, [])
+
+  // Sort sections according to the defined order
+  const sortedSections = sections.sort((a, b) => {
+    const indexA = SECTION_ORDER.indexOf(a.section_name)
+    const indexB = SECTION_ORDER.indexOf(b.section_name)
+    
+    // If section not found in order array, put it at the end
+    if (indexA === -1) return 1
+    if (indexB === -1) return -1
+    
+    return indexA - indexB
+  })
 
   if (loading) {
     return (
@@ -87,7 +151,7 @@ export default function FieldGuidePage() {
           <div className="mt-12 grid grid-cols-2 md:grid-cols-3 gap-6 max-w-2xl mx-auto animate-fade-in-up delay-500">
             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
               <div className="text-3xl font-bold text-[#60A875]" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
-                {sections.length}
+                {sortedSections.length}
               </div>
               <div className="text-gray-600 font-medium">Categories</div>
             </div>
@@ -127,7 +191,7 @@ export default function FieldGuidePage() {
 
           {/* Categories Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {sections.map((section, index) => (
+            {sortedSections.map((section, index) => (
               <SectionCard 
                 key={section.id} 
                 section={section} 
@@ -151,14 +215,14 @@ export default function FieldGuidePage() {
             className="text-xl text-gray-700 mb-8 leading-relaxed"
             style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
           >
-            Jump into any section that interests you, or start from the beginning with Language Models — the foundation of modern AI.
+            Jump into any section that interests you, or start from the beginning with AI Assistants — the foundation of modern AI.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
-              href="/field-guide/language-models"
+              href="/field-guide/ai-assistants"
               className="bg-[#60A875] text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-green-600 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3 group"
             >
-              <span className="font-bold text-lg">Start with Language Models</span>
+              <span className="font-bold text-lg">Start with AI Assistants</span>
               <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
             </Link>
             <Link 

@@ -1,6 +1,6 @@
 // src/app/lib/field-guide-api.ts
 import { supabase } from './supabaseClient'
-import { FieldGuideSection, AITool, ToolDetail } from './field-guide-types'
+import { FieldGuideSection, AITool } from './field-guide-types'
 
 export class FieldGuideAPI {
   static async getAllSections(): Promise<FieldGuideSection[]> {
@@ -25,18 +25,36 @@ export class FieldGuideAPI {
   }
 
   // Map section names to the tool categories in your database
+  // This handles the final category names and provides backward compatibility
   static getCategoryForSection(sectionName: string): string {
     const mapping: Record<string, string> = {
-      'Language Models': 'Language Models',
+      // FINAL preferred names (after migration)
+      'AI Assistants': 'AI Assistants',
       'Image Generation': 'Image Generation',
-      'Video Generation': 'Video Generation', 
-      'Voice Synthesis': 'Voice Synthesis',
-      'Image Editing': 'Image Editing',
-      'Video Editing & Avatars': 'Video Editing & Avatars',
-      'Music & Audio Tools': 'Music', // Note: your DB has "Music" not "Music & Audio Tools"
-      'AI Agents & Automation': 'AI Agents & Automation',
+      'Video Generation': 'Video Generation',
+      'Music Creation': 'Music Creation',
+      'Photo & Image Tools': 'Photo & Image Tools',
+      'Video Editing': 'Video Editing',
+      'AI Avatars': 'AI Avatars',
+      'Speech & Voice': 'Speech & Voice',
+      'Creative Writing & Storytelling': 'Creative Writing & Storytelling',
+      'Productivity Tools': 'Productivity Tools',
       'AI Search Tools': 'AI Search Tools',
-      'Educational & Learning Tools': 'Education & Learning' // Note: your DB has "Education & Learning"
+      'Education & Learning': 'Education & Learning',
+      'Coding Assistants': 'Coding Assistants',
+      'Automation Tools': 'Automation Tools',
+      
+      // OLD names (backward compatibility during migration)
+      'Language Models': 'Language Models', // Will be updated to 'AI Assistants'
+      'Music': 'Music', // Will be updated to 'Music Creation'
+      'Music & Audio Tools': 'Music', // Maps to current ai_tools category
+      'AI Photo & Image Editors': 'AI Photo & Image Editors', // Will be updated
+      'Image Editing': 'AI Photo & Image Editors', // Current section name
+      'Video Editing & Avatars': 'Video Editing & AI Avatars', // Current section name
+      'Video Editing & AI Avatars': 'Video Editing & AI Avatars', // Current ai_tools category
+      'Voice Synthesis': 'Voice Synthesis', // Will be updated to 'Speech & Voice'
+      'AI Agents & Automation': 'AI Agents & Automation', // Will be updated to 'Automation Tools'
+      'Educational & Learning Tools': 'Education & Learning' // Current section name
     }
     return mapping[sectionName] || sectionName
   }
@@ -46,7 +64,7 @@ export class FieldGuideAPI {
     
     const { data, error } = await supabase
       .from('ai_tools')
-      .select('*')
+      .select('*') // This now includes detailed_description automatically
       .eq('category', category)
       .order('name', { ascending: true })
 
@@ -63,42 +81,38 @@ export class FieldGuideAPI {
     return count || 0
   }
 
-  // NEW: Get tool details
-  static async getToolDetails(toolId: string): Promise<ToolDetail | null> {
+  // Get single tool by ID (now includes detailed_description)
+  static async getToolById(toolId: string): Promise<AITool | null> {
     const { data, error } = await supabase
-      .from('tool_details')
+      .from('ai_tools')
       .select('*')
-      .eq('tool_id', toolId)
+      .eq('id', toolId)
       .single()
 
     if (error) {
-      console.log('No details found for tool:', toolId)
+      console.log('Tool not found:', toolId)
       return null
     }
     return data
   }
 
-  // NEW: Get tool with details
-  static async getToolWithDetails(toolId: string): Promise<{ tool: AITool; details: ToolDetail | null }> {
-    const [toolResult, detailsResult] = await Promise.all([
-      supabase.from('ai_tools').select('*').eq('id', toolId).single(),
-      this.getToolDetails(toolId)
-    ])
-
-    if (toolResult.error) throw toolResult.error
-    
-    return {
-      tool: toolResult.data,
-      details: detailsResult
-    }
-  }
-
-  // Added method for getting tools by category directly (for flexibility)
+  // Get tools by category directly (for flexibility)
   static async getToolsByCategory(category: string): Promise<AITool[]> {
     const { data, error } = await supabase
       .from('ai_tools')
-      .select('*')
+      .select('*') // This now includes detailed_description automatically
       .eq('category', category)
+      .order('name', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  }
+
+  // Get all tools (useful for search functionality)
+  static async getAllTools(): Promise<AITool[]> {
+    const { data, error } = await supabase
+      .from('ai_tools')
+      .select('*') // This now includes detailed_description automatically
       .order('name', { ascending: true })
 
     if (error) throw error
