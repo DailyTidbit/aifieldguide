@@ -1,4 +1,4 @@
-// app/components/FieldGuideSectionClient.tsx - UPDATED WITH CRT TV
+// app/components/FieldGuideSectionClient.tsx - CLEAN VERSION WITHOUT DUPLICATE HEADER
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
@@ -69,6 +69,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [currentChannel, setCurrentChannel] = useState('summary')
+  const [crtMode, setCrtMode] = useState(false) // CRT toggle state
   
   // Memoized filtered tools for better performance
   const filteredTools = useMemo(() => {
@@ -142,13 +143,46 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     trackEvent('navigate_back', { from_section: section.section_name })
   }, [trackEvent, section.section_name])
 
+  const handleCrtToggle = useCallback(() => {
+    setCrtMode(!crtMode)
+    trackEvent('crt_mode_toggle', {
+      section_name: section.section_name,
+      new_mode: !crtMode ? 'crt' : 'modern'
+    })
+  }, [crtMode, trackEvent, section.section_name])
+
   return (
     <>
-      {/* CRT TV Display - Just the TV component, no wrapper */}
-      <CRTSectionDisplay
+      {/* CRT Toggle Button - positioned to float over existing header */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-12">
+        <div className="flex justify-end -mt-16 mb-8">
+          <button
+            onClick={handleCrtToggle}
+            className={`
+              px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-[1.02] shadow-lg text-sm
+              ${crtMode 
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-purple-500/25' 
+                : 'bg-white/90 hover:bg-white text-gray-700 hover:shadow-xl border border-gray-200'
+              }
+            `}
+            style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base">📺</span>
+              <span className="text-xs font-bold">
+                {crtMode ? 'Exit 1990s' : '1990s Mode'}
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* CRT TV Display with mode toggle */}
+      <CRTSectionDisplay 
         section={section}
         sectionColor={sectionColor}
         sectionEmoji={sectionEmoji}
+        crtMode={crtMode}
         onChannelChange={handleChannelChange}
       />
 
@@ -412,19 +446,7 @@ const ToolCard = React.memo(function ToolCard({
               </div>
             </div>
 
-            {/* Access notes */}
-            {tool.access_notes && (
-              <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl">
-                <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-xs text-blue-700 font-medium">
-                    {tool.access_notes}
-                  </p>
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* Buttons */}
