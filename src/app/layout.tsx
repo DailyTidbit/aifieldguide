@@ -27,6 +27,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
+  // ✅ Added metadataBase for reliable OG/Twitter URL resolution
+  metadataBase: new URL("https://dailytidbit.org"),
+  
   title: "Daily Tidbit - AI for Real People",
   description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
   keywords: [
@@ -64,7 +67,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "https://cdn.dailytidbit.org/og-image.png", // You'll want to create this
+        url: "https://cdn.dailytidbit.org/og-image.png",
         width: 1200,
         height: 630,
         alt: "Daily Tidbit - AI for Real People",
@@ -77,7 +80,7 @@ export const metadata: Metadata = {
     title: "Daily Tidbit - AI for Real People",
     description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     images: ["https://cdn.dailytidbit.org/og-image.png"],
-    creator: "@dailytidbit", // Replace with your actual Twitter handle
+    creator: "@dailytidbit",
     site: "@dailytidbit",
   },
   alternates: {
@@ -103,11 +106,11 @@ export const metadata: Metadata = {
     "theme-color": "#60A875",
     "msapplication-TileColor": "#60A875",
     "msapplication-config": "/browserconfig.xml",
-    // PWA manifest
-    "msapplication-square70x70logo": "/icons/mstile-70x70.png",
-    "msapplication-square150x150logo": "/icons/mstile-150x150.png",
-    "msapplication-wide310x150logo": "/icons/mstile-310x150.png",
-    "msapplication-square310x310logo": "/icons/mstile-310x310.png",
+    // PWA manifest - remove this line to fix the 404 error
+    // "msapplication-square70x70logo": "/icons/mstile-70x70.png",
+    // "msapplication-square150x150logo": "/icons/mstile-150x150.png",
+    // "msapplication-wide310x150logo": "/icons/mstile-310x150.png",
+    // "msapplication-square310x310logo": "/icons/mstile-310x310.png",
   },
   // Icons for favicons and PWA
   icons: {
@@ -124,8 +127,8 @@ export const metadata: Metadata = {
       { url: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
     ],
   },
-  // Manifest for PWA
-  manifest: "/manifest.json",
+  // Manifest for PWA - comment out until you create the file
+  // manifest: "/manifest.json",
 };
 
 interface RootLayoutProps {
@@ -159,13 +162,14 @@ export default function RootLayout({ children }: RootLayoutProps) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
+              "@id": "https://dailytidbit.org#organization",
               "name": "Daily Tidbit",
               "url": "https://dailytidbit.org",
               "logo": "https://cdn.dailytidbit.org/logo.png",
               "description": "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
               "foundingDate": "2024",
               "sameAs": [
-                // Add your social media URLs here
+                // Add your social media URLs here when ready
                 // "https://twitter.com/dailytidbit",
                 // "https://linkedin.com/company/dailytidbit"
               ],

@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, Filter, X, ChevronDown, Loader2 } from 'lucide-react'
+import CTASection from '../components/CTASection' // Import the CTA component
 
 type Sort = 'newest' | 'oldest' | 'alphabetical' | 'reverse-alphabetical'
 
@@ -43,6 +44,9 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
     const [filters, setFilters] = useState<string[]>([])
     const [isLoading, setIsLoading] = useState<boolean>(false)
     const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
+
+    // ---- new state for CTA visibility
+    const [showCTA, setShowCTA] = useState<boolean>(false)
 
     // ---- filter categories (static for now)
     const filterCategories = useMemo(
@@ -127,21 +131,31 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
         if (!mounted.current) return
         fetchPage(1, true)
         track('filter_apply', { q, sort, filters })
+        // Reset CTA visibility when filters change
+        setShowCTA(false)
     }, [q, sort, filters, fetchPage])
 
-    // infinite scroll
+    // infinite scroll with CTA logic
     useEffect(() => {
         if (!sentinelRef.current) return
         const el = sentinelRef.current
         const io = new IntersectionObserver(
             ([entry]) => {
-                if (entry.isIntersecting && hasMore && !isLoading) fetchPage(page + 1)
+                if (entry.isIntersecting) {
+                    if (hasMore && !isLoading) {
+                        fetchPage(page + 1)
+                    } else if (!hasMore && !showCTA) {
+                        // User reached the bottom and there's no more content - show CTA
+                        setShowCTA(true)
+                        track('library_reached_bottom', { total_items: items.length })
+                    }
+                }
             },
             { rootMargin: '800px 0px 800px 0px' }
         )
         io.observe(el)
         return () => io.disconnect()
-    }, [page, hasMore, isLoading, fetchPage])
+    }, [page, hasMore, isLoading, fetchPage, showCTA, items.length])
 
     // dialog a11y: focus trap + Esc close
     useEffect(() => {
@@ -234,10 +248,6 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
                 </div>
             </section>
 
-
-
-
-
             {/* Grid */}
             <section aria-live="polite">
                 {items.length === 0 && !isLoading ? (
@@ -284,6 +294,13 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
                 <div className="mt-10 flex items-center justify-center">
                     <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
                     <span className="ml-2 text-sm text-gray-600">Loading…</span>
+                </div>
+            )}
+
+            {/* CTA Section - shows when user reaches bottom */}
+            {showCTA && (
+                <div className="mt-16 animate-fade-in-up">
+                    <CTASection variant="transparent" />
                 </div>
             )}
 

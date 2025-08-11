@@ -1,20 +1,21 @@
-// app/field-guide/[slug]/page.tsx - OPTIMIZED SERVER COMPONENT
+// app/field-guide/[slug]/page.tsx - UPDATED WITH INTEGRATED CRT TV
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { FieldGuideServerAPI } from '../../lib/field-guide-server'
 import FieldGuideSectionClient from '../../components/FieldGuideSectionClient'
+import CRTSectionDisplay from '../../components/CRTSectionDisplay'
+import CTASection from '../../components/CTASection'
 
 // ISR caching
 export const revalidate = 600
 
 // Generate metadata with server data
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   try {
-    const [section, tools] = await Promise.all([
-      FieldGuideServerAPI.getSectionBySlug(params.slug),
-      FieldGuideServerAPI.getToolsForSection('')
-    ])
+    // ✅ Fixed: Await params before using
+    const { slug } = await params
+    const section = await FieldGuideServerAPI.getSectionBySlug(slug)
 
     if (!section) {
       return {
@@ -28,7 +29,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     
     return {
       title: `${emoji} ${section.section_name} - AI Tools & Guide | Daily Tidbit`,
-      description: section.intro || section.summary || `Explore ${sectionTools.length} AI tools for ${section.section_name.toLowerCase()}. Hand-picked tools with real-world use cases and detailed guides.`,
+      description: section.summary || section.intro || `Explore ${sectionTools.length} AI tools for ${section.section_name.toLowerCase()}. Hand-picked tools with real-world use cases and detailed guides.`,
       keywords: [
         section.section_name,
         'AI tools',
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       ],
       openGraph: {
         title: `${section.section_name} AI Tools & Guide`,
-        description: section.intro || `Comprehensive guide to ${section.section_name.toLowerCase()} AI tools`,
+        description: section.summary || section.intro || `Comprehensive guide to ${section.section_name.toLowerCase()} AI tools`,
         url: `https://dailytidbit.org/field-guide/${section.slug}`,
         images: [
           {
@@ -84,10 +85,13 @@ export async function generateStaticParams() {
 }
 
 // Server component
-export default async function SectionPage({ params }: { params: { slug: string } }) {
+export default async function SectionPage({ params }: { params: Promise<{ slug: string }> }) {
+  // ✅ Fixed: Await params at the top level so slug is available everywhere
+  const { slug } = await params
+  
   try {
     // Fetch section and tools server-side
-    const section = await FieldGuideServerAPI.getSectionBySlug(params.slug)
+    const section = await FieldGuideServerAPI.getSectionBySlug(slug)
     
     if (!section) {
       notFound()
@@ -106,12 +110,12 @@ export default async function SectionPage({ params }: { params: { slug: string }
     }
 
     return (
-      <div className="min-h-screen">
-        {/* Server-rendered header for instant paint + SEO */}
-        <section className="bg-gradient-to-br from-green-200 via-green-100 to-blue-200 px-6 md:px-12 py-20">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        {/* Enhanced Header Section with CRT TV Integration */}
+        <section className="px-6 md:px-12 py-12 bg-gradient-to-br from-green-50 to-green-100">
           <div className="max-w-6xl mx-auto">
             {/* Enhanced Breadcrumb */}
-            <nav className="mb-12" aria-label="Breadcrumb">
+            <nav className="mb-8" aria-label="Breadcrumb">
               <div className="flex items-center space-x-3 text-lg md:text-xl">
                 <Link 
                   href="/field-guide" 
@@ -137,38 +141,25 @@ export default async function SectionPage({ params }: { params: { slug: string }
             {/* Section Header */}
             <div className="text-center mb-16">
               <h1 
-                className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8 flex items-center justify-center gap-6"
+                className="heading-hero text-4xl md:text-5xl lg:text-6xl leading-tight mb-8 flex items-center justify-center gap-4"
                 style={{
                   fontFamily: "var(--font-playfair, 'Playfair Display'), serif", 
                   fontWeight: 700,
                   color: sectionColor
                 }}
               >
-                <span className="text-6xl md:text-7xl lg:text-8xl" aria-hidden="true">{sectionEmoji}</span>
+                <span className="text-5xl md:text-6xl lg:text-7xl" aria-hidden="true">{sectionEmoji}</span>
                 {section.section_name}
               </h1>
-              
-              {section.intro && (
-                <div 
-                  className="body-large text-xl md:text-2xl text-gray-800 leading-relaxed max-w-4xl mx-auto mb-8 bg-white/30 backdrop-blur-sm rounded-2xl p-8 shadow-lg"
-                  style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-                >
-                  <p>{section.intro}</p>
-                </div>
-              )}
-
-              {/* Tools count */}
-              <div className="bg-white/60 backdrop-blur-sm rounded-xl px-6 py-3 inline-block shadow-sm">
-                <p className="text-gray-700 font-medium">
-                  <span className="font-bold text-xl" style={{ color: sectionColor }}>{tools.length}</span> tools available
-                </p>
-              </div>
             </div>
+
+            {/* CRT TV directly in the gradient section */}
+            <FieldGuideSectionClient initialData={initialData} />
           </div>
         </section>
 
-        {/* Pass server data to client component for interactivity */}
-        <FieldGuideSectionClient initialData={initialData} />
+        {/* CTA Section */}
+        <CTASection variant="transparent" />
 
         {/* Structured data for SEO */}
         <script
@@ -176,21 +167,30 @@ export default async function SectionPage({ params }: { params: { slug: string }
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "WebPage",
+              "@type": ["WebPage", "CollectionPage"],
+              "@id": `https://dailytidbit.org/field-guide/${section.slug}`,
               "name": `${section.section_name} AI Tools`,
-              "description": section.intro || section.summary,
+              "description": section.summary || section.intro,
               "url": `https://dailytidbit.org/field-guide/${section.slug}`,
+              "inLanguage": "en",
+              "isPartOf": {
+                "@type": "WebSite",
+                "@id": "https://dailytidbit.org",
+                "name": "Daily Tidbit"
+              },
               "breadcrumb": {
                 "@type": "BreadcrumbList",
                 "itemListElement": [
                   {
                     "@type": "ListItem",
+                    "@id": "https://dailytidbit.org/field-guide#breadcrumb1",
                     "position": 1,
                     "name": "Field Guide",
                     "item": "https://dailytidbit.org/field-guide"
                   },
                   {
                     "@type": "ListItem",
+                    "@id": `https://dailytidbit.org/field-guide/${section.slug}#breadcrumb2`,
                     "position": 2,
                     "name": section.section_name,
                     "item": `https://dailytidbit.org/field-guide/${section.slug}`
@@ -208,6 +208,7 @@ export default async function SectionPage({ params }: { params: { slug: string }
                 "numberOfItems": tools.length,
                 "itemListElement": tools.map((tool, index) => ({
                   "@type": "SoftwareApplication",
+                  "@id": `https://dailytidbit.org/field-guide/${section.slug}#tool-${tool.id}`,
                   "position": index + 1,
                   "name": tool.name,
                   "description": tool.description,
@@ -230,7 +231,7 @@ export default async function SectionPage({ params }: { params: { slug: string }
     
     // Fallback for errors
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-200 via-green-100 to-blue-200">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
         <div className="max-w-6xl mx-auto px-6 py-20">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Section Temporarily Unavailable</h1>
@@ -239,7 +240,7 @@ export default async function SectionPage({ params }: { params: { slug: string }
             </p>
             <div className="flex gap-4 justify-center">
               <a 
-                href={`/field-guide/${params.slug}`}
+                href={`/field-guide/${slug}`}
                 className="px-6 py-3 bg-[#60A875] text-white rounded-xl hover:bg-green-600 transition-colors"
               >
                 Refresh Page

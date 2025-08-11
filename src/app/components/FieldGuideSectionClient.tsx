@@ -1,9 +1,10 @@
-// app/components/FieldGuideSectionClient.tsx - MINIMAL CLIENT COMPONENT
+// app/components/FieldGuideSectionClient.tsx - UPDATED WITH CRT TV
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import ToolModal from './ToolModal'
+import CRTSectionDisplay from './CRTSectionDisplay'
 
 // Types
 interface FieldGuideSection {
@@ -14,6 +15,12 @@ interface FieldGuideSection {
   intro?: string
   summary?: string
   use_cases?: string
+  how_they_work?: string
+  what_you_can_do?: string
+  better_results?: string
+  strengths?: string
+  limitations?: string
+  pro_tips?: string
 }
 
 interface AITool {
@@ -45,21 +52,48 @@ const loadAnalytics = () => import('../lib/gtag')
 export default function FieldGuideSectionClient({ initialData }: SectionClientProps) {
   const { section, tools, sectionColor, sectionEmoji } = initialData
   
+  // Safety check - if section data is missing, show error state
+  if (!section) {
+    return (
+      <div className="text-center py-20">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
+          <h3 className="text-xl font-semibold text-red-800 mb-2">Section Data Missing</h3>
+          <p className="text-red-600">
+            Unable to load section information. Please try refreshing the page.
+          </p>
+        </div>
+      </div>
+    )
+  }
+  
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filteredTools, setFilteredTools] = useState<AITool[]>(tools)
+  const [currentChannel, setCurrentChannel] = useState('summary')
+  
+  // Memoized filtered tools for better performance
+  const filteredTools = useMemo(() => {
+    if (!searchQuery.trim()) return tools
+    
+    const query = searchQuery.toLowerCase()
+    return tools.filter(tool => 
+      tool.name.toLowerCase().includes(query) ||
+      tool.description?.toLowerCase().includes(query) ||
+      tool.company?.toLowerCase().includes(query) ||
+      tool.use_cases?.toLowerCase().includes(query)
+    )
+  }, [searchQuery, tools])
 
-  // Track analytics
-  const trackEvent = async (eventName: string, params: Record<string, any>) => {
+  // Track analytics with useCallback to prevent recreating function
+  const trackEvent = useCallback(async (eventName: string, params: Record<string, any>) => {
     try {
       const { logEvent } = await loadAnalytics()
       logEvent(eventName, params)
     } catch {
       // Analytics not critical - fail silently
     }
-  }
+  }, [])
 
-  // Track page view and section interactions
+  // Track page view on mount
   useEffect(() => {
     setIsVisible(true)
     trackEvent('field_guide_section_view', {
@@ -67,31 +101,20 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       section_slug: section.slug,
       tools_count: tools.length
     })
-  }, [section.section_name, section.slug, tools.length])
+  }, [section.section_name, section.slug, tools.length, trackEvent])
 
-  // Search functionality
+  // Track search with debouncing effect built into useMemo
   useEffect(() => {
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      const filtered = tools.filter(tool => 
-        tool.name.toLowerCase().includes(query) ||
-        tool.description?.toLowerCase().includes(query) ||
-        tool.company?.toLowerCase().includes(query) ||
-        tool.use_cases?.toLowerCase().includes(query)
-      )
-      setFilteredTools(filtered)
-      
       trackEvent('field_guide_tool_search', {
         section_name: section.section_name,
         search_term: searchQuery,
-        results_count: filtered.length
+        results_count: filteredTools.length
       })
-    } else {
-      setFilteredTools(tools)
     }
-  }, [searchQuery, tools, section.section_name])
+  }, [searchQuery, section.section_name, filteredTools.length, trackEvent])
 
-  const handleToolClick = (tool: AITool, action: 'modal' | 'website') => {
+  const handleToolClick = useCallback((tool: AITool, action: 'modal' | 'website') => {
     trackEvent('tool_interaction', {
       tool_name: tool.name,
       tool_id: tool.id,
@@ -100,12 +123,37 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       has_free_tier: tool.free_tier,
       requires_login: tool.login_required
     })
-  }
+  }, [trackEvent, section.section_name])
+
+  const handleChannelChange = useCallback((channel: string) => {
+    setCurrentChannel(channel)
+    trackEvent('crt_channel_change', {
+      section_name: section.section_name,
+      channel: channel,
+      from_channel: currentChannel
+    })
+  }, [trackEvent, section.section_name, currentChannel])
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('')
+  }, [])
+
+  const handleNavigateBack = useCallback(() => {
+    trackEvent('navigate_back', { from_section: section.section_name })
+  }, [trackEvent, section.section_name])
 
   return (
     <>
+      {/* CRT TV Display - Just the TV component, no wrapper */}
+      <CRTSectionDisplay
+        section={section}
+        sectionColor={sectionColor}
+        sectionEmoji={sectionEmoji}
+        onChannelChange={handleChannelChange}
+      />
+
       {/* Tools Section */}
-      <section className="bg-white px-6 md:px-12 py-20">
+      <section id="tools-section" className="bg-white px-6 md:px-12 py-20">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-16">
@@ -183,7 +231,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                     No tools match "{searchQuery}". Try a different search term.
                   </p>
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={handleClearSearch}
                     className="px-6 py-3 text-white rounded-xl hover:opacity-90 transition-opacity"
                     style={{ backgroundColor: sectionColor }}
                   >
@@ -219,7 +267,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                   <Link
                     href="/field-guide"
                     className="inline-flex items-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-10 py-5 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg group text-lg"
-                    onClick={() => trackEvent('navigate_back', { from_section: section.section_name })}
+                    onClick={handleNavigateBack}
                   >
                     <span>Explore Other Categories</span>
                     <svg className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,124 +280,12 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
           )}
         </div>
       </section>
-
-      {/* Use Cases Section */}
-      {section.use_cases && (
-        <section className="bg-gray-100 px-6 md:px-12 py-20">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 
-                className="text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6"
-                style={{
-                  fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
-                  color: sectionColor
-                }}
-              >
-                <span className="text-4xl md:text-5xl" aria-hidden="true">💡</span>
-                What You Can Do
-              </h2>
-              
-              <div className="w-32 h-2 mx-auto rounded-full" style={{ backgroundColor: sectionColor }}></div>
-            </div>
-            
-            <div className="bg-white rounded-3xl p-8 md:p-12 shadow-xl border border-gray-200 relative">
-              <div 
-                className="absolute top-0 left-0 w-full h-3 rounded-t-3xl"
-                style={{ backgroundColor: sectionColor }}
-              ></div>
-              
-              <div 
-                className="text-lg md:text-xl text-gray-700 leading-relaxed space-y-6 whitespace-pre-line"
-                style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-              >
-                {section.use_cases.split('\n\n').map((paragraph, index) => (
-                  <p key={index} className="text-gray-700 leading-relaxed">
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Summary Section */}
-      {section.summary && (
-        <section className="bg-gray-200 px-6 md:px-12 py-20">
-          <div className="max-w-5xl mx-auto text-center">
-            <div className="text-center mb-16">
-              <h2 
-                className="text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6"
-                style={{
-                  fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
-                  color: sectionColor
-                }}
-              >
-                <span className="text-4xl md:text-5xl" aria-hidden="true">🎯</span>
-                Key Takeaways
-              </h2>
-              
-              <div className="w-32 h-2 mx-auto rounded-full mb-12" style={{ backgroundColor: sectionColor }}></div>
-            </div>
-            
-            <div className="bg-white rounded-3xl p-8 md:p-12 shadow-xl border border-gray-200 relative">
-              <div 
-                className="absolute top-0 left-0 w-full h-3 rounded-t-3xl"
-                style={{ backgroundColor: sectionColor }}
-              ></div>
-              
-              <div 
-                className="text-lg md:text-xl text-gray-700 leading-relaxed space-y-6 whitespace-pre-line max-w-4xl mx-auto"
-                style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-              >
-                {section.summary.split('\n\n').map((paragraph, index) => (
-                  <p key={index} className="text-gray-700 leading-relaxed">
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Navigation */}
-      <section className="bg-white px-6 md:px-12 py-20 border-t border-gray-200">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl p-8 md:p-12 shadow-lg">
-            <h3 
-              className="text-3xl md:text-4xl font-bold mb-6 text-gray-800"
-              style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}
-            >
-              Ready to explore more?
-            </h3>
-            
-            <p 
-              className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed"
-              style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-            >
-              Discover other AI categories and find the perfect tools for your creative projects.
-            </p>
-            
-            <Link 
-              href="/field-guide"
-              className="inline-flex items-center bg-[#60A875] hover:bg-green-600 text-white px-12 py-6 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 group font-bold text-xl"
-              onClick={() => trackEvent('navigate_back', { from_section: section.section_name, location: 'bottom_cta' })}
-            >
-              <svg className="w-7 h-7 mr-4 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>Back to Field Guide</span>
-            </Link>
-          </div>
-        </div>
-      </section>
     </>
   )
 }
 
-// Tool Card Component
-function ToolCard({ 
+// Memoized Tool Card Component for better performance
+const ToolCard = React.memo(function ToolCard({ 
   tool, 
   sectionColor, 
   index,
@@ -362,6 +298,19 @@ function ToolCard({
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const delayClass = `delay-${Math.min(index * 100 + 300, 1200)}`
+  
+  const handleOpenModal = useCallback(() => {
+    setIsModalOpen(true)
+    onToolClick(tool, 'modal')
+  }, [tool, onToolClick])
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false)
+  }, [])
+
+  const handleWebsiteClick = useCallback(() => {
+    onToolClick(tool, 'website')
+  }, [tool, onToolClick])
   
   return (
     <>
@@ -482,10 +431,7 @@ function ToolCard({
           <div className="space-y-3">
             {/* Learn More Button */}
             <button
-              onClick={() => {
-                setIsModalOpen(true)
-                onToolClick(tool, 'modal')
-              }}
+              onClick={handleOpenModal}
               className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 group border border-gray-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -500,7 +446,7 @@ function ToolCard({
                 href={tool.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => onToolClick(tool, 'website')}
+                onClick={handleWebsiteClick}
                 className="w-full text-white px-6 py-3 rounded-xl font-bold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
                 style={{
                   background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
@@ -538,8 +484,11 @@ function ToolCard({
         tool={tool}
         sectionColor={sectionColor}
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
       />
     </>
   )
-}
+})
+
+// Add missing React import
+import React from 'react'

@@ -2,11 +2,12 @@
 import { Metadata } from 'next'
 import { FieldGuideServerAPI } from '../lib/field-guide-server'
 import FieldGuideClient from '../components/FieldGuideClient'
+import CTASection from '../components/CTASection'
 
 // ISR caching - revalidate every 10 minutes (field guide changes less frequently)
 export const revalidate = 600
 
-// Define section order
+// Define section order with stable sorting for unknowns
 const SECTION_ORDER = [
   'AI Assistants',
   'Image Generation', 
@@ -23,6 +24,25 @@ const SECTION_ORDER = [
   'Coding Assistants',
   'Automation Tools'
 ]
+
+// ✅ Improved sorting with stable fallback
+function sortSections(sections: any[]) {
+  return sections.sort((a, b) => {
+    const indexA = SECTION_ORDER.indexOf(a.section_name)
+    const indexB = SECTION_ORDER.indexOf(b.section_name)
+    
+    // If both not found, sort alphabetically for stable order
+    if (indexA === -1 && indexB === -1) {
+      return a.section_name.localeCompare(b.section_name)
+    }
+    
+    // If one not found, put it at the end
+    if (indexA === -1) return 1
+    if (indexB === -1) return -1
+    
+    return indexA - indexB
+  })
+}
 
 // Enhanced metadata with server-side data
 export async function generateMetadata(): Promise<Metadata> {
@@ -91,15 +111,7 @@ export default async function FieldGuidePage() {
     ])
 
     // Sort sections according to defined order
-    const sortedSections = sectionsWithCounts.sort((a, b) => {
-      const indexA = SECTION_ORDER.indexOf(a.section_name)
-      const indexB = SECTION_ORDER.indexOf(b.section_name)
-      
-      if (indexA === -1) return 1
-      if (indexB === -1) return -1
-      
-      return indexA - indexB
-    })
+    const sortedSections = sortSections(sectionsWithCounts)
 
     const initialData = {
       sections: sortedSections,
@@ -108,9 +120,9 @@ export default async function FieldGuidePage() {
     }
 
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
         {/* Server-rendered hero section for instant paint + SEO */}
-        <section className="bg-gradient-to-br from-green-200 via-green-100 to-blue-200 px-6 md:px-12 py-20">
+        <section className="px-6 md:px-12 py-20">
           <div className="max-w-6xl mx-auto text-center">
             <h1 
               className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8"
@@ -129,7 +141,7 @@ export default async function FieldGuidePage() {
             </div>
 
             {/* Server-rendered stats */}
-            <div className="mt-12 grid grid-cols-2 md:grid-cols-3 gap-6 max-w-2xl mx-auto">
+            <div className="mt-12 grid grid-cols-2 gap-6 max-w-lg mx-auto">
               <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
                 <div className="text-3xl font-bold text-[#60A875]" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
                   {sortedSections.length}
@@ -142,18 +154,15 @@ export default async function FieldGuidePage() {
                 </div>
                 <div className="text-gray-600 font-medium">AI Tools</div>
               </div>
-              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg col-span-2 md:col-span-1">
-                <div className="text-3xl font-bold text-[#F7936F]" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
-                  100%
-                </div>
-                <div className="text-gray-600 font-medium">Free Guide</div>
-              </div>
             </div>
           </div>
         </section>
 
         {/* Pass server data to client component */}
         <FieldGuideClient initialData={initialData} />
+
+        {/* CTA Section */}
+        <CTASection variant="transparent" />
 
         {/* Structured data for SEO */}
         <script
@@ -176,6 +185,7 @@ export default async function FieldGuidePage() {
                 "numberOfItems": sortedSections.length,
                 "itemListElement": sortedSections.map((section, index) => ({
                   "@type": "ListItem",
+                  "@id": `https://dailytidbit.org/field-guide/${section.slug}#listitem`,
                   "position": index + 1,
                   "name": section.section_name,
                   "description": section.summary || section.intro,
@@ -192,7 +202,7 @@ export default async function FieldGuidePage() {
     
     // Fallback for errors - still server-rendered
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-200 via-green-100 to-blue-200">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
         <div className="max-w-6xl mx-auto px-6 py-20">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Field Guide Temporarily Unavailable</h1>
