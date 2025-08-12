@@ -1,4 +1,4 @@
-// app/field-guide/page.tsx - OPTIMIZED SERVER COMPONENT
+// app/field-guide/page.tsx - TIGHTENED SPACING & REMOVED DESCRIPTIVE TEXT
 import { Metadata } from 'next'
 import { FieldGuideServerAPI } from '../lib/field-guide-server'
 import FieldGuideClient from '../components/FieldGuideClient'
@@ -121,8 +121,8 @@ export default async function FieldGuidePage() {
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
-        {/* Server-rendered hero section for instant paint + SEO */}
-        <section className="px-6 md:px-12 py-20">
+        {/* ✅ TIGHTENED HERO SECTION - Removed descriptive text & reduced spacing */}
+        <section className="px-6 md:px-12 py-12 md:py-16">
           <div className="max-w-6xl mx-auto text-center">
             <h1 
               className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8"
@@ -130,18 +130,9 @@ export default async function FieldGuidePage() {
             >
               <span className="text-[#60A875]">🧭</span> Your <span className="text-[#59B1E3]">AI Field Guide</span>
             </h1>
-            
-            <div className="space-y-6 body-large text-xl md:text-2xl text-gray-800 leading-relaxed max-w-4xl mx-auto">
-              <p>
-                <strong>Everything you need to know about AI tools — organized, explained, and ready to use.</strong>
-              </p>
-              <p>
-                From writing and creating to automating and learning, we've mapped out the AI landscape so you don't have to.
-              </p>
-            </div>
 
-            {/* Server-rendered stats */}
-            <div className="mt-12 grid grid-cols-2 gap-6 max-w-lg mx-auto">
+            {/* Server-rendered stats - moved closer to title */}
+            <div className="grid grid-cols-2 gap-6 max-w-lg mx-auto">
               <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
                 <div className="text-3xl font-bold text-[#60A875]" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
                   {sortedSections.length}

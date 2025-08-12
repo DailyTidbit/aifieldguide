@@ -1,10 +1,9 @@
-// app/field-guide/[slug]/page.tsx - UPDATED WITH INTEGRATED CRT TV
+// app/field-guide/[slug]/page.tsx - FIXED MOBILE NAVIGATION SPACING
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { FieldGuideServerAPI } from '../../lib/field-guide-server'
 import FieldGuideSectionClient from '../../components/FieldGuideSectionClient'
-import CRTSectionDisplay from '../../components/CRTSectionDisplay'
 import CTASection from '../../components/CTASection'
 
 // ISR caching
@@ -111,11 +110,11 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        {/* Enhanced Header Section with CRT TV Integration */}
-        <section className="px-6 md:px-12 py-12 bg-gradient-to-br from-green-50 to-green-100">
+        {/* Enhanced Header Section with proper mobile spacing */}
+        <section className="px-6 md:px-12 pt-12 pb-4 md:py-12 bg-gradient-to-br from-green-50 to-green-100">
           <div className="max-w-6xl mx-auto">
             {/* Enhanced Breadcrumb */}
-            <nav className="mb-8" aria-label="Breadcrumb">
+            <nav className="mb-6 md:mb-8" aria-label="Breadcrumb">
               <div className="flex items-center space-x-3 text-lg md:text-xl">
                 <Link 
                   href="/field-guide" 
@@ -138,23 +137,25 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
               </div>
             </nav>
 
-            {/* Section Header */}
-            <div className="text-center mb-16">
+            {/* Section Header - Reduced margin on mobile */}
+            <div className="text-center mb-6 md:mb-16">
               <h1 
-                className="heading-hero text-4xl md:text-5xl lg:text-6xl leading-tight mb-8 flex items-center justify-center gap-4"
+                className="heading-hero text-3xl md:text-4xl lg:text-6xl leading-tight mb-4 md:mb-8 flex items-center justify-center gap-3 md:gap-4"
                 style={{
                   fontFamily: "var(--font-playfair, 'Playfair Display'), serif", 
                   fontWeight: 700,
                   color: sectionColor
                 }}
               >
-                <span className="text-5xl md:text-6xl lg:text-7xl" aria-hidden="true">{sectionEmoji}</span>
-                {section.section_name}
+                <span className="text-4xl md:text-5xl lg:text-7xl" aria-hidden="true">{sectionEmoji}</span>
+                <span className="break-words">{section.section_name}</span>
               </h1>
             </div>
 
-            {/* CRT TV directly in the gradient section */}
-            <FieldGuideSectionClient initialData={initialData} />
+            {/* Component with mobile-friendly spacing */}
+            <div className="md:pt-0">
+              <FieldGuideSectionClient initialData={initialData} />
+            </div>
           </div>
         </section>
 

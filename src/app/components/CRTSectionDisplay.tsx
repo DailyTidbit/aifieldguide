@@ -1,4 +1,4 @@
-// app/components/CRTSectionDisplay.tsx - ENHANCED WITH MODE TOGGLE
+// app/components/CRTSectionDisplay.tsx - FIXED MOBILE NAVIGATION
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
@@ -31,6 +31,7 @@ interface CRTSectionDisplayProps {
   sectionColor: string
   sectionEmoji: string
   crtMode?: boolean
+  currentChannel?: string
   onChannelChange?: (channel: string) => void
 }
 
@@ -39,6 +40,7 @@ export default function CRTSectionDisplay({
   sectionColor, 
   sectionEmoji,
   crtMode = false,
+  currentChannel = 'summary',
   onChannelChange 
 }: CRTSectionDisplayProps) {
   // Safety check - if no section data, don't render
@@ -50,13 +52,18 @@ export default function CRTSectionDisplay({
     )
   }
 
-  const [activeChannel, setActiveChannel] = useState<string>('summary')
+  const [activeChannel, setActiveChannel] = useState<string>(currentChannel)
   const [isBooting, setIsBooting] = useState(true)
   const [tvOn, setTvOn] = useState(false)
   const [scanlines, setScanlines] = useState(true)
   const [volumeClickCount, setVolumeClickCount] = useState(0)
   const [showEasterEgg, setShowEasterEgg] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Sync with parent component's currentChannel
+  useEffect(() => {
+    setActiveChannel(currentChannel)
+  }, [currentChannel])
 
   // Update time every second when easter egg is shown
   useEffect(() => {
@@ -168,6 +175,29 @@ export default function CRTSectionDisplay({
         setActiveChannel(channelId)
         onChannelChange?.(channelId)
       }
+      
+      // 📱 Mobile: Scroll to top of content when channel changes
+      if (window.innerWidth < 768) { // Mobile breakpoint
+        // Find the content section and scroll to it smoothly
+        const contentElement = document.querySelector('[data-content-section]')
+        if (contentElement) {
+          // Scroll to show the header section by going a bit higher
+          const elementTop = contentElement.getBoundingClientRect().top + window.pageYOffset
+          const offset = 180 // Scroll 180px higher to show the navigation and header
+          
+          window.scrollTo({ 
+            top: elementTop - offset, 
+            behavior: 'smooth' 
+          })
+        } else {
+          // Fallback: scroll to top of page
+          window.scrollTo({ 
+            top: 0, 
+            behavior: 'smooth' 
+          })
+        }
+      }
+      
       return
     }
 
@@ -212,33 +242,81 @@ export default function CRTSectionDisplay({
   return (
     <div className="max-w-6xl mx-auto">
 
-      {/* Channel Selection Buttons */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
-        {channels.map((channel) => (
+      {/* Mobile Navigation - ALWAYS show on mobile, positioned below main nav */}
+      <div className="md:hidden sticky top-16 left-0 right-0 z-30 bg-gradient-to-br from-green-50 to-green-100 shadow-lg -mx-6 px-6 py-4 mb-8" style={{ marginTop: '0px' }}>
+        <div className="flex overflow-x-auto gap-3 scrollbar-hide">
+          {/* Summary tab first */}
           <button
-            key={channel.id}
-            onClick={() => handleChannelChange(channel.id)}
-            disabled={crtMode && (!tvOn || isBooting)}
+            onClick={() => handleChannelChange('summary')}
             className={`
-              px-6 py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-[1.02] shadow-lg
-              ${activeChannel === channel.id 
-                ? 'text-white shadow-xl' 
-                : 'bg-white/80 hover:bg-white text-gray-700 hover:shadow-xl'
+              flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full font-semibold transition-all duration-300
+              ${activeChannel === 'summary'
+                ? 'text-white shadow-lg' 
+                : 'bg-white/80 text-gray-700 shadow-md'
               }
-              ${crtMode && (!tvOn || isBooting) ? 'opacity-50 cursor-not-allowed' : ''}
             `}
             style={{
-              backgroundColor: activeChannel === channel.id ? sectionColor : undefined,
+              backgroundColor: activeChannel === 'summary' ? sectionColor : undefined,
               fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
             }}
           >
-            <div className="flex items-center justify-center gap-3">
-              <span className="text-xl">{channel.icon}</span>
-              <span className="text-sm font-bold">{channel.label}</span>
-            </div>
+            <span className="text-base">📺</span>
+            <span className="text-xs font-bold whitespace-nowrap">Overview</span>
           </button>
-        ))}
+          
+          {/* Channel tabs */}
+          {channels.map((channel) => (
+            <button
+              key={channel.id}
+              onClick={() => handleChannelChange(channel.id)}
+              className={`
+                flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full font-semibold transition-all duration-300
+                ${activeChannel === channel.id 
+                  ? 'text-white shadow-lg' 
+                  : 'bg-white/80 text-gray-700 shadow-md'
+                }
+              `}
+              style={{
+                backgroundColor: activeChannel === channel.id ? sectionColor : undefined,
+                fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
+              }}
+            >
+              <span className="text-base">{channel.icon}</span>
+              <span className="text-xs font-bold whitespace-nowrap">{channel.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Desktop Channel Selection - Only show when NOT mobile and NOT in CRT mode */}
+      {!crtMode && (
+        <div className="hidden md:block mb-12 max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {channels.map((channel) => (
+              <button
+                key={channel.id}
+                onClick={() => handleChannelChange(channel.id)}
+                className={`
+                  px-6 py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-[1.02] shadow-lg
+                  ${activeChannel === channel.id 
+                    ? 'text-white shadow-xl' 
+                    : 'bg-white/80 hover:bg-white text-gray-700 hover:shadow-xl'
+                  }
+                `}
+                style={{
+                  backgroundColor: activeChannel === channel.id ? sectionColor : undefined,
+                  fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
+                }}
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-xl">{channel.icon}</span>
+                  <span className="text-sm font-bold">{channel.label}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Conditional Display: CRT TV or Modern Text Box */}
       {crtMode ? (
@@ -270,6 +348,25 @@ export default function CRTSectionDisplay({
           sectionColor={sectionColor}
         />
       )}
+
+      {/* Custom CSS for scrollable tabs */}
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        
+        @media (max-width: 768px) {
+          .scrollbar-hide {
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+      `}</style>
     </div>
   )
 }
@@ -285,24 +382,24 @@ function ModernTextDisplay({
   sectionColor: string
 }) {
   return (
-    <div className="max-w-5xl mx-auto mb-8">
+    <div className="max-w-5xl mx-auto mb-8" data-content-section>
       <div className="bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden">
         {/* Header */}
         <div 
-          className="px-12 py-8 text-white"
+          className="px-8 md:px-12 py-6 md:py-8 text-white"
           style={{ backgroundColor: sectionColor }}
         >
-          <div className="flex items-center gap-6">
-            <span className="text-5xl">{activeChannelData.icon}</span>
+          <div className="flex items-center gap-4 md:gap-6">
+            <span className="text-3xl md:text-5xl">{activeChannelData.icon}</span>
             <div>
               <h3 
-                className="text-3xl font-bold"
+                className="text-xl md:text-3xl font-bold"
                 style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}
               >
                 {activeChannelData.label}
               </h3>
               <p 
-                className="text-xl opacity-90 mt-2"
+                className="text-base md:text-xl opacity-90 mt-1 md:mt-2"
                 style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
               >
                 {section?.section_name || 'AI Tools Guide'}
@@ -312,17 +409,17 @@ function ModernTextDisplay({
         </div>
 
         {/* Content */}
-        <div className="px-12 py-10">
+        <div className="px-8 md:px-12 py-6 md:py-10">
           <div 
-            className="text-gray-800 text-xl leading-relaxed"
+            className="text-gray-800 text-lg md:text-xl leading-relaxed"
             style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
             dangerouslySetInnerHTML={{
               __html: activeChannelData.content
-                .replace(/\n\n/g, '</p><p class="mt-8">')
+                .replace(/\n\n/g, '</p><p class="mt-6 md:mt-8">')
                 .replace(/\n/g, '<br />')
                 .replace(/^/, '<p>')
                 .replace(/$/, '</p>')
-                .replace(/- (.*?)(?=<br|<\/p>)/g, '<span class="flex items-start gap-4 my-4"><span class="text-gray-600 mt-2 text-2xl">▶</span><span class="text-lg">$1</span></span>')
+                .replace(/- (.*?)(?=<br|<\/p>)/g, '<span class="flex items-start gap-3 md:gap-4 my-3 md:my-4"><span class="text-gray-600 mt-1 md:mt-2 text-lg md:text-2xl">▶</span><span class="text-base md:text-lg">$1</span></span>')
             }}
           />
         </div>
@@ -621,7 +718,7 @@ function CRTTVDisplay({
         )}
       </div>
 
-      {/* Custom CSS */}
+      {/* Scanlines animation CSS */}
       <style jsx>{`
         @keyframes scanlines {
           0% { transform: translateY(0); }

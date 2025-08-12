@@ -1,10 +1,11 @@
-// app/components/FieldGuideSectionClient.tsx - CLEAN VERSION WITHOUT DUPLICATE HEADER
+// app/components/FieldGuideSectionClient.tsx - SIMPLIFIED WITHOUT SWIPE GESTURES
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import ToolModal from './ToolModal'
 import CRTSectionDisplay from './CRTSectionDisplay'
+import React from 'react'
 
 // Types
 interface FieldGuideSection {
@@ -52,7 +53,7 @@ const loadAnalytics = () => import('../lib/gtag')
 export default function FieldGuideSectionClient({ initialData }: SectionClientProps) {
   const { section, tools, sectionColor, sectionEmoji } = initialData
   
-  // Safety check - if section data is missing, show error state
+  // Safety check
   if (!section) {
     return (
       <div className="text-center py-20">
@@ -66,10 +67,28 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     )
   }
   
+  const [isDesktop, setIsDesktop] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [currentChannel, setCurrentChannel] = useState('summary')
-  const [crtMode, setCrtMode] = useState(false) // CRT toggle state
+  const [crtMode, setCrtMode] = useState(false)
+  
+  // Simplified modal state - no navigation between tools
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedTool, setSelectedTool] = useState<AITool | null>(null)
+  const [isModalLoading, setIsModalLoading] = useState(false)
+
+  // Check if we're on desktop for CRT mode
+  useEffect(() => {
+    const checkIsDesktop = () => {
+      setIsDesktop(window.innerWidth >= 1024)
+    }
+    
+    checkIsDesktop()
+    window.addEventListener('resize', checkIsDesktop)
+    
+    return () => window.removeEventListener('resize', checkIsDesktop)
+  }, [])
   
   // Memoized filtered tools for better performance
   const filteredTools = useMemo(() => {
@@ -84,7 +103,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     )
   }, [searchQuery, tools])
 
-  // Track analytics with useCallback to prevent recreating function
+  // Track analytics with useCallback
   const trackEvent = useCallback(async (eventName: string, params: Record<string, any>) => {
     try {
       const { logEvent } = await loadAnalytics()
@@ -104,7 +123,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     })
   }, [section.section_name, section.slug, tools.length, trackEvent])
 
-  // Track search with debouncing effect built into useMemo
+  // Track search with debouncing effect
   useEffect(() => {
     if (searchQuery.trim()) {
       trackEvent('field_guide_tool_search', {
@@ -115,14 +134,42 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     }
   }, [searchQuery, section.section_name, filteredTools.length, trackEvent])
 
+  // Simplified modal handlers - single tool only
+  const handleOpenModal = useCallback((tool: AITool) => {
+    setIsModalLoading(true)
+    setSelectedTool(tool)
+    setIsModalOpen(true)
+    
+    // Simulate loading for smooth UX
+    setTimeout(() => {
+      setIsModalLoading(false)
+    }, 150)
+
+    trackEvent('tool_modal_open', {
+      tool_name: tool.name,
+      tool_id: tool.id,
+      section_name: section.section_name
+    })
+  }, [trackEvent, section.section_name])
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false)
+    setIsModalLoading(false)
+    setSelectedTool(null)
+    
+    trackEvent('tool_modal_close', {
+      section_name: section.section_name,
+      tool_name: selectedTool?.name
+    })
+  }, [trackEvent, section.section_name, selectedTool])
+
   const handleToolClick = useCallback((tool: AITool, action: 'modal' | 'website') => {
     trackEvent('tool_interaction', {
       tool_name: tool.name,
       tool_id: tool.id,
       action,
       section_name: section.section_name,
-      has_free_tier: tool.free_tier,
-      requires_login: tool.login_required
+      has_free_tier: tool.free_tier
     })
   }, [trackEvent, section.section_name])
 
@@ -153,9 +200,9 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
 
   return (
     <>
-      {/* CRT Toggle Button - positioned to float over existing header */}
+      {/* CRT Toggle Button - Desktop Only */}
       <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-12">
-        <div className="flex justify-end -mt-16 mb-8">
+        <div className="hidden lg:flex justify-end -mt-16 mb-8">
           <button
             onClick={handleCrtToggle}
             className={`
@@ -177,12 +224,13 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
         </div>
       </div>
 
-      {/* CRT TV Display with mode toggle */}
+      {/* CRT TV Display */}
       <CRTSectionDisplay 
         section={section}
         sectionColor={sectionColor}
         sectionEmoji={sectionEmoji}
-        crtMode={crtMode}
+        crtMode={crtMode && isDesktop}
+        currentChannel={currentChannel}
         onChannelChange={handleChannelChange}
       />
 
@@ -252,6 +300,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                   sectionColor={sectionColor}
                   index={index}
                   onToolClick={handleToolClick}
+                  onOpenModal={() => handleOpenModal(tool)}
                 />
               ))}
             </div>
@@ -312,205 +361,189 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
               )}
             </div>
           )}
+
+          {/* Back to Field Guide Link */}
+          <div className="text-center mt-20">
+            <Link
+              href="/field-guide"
+              className="inline-flex items-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-4 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg group text-lg"
+              onClick={handleNavigateBack}
+            >
+              <svg className="w-6 h-6 mr-3 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+              </svg>
+              <span>Back to Field Guide</span>
+            </Link>
+          </div>
         </div>
       </section>
+
+      {/* Simplified Modal - no gesture support */}
+      <ToolModal
+        tool={selectedTool}
+        sectionColor={sectionColor}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        isLoading={isModalLoading}
+      />
     </>
   )
 }
 
-// Memoized Tool Card Component for better performance
+// Updated Tool Card Component
 const ToolCard = React.memo(function ToolCard({ 
   tool, 
   sectionColor, 
   index,
-  onToolClick 
+  onToolClick,
+  onOpenModal
 }: { 
   tool: AITool; 
   sectionColor: string; 
   index: number;
   onToolClick: (tool: AITool, action: 'modal' | 'website') => void;
+  onOpenModal: () => void;
 }) {
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const delayClass = `delay-${Math.min(index * 100 + 300, 1200)}`
   
   const handleOpenModal = useCallback(() => {
-    setIsModalOpen(true)
+    onOpenModal()
     onToolClick(tool, 'modal')
-  }, [tool, onToolClick])
-
-  const handleCloseModal = useCallback(() => {
-    setIsModalOpen(false)
-  }, [])
+  }, [tool, onToolClick, onOpenModal])
 
   const handleWebsiteClick = useCallback(() => {
     onToolClick(tool, 'website')
   }, [tool, onToolClick])
   
   return (
-    <>
-      <div className={`group animate-fade-in-up ${delayClass}`}>
-        <article className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] border border-gray-100 h-full flex flex-col relative overflow-hidden">
-          
-          {/* Top accent bar */}
-          <div 
-            className="absolute top-0 left-0 w-full h-2 rounded-t-3xl"
-            style={{ backgroundColor: sectionColor }}
-          />
-          
-          {/* Header */}
-          <div className="mb-6">
-            <h3 
-              className="text-2xl font-bold mb-2 group-hover:text-opacity-80 transition-colors"
-              style={{
-                fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
-                color: sectionColor
-              }}
-            >
-              {tool.name}
-            </h3>
-            {tool.company && (
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <p className="text-sm text-gray-600 font-medium">
-                  by {tool.company}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Description */}
-          <p 
-            className="text-gray-700 leading-relaxed mb-6 flex-1 text-lg"
-            style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
+    <div className={`group animate-fade-in-up ${delayClass}`}>
+      <article className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] border border-gray-100 h-full flex flex-col relative overflow-hidden">
+        
+        {/* Top accent bar */}
+        <div 
+          className="absolute top-0 left-0 w-full h-2 rounded-t-3xl"
+          style={{ backgroundColor: sectionColor }}
+        />
+        
+        {/* Header */}
+        <div className="mb-6">
+          <h3 
+            className="text-2xl font-bold mb-2 group-hover:text-opacity-80 transition-colors"
+            style={{
+              fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+              color: sectionColor
+            }}
           >
-            {tool.description}
-          </p>
-
-          {/* Use Cases */}
-          {tool.use_cases && (
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Use Cases</span>
-              </div>
-              <p 
-                className="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-100 italic"
-                style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-              >
-                {tool.use_cases}
+            {tool.name}
+          </h3>
+          {tool.company && (
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <p className="text-sm text-gray-600 font-medium">
+                by {tool.company}
               </p>
             </div>
           )}
+        </div>
 
-          {/* Pricing Info */}
-          <div className="mb-6 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {tool.free_tier ? (
-                  <span className="inline-flex items-center bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    Free Tier
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                    </svg>
-                    Paid Only
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {tool.login_required ? (
-                  <span className="inline-flex items-center bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                    </svg>
-                    Login Required
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    No Login
-                  </span>
-                )}
-              </div>
-            </div>
+        {/* Description */}
+        <p 
+          className="text-gray-700 leading-relaxed mb-6 flex-1 text-lg"
+          style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
+        >
+          {tool.description}
+        </p>
 
-
-          </div>
-
-          {/* Buttons */}
-          <div className="space-y-3">
-            {/* Learn More Button */}
-            <button
-              onClick={handleOpenModal}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 group border border-gray-200"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        {/* Use Cases */}
+        {tool.use_cases && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              <span>Learn More</span>
-            </button>
+              <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Use Cases</span>
+            </div>
+            <p 
+              className="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-100 italic"
+              style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
+            >
+              {tool.use_cases}
+            </p>
+          </div>
+        )}
 
-            {/* CTA Button */}
-            {tool.website && (
-              <a
-                href={tool.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleWebsiteClick}
-                className="w-full text-white px-6 py-3 rounded-xl font-bold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
-                style={{
-                  background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}ee, ${sectionColor}cc)`
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`
-                }}
-              >
-                <span>Try {tool.name}</span>
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        {/* Pricing Info */}
+        <div className="mb-6">
+          <div className="flex items-center justify-center">
+            {tool.free_tier ? (
+              <span className="inline-flex items-center bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-semibold">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-              </a>
+                Free Tier Available
+              </span>
+            ) : (
+              <span className="inline-flex items-center bg-orange-100 text-orange-700 px-4 py-2 rounded-full text-sm font-semibold">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                Paid Only
+              </span>
             )}
           </div>
+        </div>
 
-          {/* Screen reader content */}
-          <div className="sr-only">
-            <h4>{tool.name}</h4>
-            {tool.company && <p>By {tool.company}</p>}
-            <p>{tool.description}</p>
-            {tool.use_cases && <p>Use cases: {tool.use_cases}</p>}
-            <p>Free tier: {tool.free_tier ? 'Yes' : 'No'}</p>
-            <p>Login required: {tool.login_required ? 'Yes' : 'No'}</p>
-            {tool.access_notes && <p>Access notes: {tool.access_notes}</p>}
-          </div>
-        </article>
-      </div>
+        {/* Buttons */}
+        <div className="space-y-3">
+          {/* Learn More Button */}
+          <button
+            onClick={handleOpenModal}
+            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 group border border-gray-200"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Learn More</span>
+          </button>
 
-      {/* Modal */}
-      <ToolModal
-        tool={tool}
-        sectionColor={sectionColor}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-      />
-    </>
+          {/* CTA Button */}
+          {tool.website && (
+            <a
+              href={tool.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleWebsiteClick}
+              className="w-full text-white px-6 py-3 rounded-xl font-bold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
+              style={{
+                background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}ee, ${sectionColor}cc)`
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`
+              }}
+            >
+              <span>Try {tool.name}</span>
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          )}
+        </div>
+
+        {/* Screen reader content */}
+        <div className="sr-only">
+          <h4>{tool.name}</h4>
+          {tool.company && <p>By {tool.company}</p>}
+          <p>{tool.description}</p>
+          {tool.use_cases && <p>Use cases: {tool.use_cases}</p>}
+          <p>Pricing: {tool.free_tier ? 'Free tier available' : 'Paid only'}</p>
+          {tool.access_notes && <p>Access notes: {tool.access_notes}</p>}
+        </div>
+      </article>
+    </div>
   )
 })
-
-// Add missing React import
-import React from 'react'
