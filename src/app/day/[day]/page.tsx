@@ -304,45 +304,131 @@ export default function DayPage({ params }: DayPageProps) {
             </div>
           </section>
 
-          {/* 🍍 The Daily Tidbit Formula */}
-          <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
-                <Target className="w-6 h-6" />
+          {/* Timeline Walkthrough Steps */}
+          <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-emerald-200/50 shadow-lg overflow-hidden relative">
+            {/* Decorative Background Elements */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-400/20 to-cyan-400/20 rounded-full blur-xl"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-10">
+                <div className="p-3 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 text-white shadow-lg">
+                  <Target className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent" style={{fontFamily: "'Playfair Display', serif"}}>
+                    Day {tidbit.day_number}'s Walkthrough Steps
+                  </h3>
+                  <p className="text-gray-600 text-sm mt-1">Follow this step-by-step journey to master today's skill</p>
+                </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
-                🍍 The Daily Tidbit Formula
-              </h3>
-            </div>
 
-            {/* Dynamic Steps from tidbit_steps table */}
-            <div className="space-y-6 mb-8">
-              {tidbitSteps.map((step, index) => (
-                <div key={step.id} className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-xl p-6 border border-[#60A875]/20">
-                  <div className="flex items-start gap-4">
-                    <div className="flex items-center justify-center w-8 h-8 bg-[#60A875] text-white rounded-full font-bold text-sm flex-shrink-0">
-                      {step.step_number}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-xl font-bold text-gray-900 mb-3" style={{fontFamily: "'Playfair Display', serif"}}>
-                        Step {step.step_number}
-                      </h4>
-                      <RichContent>{step.content}</RichContent>
+              {/* Timeline Steps */}
+              <div className="relative space-y-10 mb-12">
+                {/* Animated Timeline Line */}
+                <div className="absolute left-8 top-12 bottom-12 w-1 bg-gradient-to-b from-purple-400 via-pink-400 to-indigo-400 hidden sm:block rounded-full shadow-sm">
+                  <div className="absolute inset-0 bg-gradient-to-b from-purple-300 via-pink-300 to-indigo-300 rounded-full animate-pulse opacity-60"></div>
+                </div>
+                
+                {tidbitSteps.map((step, index) => (
+                  <div key={step.id} className="relative group">
+                    {/* Step Card with Enhanced Design */}
+                    <div className={`
+                      ${index % 2 === 0 
+                        ? 'bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 border-purple-200/50' 
+                        : 'bg-gradient-to-br from-white via-blue-50/30 to-cyan-50/30 border-blue-200/50'
+                      } 
+                      rounded-2xl p-8 border-2 shadow-lg hover:shadow-2xl transition-all duration-300
+                      sm:ml-20 group-hover:scale-[1.02] transform
+                      ${index % 2 === 0 ? 'hover:border-purple-300' : 'hover:border-blue-300'}
+                    `}>
+                      {/* Enhanced Step Number Badge */}
+                      <div className={`
+                        absolute -left-4 sm:-left-16 top-8 flex items-center justify-center w-16 h-16 
+                        ${index % 2 === 0 
+                          ? 'bg-gradient-to-br from-purple-500 via-pink-500 to-indigo-500' 
+                          : 'bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500'
+                        }
+                        text-white rounded-2xl font-bold text-xl shadow-2xl border-4 border-white
+                        transform transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3
+                      `}>
+                        {step.step_number}
+                      </div>
+
+                      {/* Step Content */}
+                      <div className="ml-16 sm:ml-0">
+                        {/* Title with Enhanced Icon */}
+                        <div className="flex items-start gap-4 mb-6">
+                          {step.icon && (
+                            <div className={`
+                              flex-shrink-0 text-4xl p-3 rounded-xl shadow-lg transform transition-transform duration-300 group-hover:scale-110
+                              ${index % 2 === 0 
+                                ? 'bg-gradient-to-br from-purple-100 to-pink-100' 
+                                : 'bg-gradient-to-br from-blue-100 to-cyan-100'
+                              }
+                            `}>
+                              {step.icon}
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <h4 className={`
+                              text-2xl sm:text-3xl font-bold leading-tight mb-2 
+                              ${index % 2 === 0 
+                                ? 'bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent' 
+                                : 'bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent'
+                              }
+                            `} style={{fontFamily: "'Playfair Display', serif"}}>
+                              {step.title}
+                            </h4>
+                            
+                            {/* Main Content with better typography */}
+                            <div className="text-gray-700 leading-relaxed text-lg">
+                              <RichContent>{step.content}</RichContent>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Enhanced Step Check Button */}
+                        <div className="mt-8 flex justify-end">
+                          <button
+                            onClick={() => {/* Handle individual step completion */}}
+                            className={`
+                              inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold text-white
+                              transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl
+                              ${index % 2 === 0 
+                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600' 
+                                : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                              }
+                            `}
+                          >
+                            <CheckCircle className="w-5 h-5" />
+                            Complete Step
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            {/* Completion Button - Mark walkthrough as complete */}
-            <div className="mt-8 text-center">
-              <button
-                onClick={handleWalkthroughComplete}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                <CheckCircle className="w-5 h-5" />
-                Mark as Complete
-              </button>
+              {/* Enhanced Final Completion Button */}
+              <div className="mt-16 text-center">
+                <div className="relative inline-block">
+                  {/* Glowing background effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-2xl blur-lg opacity-60 animate-pulse"></div>
+                  <button
+                    onClick={handleWalkthroughComplete}
+                    className="relative inline-flex items-center gap-4 px-12 py-6 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white rounded-2xl hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 transition-all duration-300 font-bold text-xl shadow-2xl hover:shadow-3xl transform hover:scale-110 border-2 border-white"
+                  >
+                    <CheckCircle className="w-8 h-8" />
+                    <span>🎉 Amazing! Mark as Complete</span>
+                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-bounce shadow-lg">
+                      ⭐
+                    </div>
+                  </button>
+                </div>
+                <p className="text-gray-600 mt-4 text-lg font-medium">You're doing great! Time to celebrate your progress!</p>
+              </div>
             </div>
           </section>
 
@@ -421,32 +507,43 @@ function RichContent({ children }: { children: string }) {
     }
   }
 
-  // Parse inline formatting like **bold**, *italic*, and links
+  // Parse inline formatting like **bold**, *italic*, <br> tags, and links
   const parseInlineFormatting = (text: string): React.ReactElement => {
-    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|https?:\/\/[^\s]+)/g)
+    // First, split by <br> tags to handle line breaks
+    const brParts = text.split('<br>')
     
     return (
       <>
-        {parts.map((part, i) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
-          } else if (part.startsWith('*') && part.endsWith('*')) {
-            return <em key={i} className="italic">{part.slice(1, -1)}</em>
-          } else if (part.startsWith('http')) {
-            return (
-              <a key={i} href={part} target="_blank" rel="noopener noreferrer" 
-                 className="text-[#59B1E3] hover:text-blue-700 underline underline-offset-2">
-                {part}
-              </a>
-            )
-          }
-          return <span key={i}>{part}</span>
-        })}
+        {brParts.map((brPart, brIndex) => (
+          <React.Fragment key={brIndex}>
+            {brIndex > 0 && <br />}
+            {(() => {
+              // Now handle other formatting within each part
+              const parts = brPart.split(/(\*\*.*?\*\*|\*.*?\*|https?:\/\/[^\s]+)/g)
+              
+              return parts.map((part, i) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
+                } else if (part.startsWith('*') && part.endsWith('*')) {
+                  return <em key={i} className="italic">{part.slice(1, -1)}</em>
+                } else if (part.startsWith('http')) {
+                  return (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" 
+                       className="text-[#59B1E3] hover:text-blue-700 underline underline-offset-2">
+                      {part}
+                    </a>
+                  )
+                }
+                return <span key={i}>{part}</span>
+              })
+            })()}
+          </React.Fragment>
+        ))}
       </>
     )
   }
 
-  // Detect numbered circle steps (①②③④⑤⑥⑦⑧⑨⑩)
+  // Detect numbered circle steps (① ②③④⑤⑥⑦⑧⑨⑩)
   const isNumberedStep = (line: string): boolean => {
     return /^[①②③④⑤⑥⑦⑧⑨⑩]/.test(line.trim())
   }
@@ -534,7 +631,7 @@ function RichContent({ children }: { children: string }) {
       return
     }
 
-    // Handle numbered circle steps (①②③④)
+    // Handle numbered circle steps (① ②③④)
     if (isNumberedStep(trimmed)) {
       const stepNum = getStepNumber(trimmed)
       const stepText = trimmed.replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
@@ -601,7 +698,7 @@ function RichContent({ children }: { children: string }) {
       elements.push(
         <div key={`url-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center my-6">
           <p className="font-mono text-blue-700 font-semibold text-lg">{trimmed}</p>
-          <p className="text-sm text-blue-600 mt-1">↑ Open this in your browser</p>
+          <p className="text-sm text-blue-600 mt-1">→ Open this in your browser</p>
         </div>
       )
       return

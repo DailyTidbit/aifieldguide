@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { Search, User, Menu, X, Bell, Sparkles, Compass } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Search, User, Menu, X, Sparkles, Compass } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '../lib/supabaseClient'
@@ -14,13 +13,11 @@ export default function Navigation() {
   const [searchQuery, setSearchQuery] = useState('')
   const [todaysTidbit, setTodaysTidbit] = useState<number | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
-  console.log('Navigation render - showAuthModal:', showAuthModal) // Debug log
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // Send users back to the current page after OAuth
+  const redirectTo = useMemo(() => (
+    typeof window !== 'undefined' ? window.location.href : null
+  ), [])
 
   useEffect(() => {
     // Get current user
@@ -28,7 +25,6 @@ export default function Navigation() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
     }
-    
     getUser()
 
     // Listen for auth changes
@@ -51,24 +47,15 @@ export default function Navigation() {
           .order('day_number', { ascending: false })
           .limit(1)
           .single()
-        
-        if (data) {
-          setTodaysTidbit(data.day_number)
-        }
+        if (data) setTodaysTidbit(data.day_number)
       } catch (error) {
-        console.error('Error fetching today\'s tidbit:', error)
+        console.error("Error fetching today's tidbit:", error)
       }
     }
-
     fetchTodaysTidbit()
 
     return () => subscription.unsubscribe()
   }, [])
-
-  // Debug useEffect to track showAuthModal changes
-  useEffect(() => {
-    console.log('Navigation showAuthModal changed to:', showAuthModal)
-  }, [showAuthModal])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,23 +70,14 @@ export default function Navigation() {
     window.location.reload()
   }
 
-  const handleAuthSuccess = () => {
-    // Optional: Add any success handling here
-    setShowAuthModal(false)
-  }
-
-  const openAuthModal = () => {
-    console.log('Opening auth modal, current state:', showAuthModal) // Debug log
-    setShowAuthModal(true)
-    console.log('Auth modal state set to true') // Debug log
-  }
+  const openAuthModal = () => setShowAuthModal(true)
 
   return (
     <>
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Left - Logo (repositioned and larger) */}
+            {/* Left - Logo */}
             <div className="flex items-center">
               <Link href="/" className="flex items-center hover:scale-105 transition-transform duration-200">
                 <Image
@@ -114,62 +92,40 @@ export default function Navigation() {
 
             {/* Center - Navigation Links */}
             <nav className="hidden lg:flex items-center space-x-8">
-              <Link 
-                href="/start-here" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group"
-              >
+              <Link href="/start-here" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group">
                 AI FOR REAL PEOPLE
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
               </Link>
 
-              {/* Field Guide Link */}
-              <Link 
-                href="/field-guide" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#59B1E3] relative group flex items-center gap-2"
-              >
+              <Link href="/field-guide" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#59B1E3] relative group flex items-center gap-2">
                 <Compass className="w-4 h-4" />
                 FIELD GUIDE
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#59B1E3] transition-all duration-300 group-hover:w-full"></span>
               </Link>
               
-              <Link 
-                href="/TidbitLibrary" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group"
-              >
+              <Link href="/TidbitLibrary" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group">
                 TIDBIT LIBRARY
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
               </Link>
-              
-              {/* Today's Tidbit - Eye-catching */}
+
               {todaysTidbit && (
-                <Link 
-                  href={`/day/${todaysTidbit}`}
-                  className="transition-all duration-300 hover:scale-105"
-                >
+                <Link href={`/day/${todaysTidbit}`} className="transition-all duration-300 hover:scale-105">
                   <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300">
                     <Sparkles className="w-4 h-4" />
                     <span>TODAY'S TIDBIT</span>
-                    <div className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">
-                      #{todaysTidbit}
-                    </div>
+                    <div className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">#{todaysTidbit}</div>
                   </div>
                 </Link>
               )}
-              
-              {/* BitBoard */}
-              <Link 
-                href="/bitboard" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group"
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-              >
+
+              <Link href="/bitboard" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                 BITBOARD
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
               </Link>
             </nav>
 
-            {/* Right Side - Search & Auth */}
+            {/* Right - Search & Auth */}
             <div className="flex items-center gap-4">
-              {/* Search Bar - Desktop */}
               <div className="hidden md:block relative">
                 <form onSubmit={handleSearch}>
                   <input
@@ -184,65 +140,35 @@ export default function Navigation() {
                   </div>
                 </form>
               </div>
-              
+
               {user ? (
                 <div className="relative group">
                   <button className="flex items-center gap-2 text-gray-700 hover:text-[#60A875] transition-colors">
                     <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
                       <User className="w-4 h-4" />
                     </div>
-                    <span className="hidden sm:inline font-medium text-sm">
-                      {user.email?.split('@')[0]}
-                    </span>
+                    <span className="hidden sm:inline font-medium text-sm">{user.email?.split('@')[0]}</span>
                   </button>
-                  
-                  {/* Dropdown */}
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                    <Link 
-                      href="/profile" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg"
-                    >
-                      Your Profile
-                    </Link>
-                    <Link 
-                      href="/settings" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      Settings
-                    </Link>
+                    <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg">Your Profile</Link>
+                    <Link href="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Settings</Link>
                     <hr className="my-1" />
-                    <button
-                      onClick={handleSignOut}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 last:rounded-b-lg"
-                    >
-                      Sign Out
-                    </button>
+                    <button onClick={handleSignOut} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 last:rounded-b-lg">Sign Out</button>
                   </div>
                 </div>
               ) : (
-                <button
-                  onClick={openAuthModal}
-                  className="bg-[#60A875] text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium text-sm"
-                >
-                  LOGIN
-                </button>
+                <button onClick={openAuthModal} className="bg-[#60A875] text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium text-sm">LOGIN</button>
               )}
 
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="lg:hidden p-2 text-gray-700 hover:text-[#60A875] transition-colors"
-              >
+              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="lg:hidden p-2 text-gray-700 hover:text-[#60A875] transition-colors">
                 {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           </div>
 
-          {/* Mobile Menu */}
           {isMenuOpen && (
             <div className="lg:hidden border-t border-gray-200 py-4">
               <div className="flex flex-col space-y-4">
-                {/* Mobile Search */}
                 <form onSubmit={handleSearch} className="md:hidden">
                   <div className="relative">
                     <input
@@ -258,40 +184,17 @@ export default function Navigation() {
                   </div>
                 </form>
 
-                {/* Mobile Navigation Links */}
-                <Link 
-                  href="/start-here" 
-                  className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  AI FOR REAL PEOPLE
-                </Link>
+                <Link href="/start-here" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" onClick={() => setIsMenuOpen(false)}>AI FOR REAL PEOPLE</Link>
 
-                {/* Mobile Field Guide Link */}
-                <Link 
-                  href="/field-guide" 
-                  className="block py-2 text-gray-700 hover:text-[#59B1E3] font-medium transition-colors duration-300 flex items-center gap-2"
-                  onClick={() => setIsMenuOpen(false)}
-                >
+                <Link href="/field-guide" className="block py-2 text-gray-700 hover:text-[#59B1E3] font-medium transition-colors duration-300 flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
                   <Compass className="w-4 h-4" />
                   FIELD GUIDE
                 </Link>
                 
-                <Link 
-                  href="/TidbitLibrary" 
-                  className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  TIDBIT LIBRARY
-                </Link>
+                <Link href="/TidbitLibrary" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" onClick={() => setIsMenuOpen(false)}>TIDBIT LIBRARY</Link>
 
-                {/* Mobile Today's Tidbit */}
                 {todaysTidbit && (
-                  <Link 
-                    href={`/day/${todaysTidbit}`}
-                    className="block py-2"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
+                  <Link href={`/day/${todaysTidbit}`} className="block py-2" onClick={() => setIsMenuOpen(false)}>
                     <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg">
                       <Sparkles className="w-4 h-4" />
                       <span>TODAY'S TIDBIT #{todaysTidbit}</span>
@@ -299,27 +202,10 @@ export default function Navigation() {
                   </Link>
                 )}
                 
-                {/* Mobile BitBoard */}
-                <Link 
-                  href="/bitboard" 
-                  className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300"
-                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  BITBOARD
-                </Link>
+                <Link href="/bitboard" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }} onClick={() => setIsMenuOpen(false)}>BITBOARD</Link>
 
-                {/* Mobile Auth */}
                 {!user && (
-                  <button
-                    onClick={() => {
-                      openAuthModal()
-                      setIsMenuOpen(false)
-                    }}
-                    className="w-full text-left py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300"
-                  >
-                    LOGIN / SIGN UP
-                  </button>
+                  <button onClick={() => { openAuthModal(); setIsMenuOpen(false) }} className="w-full text-left py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300">LOGIN / SIGN UP</button>
                 )}
               </div>
             </div>
@@ -327,6 +213,15 @@ export default function Navigation() {
         </div>
       </header>
 
+      {/* Auth modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => setShowAuthModal(false)}
+        title="Welcome to Daily Tidbit"
+        subtitle="Sign in to save, post, and use the Tutor"
+        redirectTo={redirectTo}
+      />
     </>
   )
 }

@@ -1,176 +1,86 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
-import ProfileSetupWizard from './ProfileSetupWizard'
+import { useEffect, useRef, useState } from 'react'
 import ModalAuthForm from './ModalAuthForm'
+import ProfileSetupWizard from './ProfileSetupWizard'
+import { supabase } from '../lib/supabaseClient'
 
 interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
+  redirectTo?: string | null
   title?: string
   subtitle?: string
 }
 
-export default function AuthModal({ 
-  isOpen, 
-  onClose, 
-  onSuccess,
-  title = "Welcome to Daily Tidbit",
-  subtitle = "Sign in to unlock all features"
-}: AuthModalProps) {
-  const [user, setUser] = useState<any>(null)
-  const [needsProfileSetup, setNeedsProfileSetup] = useState(false)
+export default function AuthModal({ isOpen, onClose, onSuccess, redirectTo, title = 'Sign in', subtitle }: AuthModalProps) {
+  const [showProfileSetup, setShowProfileSetup] = useState(false)
+  const [setupUserId, setSetupUserId] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement | null>(null)
 
-  console.log('AuthModal render - isOpen:', isOpen) // Debug log
-
+  // Focus trap + ESC + body scroll lock
   useEffect(() => {
     if (!isOpen) return
+    const dialog = dialogRef.current
+    if (!dialog) return
 
-    console.log('AuthModal useEffect - modal is open') // Debug log
+    const focusable = dialog.querySelectorAll<HTMLElement>('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])')
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
 
-    // Check current auth state when modal opens
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await handleSignIn(user)
-      }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Tab') return
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); (last as HTMLElement)?.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); (first as HTMLElement)?.focus() }
     }
 
-    checkUser()
+    first?.focus()
+    document.addEventListener('keydown', handleKeyDown)
+    document.body.classList.add('overflow-hidden')
+    return () => { document.removeEventListener('keydown', handleKeyDown); document.body.classList.remove('overflow-hidden') }
+  }, [isOpen, onClose])
 
-    // Listen for auth changes
+  // Listen for auth changes; decide whether to show wizard
+  useEffect(() => {
+    if (!isOpen) return
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        await handleSignIn(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null)
-        setNeedsProfileSetup(false)
+        setSetupUserId(session.user.id)
+        const { data } = await supabase.from('profiles').select('full_name').eq('id', session.user.id).maybeSingle()
+        const needsSetup = !data || !data.full_name
+        if (needsSetup) setShowProfileSetup(true)
+        else { onSuccess?.(); onClose() }
       }
     })
-
     return () => subscription.unsubscribe()
-  }, [isOpen])
+  }, [isOpen, onClose, onSuccess])
 
-  // Auto-close if user becomes authenticated and doesn't need setup
-  useEffect(() => {
-    if (user && !needsProfileSetup && isOpen) {
-      // Small delay to show the success state
-      const timer = setTimeout(() => {
-        onSuccess?.()
-        onClose()
-      }, 1500)
-      return () => clearTimeout(timer)
-    }
-  }, [user, needsProfileSetup, isOpen, onSuccess, onClose])
-
-  const handleSignIn = async (user: any) => {
-    setUser(user)
-    
-    // Check if user has completed profile setup
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name, username')
-      .eq('id', user.id)
-      .single()
-
-    // If no full_name, they need to complete setup
-    if (!profile?.full_name) {
-      setNeedsProfileSetup(true)
-    } else {
-      // User is fully set up, close modal and trigger success
-      setTimeout(() => {
-        onSuccess?.()
-        onClose()
-      }, 1000)
-    }
-  }
-
-  const handleProfileSetupComplete = () => {
-    setNeedsProfileSetup(false)
-    setTimeout(() => {
-      onSuccess?.()
-      onClose()
-    }, 1000)
-  }
-
-  const handleSkipSetup = () => {
-    setNeedsProfileSetup(false)
-    setTimeout(() => {
-      onSuccess?.()
-      onClose()
-    }, 500)
-  }
-
-  if (!isOpen) {
-    console.log('AuthModal not rendering - isOpen is false')
-    return null
-  }
-
-  console.log('AuthModal rendering modal content')
+  if (!isOpen) return null
 
   return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] transition-opacity"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
 
-          {/* Content */}
-          <div className="p-8">
-            {user && needsProfileSetup ? (
-              <ProfileSetupWizard
-                userId={user.id}
-                onComplete={handleProfileSetupComplete}
-                onSkip={handleSkipSetup}
-              />
-            ) : user ? (
-              // User is logged in and setup complete
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <span className="text-2xl">✅</span>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Welcome back!
-                </h3>
-                <p className="text-gray-600">
-                  You're successfully signed in.
-                </p>
-              </div>
-            ) : (
-              // Show streamlined auth form
-              <div>
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full mx-auto mb-4 flex items-center justify-center">
-                    <span className="text-2xl">✨</span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    {title}
-                  </h2>
-                  <p className="text-gray-600">
-                    {subtitle}
-                  </p>
-                </div>
-                <ModalAuthForm onSuccess={onSuccess} />
-              </div>
-            )}
-          </div>
-        </div>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" className="relative z-[71] w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h2 id="auth-modal-title" className="mb-1 text-center text-xl font-semibold">{title}</h2>
+        {subtitle && (<p className="mb-3 text-center text-sm text-gray-600">{subtitle}</p>)}
+
+        {showProfileSetup ? (
+          setupUserId && (
+            <ProfileSetupWizard
+              userId={setupUserId}
+              onComplete={() => { /* optional internal state */ }}
+              onDone={() => { onSuccess?.(); onClose() }}
+            />
+          )
+        ) : (
+          <ModalAuthForm redirectTo={redirectTo} />
+        )}
+
+        <button type="button" onClick={onClose} className="absolute right-3 top-3 rounded-full p-2 text-gray-500 hover:bg-gray-100" aria-label="Close">✕</button>
       </div>
-    </>
+    </div>
   )
 }

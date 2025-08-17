@@ -1,7 +1,7 @@
 // app/components/TidbitTutor.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { Calendar, Loader2, Lock } from "lucide-react";
@@ -85,6 +85,12 @@ export default function TidbitTutor({
 
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // New: redirect target for OAuth to return to this screen
+  const redirectTo = useMemo(
+    () => (typeof window !== "undefined" ? window.location.href : null),
+    []
+  );
 
   // Derived values
   const getCurrentProvider = () =>
@@ -183,9 +189,7 @@ export default function TidbitTutor({
     const checkUser = async () => {
       try {
         const { data, error } = await supabase.auth.getUser();
-        if (error) {
-          return;
-        }
+        if (error) return;
         setUser(data.user ?? null);
       } catch (err) {
         console.debug("Auth check (non-fatal):", err);
@@ -194,11 +198,13 @@ export default function TidbitTutor({
     checkUser();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN") {
         setUser(session?.user ?? null);
         setShowAuthModal(false);
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === "SIGNED_OUT") {
         setUser(null);
       }
     });
@@ -274,8 +280,7 @@ export default function TidbitTutor({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          (errorData as any).error ||
-            `Server error: ${response.status} ${response.statusText}`
+          (errorData as any).error || `Server error: ${response.status} ${response.statusText}`
         );
       }
 
@@ -607,6 +612,7 @@ export default function TidbitTutor({
         onSuccess={handleAuthSuccess}
         title="Unlock Tidbit Tutor"
         subtitle="Sign in to chat with AI and explore today's tip"
+        redirectTo={redirectTo}
       />
     </>
   );
@@ -619,7 +625,7 @@ interface LoginCtaBannerProps {
 
 function LoginCtaBanner({ onClick }: LoginCtaBannerProps) {
   return (
-    <div 
+    <div
       className="mb-4 border border-amber-200 bg-amber-50 text-amber-900 rounded-lg p-4 cursor-pointer hover:bg-amber-100 transition-colors"
       onClick={onClick}
     >
@@ -631,9 +637,7 @@ function LoginCtaBanner({ onClick }: LoginCtaBannerProps) {
           <p className="text-sm font-medium">
             Run today's tip with Tidbit Tutor. Create a free account or log in to use it.
           </p>
-          <p className="text-xs text-amber-700 mt-1">
-            Click here to sign in or create an account
-          </p>
+          <p className="text-xs text-amber-700 mt-1">Click here to sign in or create an account</p>
         </div>
       </div>
     </div>
