@@ -1,4 +1,4 @@
-// app/components/FieldGuideErrorBoundary.tsx - ENHANCED ERROR BOUNDARY
+// app/components/ErrorBoundary.tsx - ENHANCED VERSION WITH YOUR EXISTING CODE
 'use client'
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
@@ -40,6 +40,19 @@ class FieldGuideErrorBoundary extends Component<Props, State> {
       console.error('FieldGuide Error Boundary caught an error:', error, errorInfo)
     }
 
+    // ✅ ENHANCED: Track error in analytics (production)
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'exception', {
+        description: `${this.props.context || 'Unknown'}: ${error.message}`,
+        fatal: false,
+        custom_map: {
+          component: this.props.context || 'FieldGuide',
+          error_type: getErrorType(error),
+          error_stack: error.stack?.substring(0, 100) // First 100 chars
+        }
+      })
+    }
+
     // You could also send to error reporting service here
     // trackError(error, errorInfo, this.props.context)
   }
@@ -53,6 +66,17 @@ class FieldGuideErrorBoundary extends Component<Props, State> {
       // Custom fallback UI
       if (this.props.fallback) {
         return this.props.fallback
+      }
+
+      // ✅ ENHANCED: Use specific error fallbacks based on error type
+      const errorType = this.state.error ? getErrorType(this.state.error) : 'unknown'
+      
+      if (errorType === 'database') {
+        return <DatabaseErrorFallback onRetry={this.handleRetry} />
+      }
+      
+      if (errorType === 'network') {
+        return <NetworkErrorFallback onRetry={this.handleRetry} />
       }
 
       return (
@@ -139,7 +163,121 @@ export function withFieldGuideErrorBoundary<P extends object>(
   }
 }
 
-// Simplified error fallback components
+// ✅ ENHANCED: Specific error detection helper
+export function getErrorType(error: Error): 'network' | 'database' | 'component' | 'unknown' {
+  const message = error.message.toLowerCase()
+  
+  if (message.includes('fetch') || message.includes('network') || message.includes('connection')) {
+    return 'network'
+  }
+  
+  if (message.includes('supabase') || message.includes('database') || message.includes('pgrst')) {
+    return 'database'
+  }
+  
+  if (message.includes('chunk') || message.includes('loading') || message.includes('import')) {
+    return 'component'
+  }
+  
+  return 'unknown'
+}
+
+// ✅ ENHANCED: Specific error fallback components
+export const DatabaseErrorFallback = ({ onRetry }: { onRetry?: () => void }) => (
+  <div className="min-h-[400px] flex items-center justify-center p-6">
+    <div className="max-w-md mx-auto text-center">
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8 shadow-lg">
+        <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+          </svg>
+        </div>
+        
+        <h3 className="text-xl font-bold text-blue-800 mb-3">
+          Database Connection Issue
+        </h3>
+        
+        <p className="text-blue-600 mb-6 leading-relaxed">
+          We're having trouble connecting to our database. This is usually temporary - please try again in a moment.
+        </p>
+        
+        <div className="space-y-3">
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+            >
+              Try Again
+            </button>
+          )}
+          
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-semibold"
+          >
+            Refresh Page
+          </button>
+
+          <Link
+            href="/field-guide"
+            className="block w-full px-6 py-3 bg-[#60A875] text-white rounded-xl hover:bg-green-600 transition-colors font-semibold text-center"
+          >
+            Back to Field Guide
+          </Link>
+        </div>
+      </div>
+    </div>
+  </div>
+)
+
+export const NetworkErrorFallback = ({ onRetry }: { onRetry?: () => void }) => (
+  <div className="min-h-[400px] flex items-center justify-center p-6">
+    <div className="max-w-md mx-auto text-center">
+      <div className="bg-orange-50 border border-orange-200 rounded-2xl p-8 shadow-lg">
+        <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        
+        <h3 className="text-xl font-bold text-orange-800 mb-3">
+          Connection Problem
+        </h3>
+        
+        <p className="text-orange-600 mb-6 leading-relaxed">
+          Please check your internet connection and try again. If the problem persists, our servers might be temporarily unavailable.
+        </p>
+        
+        <div className="space-y-3">
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="w-full px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors font-semibold"
+            >
+              Check Connection
+            </button>
+          )}
+          
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-semibold"
+          >
+            Refresh Page
+          </button>
+
+          <Link
+            href="/field-guide"
+            className="block w-full px-6 py-3 bg-[#60A875] text-white rounded-xl hover:bg-green-600 transition-colors font-semibold text-center"
+          >
+            Back to Field Guide
+          </Link>
+        </div>
+      </div>
+    </div>
+  </div>
+)
+
+// Simplified error fallback components (your existing)
 export const FieldGuideErrorFallback = ({ 
   title = "Content Unavailable", 
   message = "We're having trouble loading this content.",
@@ -170,6 +308,29 @@ export const FieldGuideErrorFallback = ({
           Try Again
         </button>
       )}
+    </div>
+  </div>
+)
+
+// ✅ ENHANCED: Loading skeleton for when components are recovering
+export const ErrorRecoveryLoading = () => (
+  <div className="min-h-[400px] flex items-center justify-center p-6">
+    <div className="max-w-md mx-auto text-center">
+      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 shadow-lg">
+        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center animate-pulse">
+          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </div>
+        
+        <h3 className="text-lg font-semibold text-gray-700 mb-2">
+          Recovering...
+        </h3>
+        
+        <p className="text-gray-600">
+          Please wait while we reload the content.
+        </p>
+      </div>
     </div>
   </div>
 )
