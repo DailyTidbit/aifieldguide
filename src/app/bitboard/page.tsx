@@ -9,7 +9,7 @@ import PostForm from '../components/PostForm'
 import UserProfile from '../components/UserProfile'
 import ProfileSetupWizard from '../components/ProfileSetupWizard'
 import PostModal from '../components/PostModal'
-import PostCard from '../components/PostCard' // ✅ Import the enhanced PostCard
+import PostCard from '../components/postcard' // ✅ Import the enhanced PostCard
 import { 
   Loader2, 
   RefreshCw, 
