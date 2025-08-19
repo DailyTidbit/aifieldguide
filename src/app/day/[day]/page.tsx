@@ -121,7 +121,7 @@ const StepsLoadingSkeleton = () => (
   </div>
 )
 
-// Social Sharing Component
+// Social Sharing Component - FIXED VERSION
 const SocialShare = ({ tidbit }: { tidbit: any }) => {
   const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
   const shareText = `Check out Day ${tidbit.day_number}: ${tidbit.title} on Daily Tidbit!`
@@ -129,7 +129,7 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
   const shareOptions = [
     {
       name: 'Instagram',
-      url: `https://www.instagram.com/`, // Instagram doesn't have direct URL sharing, opens Instagram
+      url: `https://www.instagram.com/`,
       color: 'bg-[#C13584] hover:bg-[#A02B6B] border border-[#C13584]/20',
       logo: (
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -139,10 +139,12 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
     },
     {
       name: 'TikTok',
-      url: `https://www.tiktok.com/`, // TikTok doesn't have direct URL sharing, opens TikTok
-      color: 'bg-black hover:bg-gray-900 border border-pink-400',
-      textColor: '!text-white hover:!text-white',
+      url: `https://www.tiktok.com/`,
+      // SUPER FIXED: Added !text-white to force override any inherited styles
+      color: 'bg-black hover:bg-gray-900 border border-pink-400 !text-white',
+      textColor: '!text-white', // Additional explicit text color property
       logo: (
+        // FIXED: Explicitly set fill="white" instead of "currentColor"
         <svg className="w-4 h-4" fill="white" viewBox="0 0 24 24">
           <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-.88-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.04-.1z"/>
         </svg>
@@ -205,16 +207,20 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
           <button
             key={option.name}
             onClick={() => handleSocialShare(option.name, option.url)}
-            className={`flex items-center gap-2 px-4 py-3 ${option.color} text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20`}
+            className={`flex items-center gap-2 px-4 py-3 ${option.color} ${option.textColor || ''} rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20`}
+            style={option.name === 'TikTok' ? { color: 'white !important' } : {}}
             title={`Share on ${option.name}`}
           >
             {option.logo}
-            <span className="hidden sm:inline">{option.name}</span>
+            <span className="hidden sm:inline" style={option.name === 'TikTok' ? { color: 'white !important' } : {}}>
+              {option.name}
+            </span>
           </button>
         ))}
+        {/* FIXED: Copy Link button - solid brand green instead of gradient */}
         <button
           onClick={copyToClipboard}
-          className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#60A875] to-[#59B1E3] hover:from-[#60A875]/90 hover:to-[#59B1E3]/90 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20"
+          className="flex items-center gap-2 px-4 py-3 bg-[#60A875] hover:bg-[#60A875]/90 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20"
           title="Copy link"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -659,9 +665,7 @@ export default function DayPage({ params }: DayPageProps) {
           <section className="sm:bg-white/95 sm:backdrop-blur-sm sm:rounded-2xl sm:p-6 lg:p-8 sm:border sm:border-emerald-200/50 sm:shadow-lg overflow-hidden relative">
             <ErrorBoundary fallback={StepsErrorFallback}>
               <Suspense fallback={<StepsLoadingSkeleton />}>
-                {/* Decorative Background Elements - Hidden on mobile */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl hidden sm:block"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-400/20 to-cyan-400/20 rounded-full blur-xl hidden sm:block"></div>
+                {/* REMOVED: Decorative Background Elements */}
                 
                 <div className="relative z-10">
                   {/* Header - Different styling for mobile */}
@@ -682,22 +686,20 @@ export default function DayPage({ params }: DayPageProps) {
                     <>
                       {/* Timeline Steps - FIXED: Mobile-First Responsive Design */}
                       <div className="relative space-y-4 sm:space-y-8 mb-12">
-                        {/* Animated Timeline Line - Hidden on mobile, repositioned for desktop */}
-                        <div className="absolute left-12 top-12 bottom-12 w-1 bg-gradient-to-b from-purple-400 via-pink-400 to-indigo-400 hidden sm:block rounded-full shadow-sm">
-                          <div className="absolute inset-0 bg-gradient-to-b from-purple-300 via-pink-300 to-indigo-300 rounded-full animate-pulse opacity-60"></div>
-                        </div>
+                        {/* REMOVED: Animated Timeline Line */}
                         
                         {processedSteps.map((step, index) => (
                           <div key={step.id} className="relative group">
-                            {/* Step Number Badge - FIXED: Positioned for mobile top-left, desktop on timeline */}
+                            {/* Step Number Badge - FIXED: Bigger numbers and closer positioning on desktop */}
                             <div className={`
-                              absolute top-2 left-2 sm:-left-12 sm:top-1/2 sm:-translate-y-1/2 flex items-center justify-center 
-                              w-10 h-10 sm:w-16 sm:h-16 
+                              absolute top-2 left-2 sm:-left-6 sm:top-1/2 sm:-translate-y-1/2 flex items-center justify-center 
+                              w-10 h-10 sm:w-20 sm:h-20 
                               ${index % 2 === 0 
                                 ? 'bg-[#60A875]' 
                                 : 'bg-[#59B1E3]'
                               }
-                              text-white rounded-lg sm:rounded-xl lg:rounded-2xl font-bold text-base sm:text-xl shadow-lg sm:shadow-2xl border-2 sm:border-4 border-white
+                              text-white rounded-lg sm:rounded-xl lg:rounded-2xl font-bold text-base sm:text-2xl 
+                              shadow-lg sm:shadow-2xl border-2 sm:border-4 border-white
                               transform transition-transform duration-300 group-hover:scale-105 group-hover:rotate-1
                               z-20
                             `}>
@@ -713,7 +715,7 @@ export default function DayPage({ params }: DayPageProps) {
                               rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 
                               border-0 sm:border-2 shadow-sm sm:shadow-lg hover:shadow-xl sm:hover:shadow-2xl 
                               transition-all duration-300
-                              mx-0 sm:ml-24 transform
+                              mx-0 sm:ml-16 transform
                               ${index % 2 === 0 ? 'sm:hover:border-purple-300' : 'sm:hover:border-blue-300'}
                               hover:bg-opacity-90
                             `}>
@@ -880,15 +882,15 @@ function RichContent({ children }: { children: string }) {
     )
   }
 
-  // Detect numbered circle steps (①②③④⑤⑥⑦⑧⑨⑩)
+  // Detect numbered circle steps (① ②③④⑤⑥⑦⑧⑨⑩)
   const isNumberedStep = (line: string): boolean => {
-    return /^[①②③④⑤⑥⑦⑧⑨⑩]/.test(line.trim())
+    return /^[① ②③④⑤⑥⑦⑧⑨⑩]/.test(line.trim())
   }
 
   // Extract step number from circle
   const getStepNumber = (line: string): string => {
-    const circles = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']
-    const match = line.trim().match(/^[①②③④⑤⑥⑦⑧⑨⑩]/)
+    const circles = ['① ', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']
+    const match = line.trim().match(/^[① ②③④⑤⑥⑦⑧⑨⑩]/)
     if (match) {
       const index = circles.indexOf(match[0])
       return (index + 1).toString()
@@ -968,10 +970,10 @@ function RichContent({ children }: { children: string }) {
       return
     }
 
-    // Handle numbered circle steps (①②③④⑤)
+    // Handle numbered circle steps (① ②③④⑤⑥⑦⑧⑨⑩)
     if (isNumberedStep(trimmed)) {
       const stepNum = getStepNumber(trimmed)
-      const stepText = trimmed.replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
+      const stepText = trimmed.replace(/^[① ②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
       
       elements.push(
         <div key={`step-${i}`} className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-xl p-6 border border-[#60A875]/20 my-6">

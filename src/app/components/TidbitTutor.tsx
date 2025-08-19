@@ -456,13 +456,8 @@ export default function TidbitTutor({
 
   return (
     <>
-      <div
-        className={
-          embedded
-            ? "w-full"
-            : "max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"
-        }
-      >
+      {/* Wrapper to allow absolute overlay */}
+      <div className={embedded ? "w-full relative" : "relative max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"}>
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -486,10 +481,8 @@ export default function TidbitTutor({
           />
         </div>
 
-        {/* Login soft-gate banner - now clickable */}
-        {gated && (
-          <LoginCtaBanner onClick={() => setShowAuthModal(true)} />
-        )}
+        {/* Login soft-gate banner - clickable */}
+        {gated && <LoginCtaBanner onClick={() => setShowAuthModal(true)} />}
 
         {/* Tidbit context */}
         {tidbitData && (
@@ -560,7 +553,7 @@ export default function TidbitTutor({
           </div>
         )}
 
-        {/* Input Area with gate overlay */}
+        {/* Input Area with soft mask to block clicks */}
         <div className="relative" onClick={gated ? handleInputAreaClick : undefined}>
           <TutorInputArea
             input={input}
@@ -594,7 +587,7 @@ export default function TidbitTutor({
           tidbitTitle={currentTidbitTitle}
           tidbitData={tidbitData}
           loadingState={loadingState}
-          onPost={() => {}}
+          onPost={() => { }}
           onSuccess={(message: string) => setSuccessMessage(message)}
           onError={handleError}
         />
@@ -602,6 +595,14 @@ export default function TidbitTutor({
         {/* Close provider menu when clicking outside */}
         {showProviderMenu && (
           <div className="fixed inset-0 z-5" onClick={() => setShowProviderMenu(false)} />
+        )}
+
+        {/* ========= NEW: Full-window overlay (big CTA) ========= */}
+        {gated && (
+          <FullScreenGate
+            onPrimary={() => setShowAuthModal(true)}
+            onSecondary={() => setShowAuthModal(true)}
+          />
         )}
       </div>
 
@@ -639,6 +640,56 @@ function LoginCtaBanner({ onClick }: LoginCtaBannerProps) {
           </p>
           <p className="text-xs text-amber-700 mt-1">Click here to sign in or create an account</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** ========= NEW: Full-window overlay component ========= */
+function FullScreenGate({
+  onPrimary,
+  onSecondary,
+}: {
+  onPrimary: () => void;
+  onSecondary: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm p-6 text-center rounded-xl border border-gray-100">
+      <div className="max-w-md w-full">
+        <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-[#60A875] text-white flex items-center justify-center shadow-sm">
+          <span className="text-lg font-bold">🔒</span>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+          Run today’s tip with Tidbit Tutor
+        </h2>
+        <p className="text-gray-700 mb-6">
+          Create a free account or log in to use it.
+        </p>
+
+        <div className="grid grid-cols-1 gap-2">
+          <button
+            onClick={onPrimary}
+            className="px-5 py-3 rounded-lg bg-[#60A875] text-white font-semibold hover:brightness-95 transition"
+          >
+            Sign in or Create Account
+          </button>
+          <button
+            onClick={onSecondary}
+            className="text-sm text-[#59B1E3] hover:underline"
+          >
+            Already have an account? Log In
+          </button>
+        </div>
+
+        <ul className="mt-5 text-sm text-left text-gray-600 space-y-1 mx-auto max-w-sm">
+          <li>✅ Try today’s Tidbit inside our own Assistant</li>
+          <li>✅ Test drive several leading AI models</li>
+          <li>✅ Post your creations to the BitBoard</li>
+          <li>✅ Create a profile and track your activity</li>
+          <li>✅ Like posts, leave comments, and connect with others</li>
+          <li>✅ Get special promos and perks from our AI partners</li>
+          <li>✅ Did we mention our entire site is free!</li>
+        </ul>
       </div>
     </div>
   );
