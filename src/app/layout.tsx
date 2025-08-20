@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display, Space_Grotesk } from "next/font/google";
 import Navigation from './components/Navigation';
 import CookieConsentManager from './components/CookieConsentManager';
+import Footer from './components/Footer';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -183,7 +184,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} antialiased min-h-screen bg-white font-space-grotesk`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} antialiased min-h-screen bg-white font-space-grotesk flex flex-col`}
       >
         {/* Skip to main content for accessibility */}
         <a 
@@ -197,15 +198,15 @@ export default function RootLayout({ children }: RootLayoutProps) {
         
         <Navigation />
         
-        <main id="main-content" role="main">
+        <main id="main-content" role="main" className="flex-1">
           {children}
         </main>
         
+        {/* Footer at bottom of all pages */}
+        <Footer />
+        
         {/* Cookie Consent Manager - handles GA loading based on consent */}
         <CookieConsentManager />
-        
-        {/* Footer can go here if you have one */}
-        {/* <Footer /> */}
         
         {/* Service Worker registration for PWA (if you want to add PWA features) */}
         {process.env.NODE_ENV === 'production' && (

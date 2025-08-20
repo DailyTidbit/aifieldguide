@@ -119,64 +119,6 @@ export default function HomeClient({ children }: HomeClientProps) {
       
       {/* Client-side interactive sections */}
       <CTASection />
-      
-      {/* Footer - You can move your existing footer here or create a separate component */}
-      <footer className="relative z-10 bg-gradient-to-br from-gray-200 via-gray-100 to-blue-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12">
-            {/* Left Side - Tagline, Copyright, Email */}
-            <div className="space-y-4">
-              <p className="text-lg sm:text-xl font-medium text-gray-800">
-                Come for the tips. Stay for the community. ✨
-              </p>
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h5 className="text-sm font-bold text-gray-800">Get In Touch</h5>
-                  <a 
-                    href="mailto:mike@dailytidbit.org" 
-                    className="text-sm sm:text-base transition-colors duration-200 hover:underline footer-link"
-                  >
-                    mike@dailytidbit.org
-                  </a>
-                </div>
-                <p className="text-sm sm:text-base text-gray-700">
-                  © {new Date().getFullYear()} Daily Tidbit. All rights reserved.
-                </p>
-              </div>
-            </div>
-            
-            {/* Right Side - Legal Links */}
-            <div className="text-left md:text-right">
-              <div className="space-y-3">
-                <div>
-                  <a 
-                    href="/privacy" 
-                    className="text-sm sm:text-base transition-colors duration-200 hover:underline footer-link"
-                  >
-                    Privacy Policy
-                  </a>
-                </div>
-                <div>
-                  <a 
-                    href="/accessibility" 
-                    className="text-sm sm:text-base transition-colors duration-200 hover:underline footer-link"
-                  >
-                    Accessibility Statement
-                  </a>
-                </div>
-                <div>
-                  <a 
-                    href="/terms" 
-                    className="text-sm sm:text-base transition-colors duration-200 hover:underline footer-link"
-                  >
-                    Terms & Conditions
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
     </>
   )
 }

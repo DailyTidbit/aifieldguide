@@ -150,7 +150,7 @@ const valuePropsCards: ValuePropCardProps[] = [
   {
     title: 'What Makes Daily Tidbit Kinda Addictive',
     description:
-      "Fast AF. Most tips are under a minute. Real-world stuff. No theory dumps here. Free-free. No subscriptions, no strings.",
+      "Fast. Most tips are under a minute. Real-world stuff. No theory dumps here. Free-free. No subscriptions, no strings.",
     icon: 'Clock',
     accent: 'purple',
   },
@@ -465,7 +465,7 @@ export default function StartHereClient() {
               >
                 <p>
                   <strong>
-                    Kick off your shoes, put your feet up — you're in the right
+                    Kick off your shoes, put up your feet — you're in the right
                     place.
                   </strong>
                 </p>

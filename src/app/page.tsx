@@ -128,10 +128,10 @@ async function TodaysTidbitServer() {
             <span className="text-2xl text-white">⚠️</span>
           </div>
           <h3 className="text-xl font-bold mb-2" style={{ color: '#59B1E3' }}>
-            We couldn’t load today’s Tidbit
+            We couldn't load today's Tidbit
           </h3>
           <p className="text-sm sm:text-base mb-5" style={{ color: '#134E1E' }}>
-            Please try refreshing. If this keeps happening, we’re likely updating the content.
+            Please try refreshing. If this keeps happening, we're likely updating the content.
           </p>
           <div className="inline-block">
             <RefreshButton />
@@ -152,7 +152,7 @@ export default async function HomePage() {
 
         <main className="relative z-10">
           {/* Screen-reader top-level heading */}
-          <h1 className="sr-only">Daily Tidbit — Today’s Tidbit</h1>
+          <h1 className="sr-only">Daily Tidbit – Today's Tidbit</h1>
 
           <section className="py-12 sm:py-20 text-center relative">
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">

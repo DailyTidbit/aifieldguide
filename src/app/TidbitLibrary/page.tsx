@@ -1,6 +1,5 @@
 // app/TidbitLibrary/page.tsx
 import { Metadata } from 'next'
-import { BookOpen } from 'lucide-react'
 import { getTidbits } from '../lib/tidbits'              // ✅ use alias
 import TidbitLibraryClient from './TidbitLibraryClient' // ✅ use alias
 
@@ -43,9 +42,7 @@ export default async function TidbitLibraryPage() {
         <header className="sticky top-0 z-40 bg-white/50 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 py-8">
             <div className="flex items-center justify-center gap-3">
-              <div className="bg-gradient-to-br from-[#60A875] to-[#59B1E3] p-3 rounded-2xl">
-                <BookOpen className="w-7 h-7 text-white" aria-hidden="true" />
-              </div>
+              <span className="text-4xl" role="img" aria-label="Open book">📖</span>
               <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight text-gray-900 text-center">
                 Tidbit Library
               </h1>
@@ -78,9 +75,7 @@ export default async function TidbitLibraryPage() {
         <header className="sticky top-0 z-40 bg-white/50 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 py-8">
             <div className="flex items-center justify-center gap-3">
-              <div className="bg-gradient-to-br from-[#60A875] to-[#59B1E3] p-3 rounded-2xl">
-                <BookOpen className="w-7 h-7 text-white" aria-hidden="true" />
-              </div>
+              <span className="text-4xl" role="img" aria-label="Stack of books">📚</span>
               <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight text-gray-900 text-center">
                 Tidbit Library
               </h1>
@@ -90,7 +85,7 @@ export default async function TidbitLibraryPage() {
         <main className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center py-20" role="alert">
             <div className="bg-white/70 rounded-2xl p-8 w-24 h-24 mx-auto mb-6 flex items-center justify-center shadow-sm">
-              <BookOpen className="w-10 h-10 text-gray-400" aria-hidden="true" />
+              <span className="text-5xl opacity-40" role="img" aria-label="Open book">📖</span>
             </div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to load tidbits</h2>
             <p className="text-gray-600 mb-6">

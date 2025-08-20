@@ -140,11 +140,9 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
     {
       name: 'TikTok',
       url: `https://www.tiktok.com/`,
-      // SUPER FIXED: Added !text-white to force override any inherited styles
       color: 'bg-black hover:bg-gray-900 border border-pink-400 !text-white',
-      textColor: '!text-white', // Additional explicit text color property
+      textColor: '!text-white',
       logo: (
-        // FIXED: Explicitly set fill="white" instead of "currentColor"
         <svg className="w-4 h-4" fill="white" viewBox="0 0 24 24">
           <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-.88-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.04-.1z"/>
         </svg>
@@ -187,12 +185,13 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
           <div className="p-3 rounded-xl bg-gradient-to-br from-[#60A875] to-[#59B1E3] text-white shadow-lg">
             <Share2 className="w-6 h-6" />
           </div>
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
-              Send to a Friend!
-            </h3>
-          </div>
         </div>
+        
+        {/* Updated title with RotatingWord */}
+        <h3 className="text-2xl font-bold text-gray-900 mb-2" style={{fontFamily: "'Playfair Display', serif"}}>
+          Send this <RotatingWord /> to a friend!
+        </h3>
+        
         <p className="text-lg text-gray-700 font-medium">
           Let's grow this community! 🌱
         </p>
@@ -217,7 +216,8 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
             </span>
           </button>
         ))}
-        {/* FIXED: Copy Link button - solid brand green instead of gradient */}
+        
+        {/* Copy Link button */}
         <button
           onClick={copyToClipboard}
           className="flex items-center gap-2 px-4 py-3 bg-[#60A875] hover:bg-[#60A875]/90 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20"
