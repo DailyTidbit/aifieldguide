@@ -50,7 +50,6 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Track error with enhanced analytics
     enhancedAnalytics.trackError('react_error_boundary', error.message, {
       stack: error.stack,
       componentStack: errorInfo.componentStack
@@ -121,7 +120,7 @@ const StepsLoadingSkeleton = () => (
   </div>
 )
 
-// Social Sharing Component - FIXED VERSION
+// Social Sharing Component
 const SocialShare = ({ tidbit }: { tidbit: any }) => {
   const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
   const shareText = `Check out Day ${tidbit.day_number}: ${tidbit.title} on Daily Tidbit!`
@@ -163,7 +162,6 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl)
-      // Track sharing action
       enhancedAnalytics.trackUserEngagement('click', 'copy_link_button')
       alert('Link copied to clipboard!')
     } catch (err) {
@@ -172,14 +170,12 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
   }
 
   const handleSocialShare = (platform: string, url: string) => {
-    // Track social sharing
     enhancedAnalytics.trackUserEngagement('click', `share_${platform.toLowerCase()}_button`)
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   return (
     <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
-      {/* Header Section */}
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-3 mb-4">
           <div className="p-3 rounded-xl bg-gradient-to-br from-[#60A875] to-[#59B1E3] text-white shadow-lg">
@@ -187,7 +183,6 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
           </div>
         </div>
         
-        {/* Updated title with RotatingWord */}
         <h3 className="text-2xl font-bold text-gray-900 mb-2" style={{fontFamily: "'Playfair Display', serif"}}>
           Send this <RotatingWord /> to a friend!
         </h3>
@@ -200,7 +195,6 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
         </p>
       </div>
       
-      {/* Social Buttons */}
       <div className="flex items-center justify-center gap-3 flex-wrap">
         {shareOptions.map(option => (
           <button
@@ -217,7 +211,6 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
           </button>
         ))}
         
-        {/* Copy Link button */}
         <button
           onClick={copyToClipboard}
           className="flex items-center gap-2 px-4 py-3 bg-[#60A875] hover:bg-[#60A875]/90 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20"
@@ -250,12 +243,11 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
 
   const handlePlay = () => {
     setIsPlaying(true)
-    // Analytics tracking using enhanced system
     enhancedAnalytics.trackVideoInteraction({
       video_id: `tidbit_${tidbit.day_number}_video`,
       action: 'play',
       timestamp: Date.now(),
-      duration: 0 // Could be tracked from video element
+      duration: 0
     })
   }
 
@@ -303,7 +295,7 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
   )
 }
 
-// Progress Analytics Component (Simplified)
+// Progress Analytics Component
 const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
   const hasViewed = !!progress.viewedAt
   const hasCompleted = !!progress.completedAt
@@ -324,12 +316,12 @@ const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
           <div className="text-gray-600">Viewed</div>
         </div>
         <div>
-          <div className="font-bold text-[#59B1E3]">{hasCompleted ? '✅' : '⏳'}</div>
-          <div className="text-gray-600">Completed</div>
+          <div className="font-bold text-[#59B1E3]">{hasPracticedAI ? '✅' : '⏳'}</div>
+          <div className="text-gray-600">AI Practice</div>
         </div>
         <div>
-          <div className="font-bold text-purple-600">{hasPracticedAI ? '✅' : '⏳'}</div>
-          <div className="text-gray-600">AI Practice</div>
+          <div className="font-bold text-purple-600">{hasCompleted ? '✅' : '⏳'}</div>
+          <div className="text-gray-600">Posted</div>
         </div>
       </div>
     </div>
@@ -348,7 +340,7 @@ export default function DayPage({ params }: DayPageProps) {
   const [user, setUser] = useState<any>(null)
   const [userProgress, setUserProgress] = useState<UserProgress>({})
 
-  // Memoized processed steps (no completion tracking needed)
+  // Memoized processed steps
   const processedSteps = useMemo(() => 
     tidbitSteps.map(step => ({
       ...step,
@@ -356,7 +348,7 @@ export default function DayPage({ params }: DayPageProps) {
     })), [tidbitSteps]
   )
 
-  // Simplified progress tracking - only track tidbit views
+  // Enhanced progress tracking
   const markTidbitViewed = async (tidbitNumber: number) => {
     if (!user) return
 
@@ -376,7 +368,6 @@ export default function DayPage({ params }: DayPageProps) {
         console.error('Error marking tidbit viewed:', error)
       } else {
         setUserProgress(prev => ({ ...prev, viewedAt: new Date().toISOString() }))
-        // Analytics tracking using your existing system + enhanced tracking
         enhancedAnalytics.trackTidbitViewed(tidbitNumber)
       }
     } catch (error) {
@@ -386,41 +377,7 @@ export default function DayPage({ params }: DayPageProps) {
     }
   }
 
-  const markTidbitCompleted = async (tidbitNumber: number) => {
-    if (!user) return
-
-    setProgressLoading(true)
-    try {
-      const { error } = await supabase
-        .from('user_tidbit_progress')
-        .upsert({
-          user_id: user.id,
-          tidbit_number: tidbitNumber,
-          completed_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,tidbit_number'
-        })
-
-      if (error) {
-        console.error('Error marking tidbit completed:', error)
-      } else {
-        setUserProgress(prev => ({ ...prev, completedAt: new Date().toISOString() }))
-        
-        // Analytics tracking using enhanced system
-        enhancedAnalytics.trackTidbitCompleted(
-          tidbitNumber, 
-          0, // time spent - could be calculated if needed
-          0  // no step completion tracking
-        )
-      }
-    } catch (error) {
-      console.error('Error updating progress:', error)
-    } finally {
-      setProgressLoading(false)
-    }
-  }
-
-  const markAIPracticed = async (tidbitNumber: number) => {
+  const markTutorUsed = async (tidbitNumber: number) => {
     if (!user) return
 
     try {
@@ -429,21 +386,19 @@ export default function DayPage({ params }: DayPageProps) {
         .upsert({
           user_id: user.id,
           tidbit_number: tidbitNumber,
-          practiced_with_ai: true
+          tutor_used_at: new Date().toISOString()
         }, {
           onConflict: 'user_id,tidbit_number'
         })
 
       if (error) {
-        console.error('Error marking AI practiced:', error)
+        console.error('Error marking tutor used:', error)
       } else {
         setUserProgress(prev => ({ ...prev, practicedWithAI: true }))
-        
-        // Analytics tracking using enhanced system
         enhancedAnalytics.trackAIPracticed(tidbitNumber, {
           conversation_id: `conv_${Date.now()}`,
-          message_count: 1, // Could be tracked more precisely
-          session_duration: 0, // Could be calculated
+          message_count: 1,
+          session_duration: 0,
           topics_discussed: [tidbit?.title || 'AI Practice']
         })
       }
@@ -452,10 +407,9 @@ export default function DayPage({ params }: DayPageProps) {
     }
   }
 
-  // Load user progress (simplified - only tidbit level)
+  // Load user progress
   const loadUserProgress = async (userId: string, tidbitNumber: number) => {
     try {
-      // Load tidbit progress only
       const { data: tidbitProgress } = await supabase
         .from('user_tidbit_progress')
         .select('*')
@@ -465,11 +419,37 @@ export default function DayPage({ params }: DayPageProps) {
 
       setUserProgress({
         viewedAt: tidbitProgress?.viewed_at,
-        completedAt: tidbitProgress?.completed_at,
-        practicedWithAI: tidbitProgress?.practiced_with_ai || false
+        completedAt: tidbitProgress?.posted_at,
+        practicedWithAI: !!tidbitProgress?.tutor_used_at
       })
     } catch (error) {
       console.error('Error loading user progress:', error)
+    }
+  }
+
+  // 🎯 Simple progress refresh function
+  const refreshUserProgress = async () => {
+    if (user && tidbit) {
+      await loadUserProgress(user.id, tidbit.day_number)
+    }
+  }
+
+  // 🔥 Enhanced conversation handler
+  const handleConversationUpdate = async (userInput: string, aiOutput: string) => {
+    setLatestConversation({
+      userInput,
+      aiOutput,
+      timestamp: new Date()
+    })
+    
+    // Track tutor usage (second step)
+    if (user && tidbit) {
+      await markTutorUsed(tidbit.day_number)
+    }
+    
+    // 🎯 NEW: If this is a progress update, refresh the progress
+    if (userInput === 'PROGRESS_UPDATE') {
+      await refreshUserProgress()
     }
   }
 
@@ -538,7 +518,6 @@ export default function DayPage({ params }: DayPageProps) {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       
-      // Load user progress and mark tidbit as viewed
       if (user && tidbit) {
         await loadUserProgress(user.id, tidbit.day_number)
         await markTidbitViewed(tidbit.day_number)
@@ -548,31 +527,7 @@ export default function DayPage({ params }: DayPageProps) {
     initializeUser()
   }, [tidbit])
 
-  // Handle conversation updates from TidbitTutor
-  const handleConversationUpdate = async (userInput: string, aiOutput: string) => {
-    setLatestConversation({
-      userInput,
-      aiOutput,
-      timestamp: new Date()
-    })
-
-    // Mark AI as practiced when user has a conversation
-    if (user && tidbit) {
-      await markAIPracticed(tidbit.day_number)
-    }
-  }
-
-  // Enhanced completion handler
-  const handleWalkthroughComplete = async () => {
-    if (user && tidbit) {
-      await markTidbitCompleted(tidbit.day_number)
-      
-      // Celebrate completion
-      if (typeof window !== 'undefined') {
-        console.log('🎉 Tidbit completed!')
-      }
-    }
-  }
+  // 🔥 REMOVED: Real-time listener for posts - now using direct tracking in components
 
   if (loading) {
     return (
@@ -661,14 +616,12 @@ export default function DayPage({ params }: DayPageProps) {
             </div>
           </section>
 
-          {/* Timeline Walkthrough Steps - FIXED VERSION */}
+          {/* Timeline Walkthrough Steps */}
           <section className="sm:bg-white/95 sm:backdrop-blur-sm sm:rounded-2xl sm:p-6 lg:p-8 sm:border sm:border-emerald-200/50 sm:shadow-lg overflow-hidden relative">
             <ErrorBoundary fallback={StepsErrorFallback}>
               <Suspense fallback={<StepsLoadingSkeleton />}>
-                {/* REMOVED: Decorative Background Elements */}
-                
                 <div className="relative z-10">
-                  {/* Header - Different styling for mobile */}
+                  {/* Header */}
                   <div className="flex items-center gap-3 mb-8 sm:mb-10 px-4 sm:px-0">
                     <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br from-[#60A875] to-[#59B1E3] text-white shadow-lg">
                       <Target className="w-5 h-5 sm:w-7 sm:h-7" />
@@ -683,83 +636,76 @@ export default function DayPage({ params }: DayPageProps) {
                   {stepsLoading ? (
                     <StepsLoadingSkeleton />
                   ) : (
-                    <>
-                      {/* Timeline Steps - FIXED: Mobile-First Responsive Design */}
-                      <div className="relative space-y-4 sm:space-y-8 mb-12">
-                        {/* REMOVED: Animated Timeline Line */}
-                        
-                        {processedSteps.map((step, index) => (
-                          <div key={step.id} className="relative group">
-                            {/* Step Number Badge - FIXED: Bigger numbers and closer positioning on desktop */}
-                            <div className={`
-                              absolute top-2 left-2 sm:-left-6 sm:top-1/2 sm:-translate-y-1/2 flex items-center justify-center 
-                              w-10 h-10 sm:w-20 sm:h-20 
-                              ${index % 2 === 0 
-                                ? 'bg-[#60A875]' 
-                                : 'bg-[#59B1E3]'
-                              }
-                              text-white rounded-lg sm:rounded-xl lg:rounded-2xl font-bold text-base sm:text-2xl 
-                              shadow-lg sm:shadow-2xl border-2 sm:border-4 border-white
-                              transform transition-transform duration-300 group-hover:scale-105 group-hover:rotate-1
-                              z-20
-                            `}>
-                              {step.step_number}
-                            </div>
+                    <div className="relative space-y-4 sm:space-y-8 mb-12">
+                      {processedSteps.map((step, index) => (
+                        <div key={step.id} className="relative group">
+                          {/* Step Number Badge */}
+                          <div className={`
+                            absolute top-2 left-2 sm:-left-6 sm:top-1/2 sm:-translate-y-1/2 flex items-center justify-center 
+                            w-10 h-10 sm:w-20 sm:h-20 
+                            ${index % 2 === 0 
+                              ? 'bg-[#60A875]' 
+                              : 'bg-[#59B1E3]'
+                            }
+                            text-white rounded-lg sm:rounded-xl lg:rounded-2xl font-bold text-base sm:text-2xl 
+                            shadow-lg sm:shadow-2xl border-2 sm:border-4 border-white
+                            transform transition-transform duration-300 group-hover:scale-105 group-hover:rotate-1
+                            z-20
+                          `}>
+                            {step.step_number}
+                          </div>
 
-                            {/* Step Card - FIXED: Removed scaling hover effect to prevent number cutoff */}
-                            <div className={`
-                              ${index % 2 === 0 
-                                ? 'bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 sm:border-purple-200/50' 
-                                : 'bg-gradient-to-br from-white via-blue-50/30 to-cyan-50/30 sm:border-blue-200/50'
-                              } 
-                              rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 
-                              border-0 sm:border-2 shadow-sm sm:shadow-lg hover:shadow-xl sm:hover:shadow-2xl 
-                              transition-all duration-300
-                              mx-0 sm:ml-16 transform
-                              ${index % 2 === 0 ? 'sm:hover:border-purple-300' : 'sm:hover:border-blue-300'}
-                              hover:bg-opacity-90
-                            `}>
-                              {/* Step Content - Title aligned, content flows under */}
-                              <div className="pl-2 sm:pl-0">
-                                {/* Title Section with Background Icon Only */}
-                                <div className="relative mb-4 sm:mb-6">
-                                  {/* Large Background Icon */}
-                                  {step.icon && (
-                                    <div className={`
-                                      absolute -top-2 -right-2 sm:-top-4 sm:-right-4 text-6xl sm:text-8xl lg:text-9xl opacity-10
-                                      ${index % 2 === 0 ? 'text-purple-400' : 'text-blue-400'}
-                                      pointer-events-none select-none
-                                    `}>
-                                      {step.icon}
-                                    </div>
-                                  )}
+                          {/* Step Card */}
+                          <div className={`
+                            ${index % 2 === 0 
+                              ? 'bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 sm:border-purple-200/50' 
+                              : 'bg-gradient-to-br from-white via-blue-50/30 to-cyan-50/30 sm:border-blue-200/50'
+                            } 
+                            rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 
+                            border-0 sm:border-2 shadow-sm sm:shadow-lg hover:shadow-xl sm:hover:shadow-2xl 
+                            transition-all duration-300
+                            mx-0 sm:ml-16 transform
+                            ${index % 2 === 0 ? 'sm:hover:border-purple-300' : 'sm:hover:border-blue-300'}
+                            hover:bg-opacity-90
+                          `}>
+                            {/* Step Content */}
+                            <div className="pl-2 sm:pl-0">
+                              <div className="relative mb-4 sm:mb-6">
+                                {/* Large Background Icon */}
+                                {step.icon && (
+                                  <div className={`
+                                    absolute -top-2 -right-2 sm:-top-4 sm:-right-4 text-6xl sm:text-8xl lg:text-9xl opacity-10
+                                    ${index % 2 === 0 ? 'text-purple-400' : 'text-blue-400'}
+                                    pointer-events-none select-none
+                                  `}>
+                                    {step.icon}
+                                  </div>
+                                )}
+                                
+                                {/* Title aligned with step number */}
+                                <div className="relative z-10">
+                                  <h4 className={`
+                                    text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold leading-tight mb-4 sm:mb-3
+                                    pl-10 sm:pl-0 mt-1 sm:mt-0
+                                    ${index % 2 === 0 
+                                      ? 'bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent' 
+                                      : 'bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent'
+                                    }
+                                  `} style={{fontFamily: "'Playfair Display', serif"}}>
+                                    {step.title}
+                                  </h4>
                                   
-                                  {/* Title aligned with step number */}
-                                  <div className="relative z-10">
-                                    <h4 className={`
-                                      text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold leading-tight mb-4 sm:mb-3
-                                      pl-10 sm:pl-0 mt-1 sm:mt-0
-                                      ${index % 2 === 0 
-                                        ? 'bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent' 
-                                        : 'bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent'
-                                      }
-                                    `} style={{fontFamily: "'Playfair Display', serif"}}>
-                                      {step.title}
-                                    </h4>
-                                    
-                                    {/* Content can flow under the step number */}
-                                    <div className="text-gray-700 leading-relaxed text-sm sm:text-base lg:text-lg mt-2 sm:mt-0">
-                                      <RichContent>{step.content}</RichContent>
-                                    </div>
+                                  {/* Content can flow under the step number */}
+                                  <div className="text-gray-700 leading-relaxed text-sm sm:text-base lg:text-lg mt-2 sm:mt-0">
+                                    <RichContent>{step.content}</RichContent>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-
-                    </>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </Suspense>
@@ -781,7 +727,7 @@ export default function DayPage({ params }: DayPageProps) {
           {/* Try Other AI Tools Component */}
           <TryOtherAITools />
 
-          {/* Social Sharing Section - Moved to Bottom */}
+          {/* Social Sharing Section */}
           <SocialShare tidbit={tidbit} />
 
         </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import PostModal from './PostModal'  // Import the working PostModal
+import TidbitProgressTracker from './TidbitProgressTracker' // Import the new tracker
 import { 
   User, 
   Edit3, 
@@ -49,9 +50,10 @@ interface ProfileStats {
   commentsGiven: number
   commentsReceived: number
   joinedDaysAgo: number
+  completedTidbits: number // NEW: Track completed tidbits for badges
 }
 
-// Retro Badge System
+// Enhanced Badge System - Updated thresholds to include tidbit completion
 interface Badge {
   id: string
   name: string
@@ -60,48 +62,55 @@ interface Badge {
   tier: 'starter' | 'arcade' | 'web' | 'hacker' | 'voyager' | 'neural' | 'quantum'
   threshold: number
   theme: string
+  type: 'posts' | 'tidbits' | 'engagement' // NEW: Badge types
 }
 
 const RETRO_BADGES: Badge[] = [
-  // Getting Started (1-10)
-  { id: 'first-bit', name: 'First Bit!', emoji: '🎉', tagline: 'Welcome to the Board', tier: 'starter', threshold: 1, theme: 'from-pink-500 to-red-500' },
-  { id: 'bit-curious', name: 'Bit Curious', emoji: '👀', tagline: "You're poking around...", tier: 'starter', threshold: 3, theme: 'from-blue-500 to-cyan-500' },
-  { id: 'daily-dabbler', name: 'Daily Dabbler', emoji: '🧪', tagline: 'Starting to feel it?', tier: 'starter', threshold: 5, theme: 'from-green-500 to-emerald-500' },
-  { id: 'early-adapter', name: 'Early Adapter', emoji: '💾', tagline: "You're plugged in now", tier: 'starter', threshold: 10, theme: 'from-purple-500 to-violet-500' },
+  // Getting Started (1-10 tidbits completed)
+  { id: 'first-bit', name: 'First Bit!', emoji: '🎉', tagline: 'Welcome to the Board', tier: 'starter', threshold: 1, theme: 'from-pink-500 to-red-500', type: 'tidbits' },
+  { id: 'bit-curious', name: 'Bit Curious', emoji: '👀', tagline: "You're exploring...", tier: 'starter', threshold: 3, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
+  { id: 'daily-dabbler', name: 'Daily Dabbler', emoji: '🧪', tagline: 'Starting to feel it?', tier: 'starter', threshold: 5, theme: 'from-green-500 to-emerald-500', type: 'tidbits' },
+  { id: 'early-adapter', name: 'Early Adapter', emoji: '💾', tagline: "You're plugged in now", tier: 'starter', threshold: 10, theme: 'from-purple-500 to-violet-500', type: 'tidbits' },
   
-  // Arcade Era (11-50)
-  { id: 'bit-bouncer', name: 'Bit Bouncer', emoji: '🕹️', tagline: "You're bouncing back daily", tier: 'arcade', threshold: 15, theme: 'from-yellow-500 to-orange-500' },
-  { id: 'pixel-pusher', name: 'Pixel Pusher', emoji: '🎮', tagline: 'That rhythm tho', tier: 'arcade', threshold: 20, theme: 'from-indigo-500 to-purple-500' },
-  { id: 'console-committer', name: 'Console Committer', emoji: '👾', tagline: "That's a quarter milestone!", tier: 'arcade', threshold: 25, theme: 'from-green-500 to-teal-500' },
-  { id: 'coinop-regular', name: 'Coin-Op Regular', emoji: '🪙', tagline: "You've earned your high score", tier: 'arcade', threshold: 30, theme: 'from-amber-500 to-yellow-500' },
-  { id: 'level-grinder', name: 'Level Grinder', emoji: '🧠', tagline: 'This is more than a phase', tier: 'arcade', threshold: 40, theme: 'from-rose-500 to-pink-500' },
-  { id: 'game-saved', name: 'Game Saved', emoji: '💽', tagline: 'Press start to continue', tier: 'arcade', threshold: 50, theme: 'from-cyan-500 to-blue-500' },
+  // Arcade Era (11-50 tidbits)
+  { id: 'bit-bouncer', name: 'Bit Bouncer', emoji: '🕹️', tagline: "You're bouncing back daily", tier: 'arcade', threshold: 15, theme: 'from-yellow-500 to-orange-500', type: 'tidbits' },
+  { id: 'pixel-pusher', name: 'Pixel Pusher', emoji: '🎮', tagline: 'That rhythm tho', tier: 'arcade', threshold: 20, theme: 'from-indigo-500 to-purple-500', type: 'tidbits' },
+  { id: 'console-committer', name: 'Console Committer', emoji: '💾', tagline: "That's a quarter milestone!", tier: 'arcade', threshold: 25, theme: 'from-green-500 to-teal-500', type: 'tidbits' },
+  { id: 'coinop-regular', name: 'Coin-Op Regular', emoji: '🪙', tagline: "You've earned your high score", tier: 'arcade', threshold: 30, theme: 'from-amber-500 to-yellow-500', type: 'tidbits' },
+  { id: 'level-grinder', name: 'Level Grinder', emoji: '🧠', tagline: 'This is more than a phase', tier: 'arcade', threshold: 40, theme: 'from-rose-500 to-pink-500', type: 'tidbits' },
+  { id: 'game-saved', name: 'Game Saved', emoji: '💽', tagline: 'Press start to continue', tier: 'arcade', threshold: 50, theme: 'from-cyan-500 to-blue-500', type: 'tidbits' },
   
-  // Old Web Explorer (51-100)
-  { id: 'dialup-devotee', name: 'Dial-Up Devotee', emoji: '📞', tagline: "It's noisy, but it connects", tier: 'web', threshold: 60, theme: 'from-gray-500 to-slate-500' },
-  { id: 'sitebuilder', name: 'Sitebuilder', emoji: '🧱', tagline: "You're stacking bits", tier: 'web', threshold: 75, theme: 'from-orange-500 to-red-500' },
-  { id: 'web1-legend', name: 'Web 1.0 Legend', emoji: '🌐', tagline: 'A full century of days?! 🫡', tier: 'web', threshold: 100, theme: 'from-violet-500 to-purple-500' },
+  // Old Web Explorer (51-100 tidbits)
+  { id: 'dialup-devotee', name: 'Dial-Up Devotee', emoji: '📞', tagline: "It's noisy, but it connects", tier: 'web', threshold: 60, theme: 'from-gray-500 to-slate-500', type: 'tidbits' },
+  { id: 'sitebuilder', name: 'Sitebuilder', emoji: '🧱', tagline: "You're stacking bits", tier: 'web', threshold: 75, theme: 'from-orange-500 to-red-500', type: 'tidbits' },
+  { id: 'web1-legend', name: 'Web 1.0 Legend', emoji: '🌍', tagline: 'A full century of tidbits?! 🫡', tier: 'web', threshold: 100, theme: 'from-violet-500 to-purple-500', type: 'tidbits' },
   
-  // The Hacker's Lounge (101-250)
-  { id: 'command-champ', name: 'Command Line Champ', emoji: '⌨️', tagline: 'You speak fluent prompts now', tier: 'hacker', threshold: 125, theme: 'from-emerald-500 to-green-500' },
-  { id: 'syntax-sorcerer', name: 'Syntax Sorcerer', emoji: '✨', tagline: "You're remixing everything", tier: 'hacker', threshold: 150, theme: 'from-purple-500 to-indigo-500' },
-  { id: 'terminal-traveler', name: 'Terminal Traveler', emoji: '🧳', tagline: "You're in deep — and loving it", tier: 'hacker', threshold: 200, theme: 'from-blue-500 to-cyan-500' },
-  { id: 'root-access', name: 'Root Access', emoji: '🔓', tagline: 'You run this machine now', tier: 'hacker', threshold: 250, theme: 'from-red-500 to-orange-500' },
+  // The Hacker's Lounge (101-250 tidbits)
+  { id: 'command-champ', name: 'Command Line Champ', emoji: '⌨️', tagline: 'You speak fluent prompts now', tier: 'hacker', threshold: 125, theme: 'from-emerald-500 to-green-500', type: 'tidbits' },
+  { id: 'syntax-sorcerer', name: 'Syntax Sorcerer', emoji: '✨', tagline: "You're remixing everything", tier: 'hacker', threshold: 150, theme: 'from-purple-500 to-indigo-500', type: 'tidbits' },
+  { id: 'terminal-traveler', name: 'Terminal Traveler', emoji: '🧳', tagline: "You're in deep — and loving it", tier: 'hacker', threshold: 200, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
+  { id: 'root-access', name: 'Root Access', emoji: '🔓', tagline: 'You run this machine now', tier: 'hacker', threshold: 250, theme: 'from-red-500 to-orange-500', type: 'tidbits' },
   
-  // Bit Voyager (251-500)
-  { id: 'bitstream-surfer', name: 'Bitstream Surfer', emoji: '🏄', tagline: 'You make it look easy', tier: 'voyager', threshold: 300, theme: 'from-teal-500 to-cyan-500' },
-  { id: 'creative-compiler', name: 'Creative Compiler', emoji: '⚙️', tagline: 'Ideas. In. Code. In. Style.', tier: 'voyager', threshold: 400, theme: 'from-pink-500 to-rose-500' },
-  { id: 'warp-drive', name: 'Warp Drive Activated', emoji: '🚀', tagline: 'Halfway to four digits. Woah.', tier: 'voyager', threshold: 500, theme: 'from-indigo-500 to-violet-500' },
+  // Bit Voyager (251-500 tidbits)
+  { id: 'bitstream-surfer', name: 'Bitstream Surfer', emoji: '🏄', tagline: 'You make it look easy', tier: 'voyager', threshold: 300, theme: 'from-teal-500 to-cyan-500', type: 'tidbits' },
+  { id: 'creative-compiler', name: 'Creative Compiler', emoji: '⚙️', tagline: 'Ideas. In. Code. In. Style.', tier: 'voyager', threshold: 400, theme: 'from-pink-500 to-rose-500', type: 'tidbits' },
+  { id: 'warp-drive', name: 'Warp Drive Activated', emoji: '🚀', tagline: 'Halfway to four digits. Woah.', tier: 'voyager', threshold: 500, theme: 'from-indigo-500 to-violet-500', type: 'tidbits' },
   
-  // Neural Explorer (501-750)
-  { id: 'prompt-poet', name: 'Prompt Poet', emoji: '✍️', tagline: 'Your style? Unmistakable.', tier: 'neural', threshold: 600, theme: 'from-amber-500 to-orange-500' },
-  { id: 'language-modeler', name: 'Language Modeler', emoji: '📚', tagline: 'You could teach a model a thing or two', tier: 'neural', threshold: 700, theme: 'from-green-500 to-emerald-500' },
-  { id: 'synapse-syncer', name: 'Synapse Syncer', emoji: '🧬', tagline: "You're wired for this now", tier: 'neural', threshold: 750, theme: 'from-purple-500 to-pink-500' },
+  // Neural Explorer (501-750 tidbits)
+  { id: 'prompt-poet', name: 'Prompt Poet', emoji: '✍️', tagline: 'Your style? Unmistakable.', tier: 'neural', threshold: 600, theme: 'from-amber-500 to-orange-500', type: 'tidbits' },
+  { id: 'language-modeler', name: 'Language Modeler', emoji: '📚', tagline: 'You could teach a model a thing or two', tier: 'neural', threshold: 700, theme: 'from-green-500 to-emerald-500', type: 'tidbits' },
+  { id: 'synapse-syncer', name: 'Synapse Syncer', emoji: '🧬', tagline: "You're wired for this now", tier: 'neural', threshold: 750, theme: 'from-purple-500 to-pink-500', type: 'tidbits' },
   
-  // The Reflection Zone (751-1000)
-  { id: 'bit-philosopher', name: 'Bit Philosopher', emoji: '🪞', tagline: "You've seen it all. Now what?", tier: 'quantum', threshold: 800, theme: 'from-slate-500 to-gray-500' },
-  { id: 'echo-mapper', name: 'Echo Mapper', emoji: '🛰️', tagline: 'Your thoughts ripple across the board', tier: 'quantum', threshold: 900, theme: 'from-cyan-500 to-blue-500' },
-  { id: 'quantum-bitmaster', name: 'Quantum Bitmaster', emoji: '🧠💡', tagline: "One thousand. You're legend.", tier: 'quantum', threshold: 1000, theme: 'from-yellow-500 to-amber-500' }
+  // The Reflection Zone (751-1000 tidbits)
+  { id: 'bit-philosopher', name: 'Bit Philosopher', emoji: '🪞', tagline: "You've seen it all. Now what?", tier: 'quantum', threshold: 800, theme: 'from-slate-500 to-gray-500', type: 'tidbits' },
+  { id: 'echo-mapper', name: 'Echo Mapper', emoji: '🛰️', tagline: 'Your thoughts ripple across the board', tier: 'quantum', threshold: 900, theme: 'from-cyan-500 to-blue-500', type: 'tidbits' },
+  { id: 'quantum-bitmaster', name: 'Quantum Bitmaster', emoji: '🧠💡', tagline: "One thousand tidbits. You're legend.", tier: 'quantum', threshold: 1000, theme: 'from-yellow-500 to-amber-500', type: 'tidbits' },
+
+  // Engagement Badges (based on posts/interaction)
+  { id: 'first-post', name: 'First Post', emoji: '📝', tagline: 'Welcome to sharing!', tier: 'starter', threshold: 1, theme: 'from-green-500 to-blue-500', type: 'posts' },
+  { id: 'prolific-poster', name: 'Prolific Poster', emoji: '📈', tagline: 'You love to share', tier: 'arcade', threshold: 10, theme: 'from-purple-500 to-pink-500', type: 'posts' },
+  { id: 'community-builder', name: 'Community Builder', emoji: '🏗️', tagline: 'Building the ecosystem', tier: 'web', threshold: 50, theme: 'from-orange-500 to-red-500', type: 'posts' },
+  { id: 'engagement-engine', name: 'Engagement Engine', emoji: '⚡', tagline: 'Always sparking discussion', tier: 'hacker', threshold: 25, theme: 'from-blue-500 to-cyan-500', type: 'engagement' }
 ]
 
 // Enhanced Profile Component
@@ -130,16 +139,36 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Calculate earned badges based on stats
+  // Enhanced badge calculation including tidbit completion
   const calculateEarnedBadges = (stats: ProfileStats) => {
-    const totalActiveDays = stats.joinedDaysAgo
-    const earnedBadges = RETRO_BADGES.filter(badge => totalActiveDays >= badge.threshold)
-    return earnedBadges
+    const earnedBadges: Badge[] = []
+    
+    // Tidbit completion badges
+    const tidbitBadges = RETRO_BADGES.filter(badge => 
+      badge.type === 'tidbits' && stats.completedTidbits >= badge.threshold
+    )
+    earnedBadges.push(...tidbitBadges)
+    
+    // Post count badges
+    const postBadges = RETRO_BADGES.filter(badge => 
+      badge.type === 'posts' && stats.postsCount >= badge.threshold
+    )
+    earnedBadges.push(...postBadges)
+    
+    // Engagement badges (comments + likes given)
+    const engagementScore = stats.commentsGiven + stats.likesGiven
+    const engagementBadges = RETRO_BADGES.filter(badge => 
+      badge.type === 'engagement' && engagementScore >= badge.threshold
+    )
+    earnedBadges.push(...engagementBadges)
+    
+    return earnedBadges.sort((a, b) => a.threshold - b.threshold)
   }
 
   // Get current tier badge (highest earned)
   const getCurrentTierBadge = (badges: Badge[]) => {
-    return badges.length > 0 ? badges[badges.length - 1] : null
+    const tidbitBadges = badges.filter(b => b.type === 'tidbits')
+    return tidbitBadges.length > 0 ? tidbitBadges[tidbitBadges.length - 1] : null
   }
 
   // Fetch profile data
@@ -174,7 +203,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Enhanced fetch stats with comment counts
+  // Enhanced fetch stats with tidbit completion tracking
   const fetchStats = async () => {
     try {
       // Get posts count
@@ -221,6 +250,15 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
+      // NEW: Get completed tidbits count
+      const { count: completedTidbits } = await supabase
+        .from('user_tidbit_progress')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .not('viewed_at', 'is', null)
+        .not('tutor_used_at', 'is', null)
+        .not('posted_at', 'is', null)
+
       // Calculate days since joining
       const { data: profileData } = await supabase
         .from('profiles')
@@ -238,12 +276,13 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         likesGiven: likesGiven || 0,
         commentsGiven: commentsGiven || 0,
         commentsReceived,
-        joinedDaysAgo
+        joinedDaysAgo,
+        completedTidbits: completedTidbits || 0 // NEW: Include completed tidbits
       }
 
       setStats(newStats)
 
-      // Calculate badges
+      // Calculate badges with new stats
       const badges = calculateEarnedBadges(newStats)
       setUserBadges(badges)
     } catch (err) {
@@ -525,7 +564,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                   {profile.username && (
                     <p className="text-base sm:text-lg text-gray-600 mb-2 sm:mb-4">@{profile.username}</p>
                   )}
-                  {/* Remove redundant badge preview since it's in the meta section now */}
                 </div>
               )}
             </div>
@@ -666,9 +704,12 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         </div>
       </div>
 
+      {/* NEW: Tidbit Progress Tracker */}
+      <TidbitProgressTracker userId={userId} isOwnProfile={isOwnProfile} />
+
       {/* Enhanced Stats Grid - Mobile Optimized */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
           <button
             onClick={() => setActiveStatsFilter('created')}
             className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
@@ -689,7 +730,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
             }`}
           >
             <div className="text-xl sm:text-2xl font-bold text-[#59B1E3] mb-1">{stats.likesReceived}</div>
-            <div className="text-xs sm:text-sm text-gray-600">Posts with Likes</div>
+            <div className="text-xs sm:text-sm text-gray-600">Likes Received</div>
             {activeStatsFilter === 'top' && (
               <div className="text-xs text-[#59B1E3] mt-1 font-medium">● Active</div>
             )}
@@ -722,23 +763,30 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
             )}
           </button>
           
-          {/* Comments Received - Match Other Cards Style */}
+          {/* Comments Given */}
           <button
             onClick={() => setActiveStatsFilter('commented')}
             className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'commented' ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-gray-200 hover:border-purple-500'
+              activeStatsFilter === 'commented' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-gray-200 hover:border-indigo-500'
             }`}
           >
-            <div className="text-xl sm:text-2xl font-bold text-purple-500 mb-1">{stats.commentsReceived}</div>
-            <div className="text-xs sm:text-sm text-gray-600">Comments Received</div>
+            <div className="text-xl sm:text-2xl font-bold text-indigo-500 mb-1">{stats.commentsGiven}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Comments Given</div>
             {activeStatsFilter === 'commented' && (
-              <div className="text-xs text-purple-500 mt-1 font-medium">● Active</div>
+              <div className="text-xs text-indigo-500 mt-1 font-medium">● Active</div>
             )}
           </button>
+
+          {/* NEW: Completed Tidbits */}
+          <div className="bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50">
+            <div className="text-xl sm:text-2xl font-bold text-amber-600 mb-1">{stats.completedTidbits}</div>
+            <div className="text-xs sm:text-sm text-amber-700">Tidbits Completed</div>
+            <div className="flex items-center justify-center mt-1">
+              <Trophy className="w-3 h-3 text-amber-500" />
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Remove the big Badge Collection section since it's now subtle */}
 
       {/* User's Posts Grid */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">

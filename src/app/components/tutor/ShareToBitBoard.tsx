@@ -106,10 +106,10 @@ TASK: Create a detailed social media post (500-800 characters) that follows this
 **Opening Hook:** "Just used AI to accomplish [SPECIFIC_GOAL] with Daily Tidbit #${tidbitNumber}! Here's what happened:"
 
 **The Journey:** Show the conversation progression:
-- "🔸 I asked AI to [FIRST_REQUEST]"
-- "🔸 AI gave me [SPECIFIC_RESULT_WITH_DETAILS]" 
-- "🔸 Then I asked for [FOLLOW_UP]"
-- "🔸 Final result: [DETAILED_OUTCOME]"
+- "📸 I asked AI to [FIRST_REQUEST]"
+- "📸 AI gave me [SPECIFIC_RESULT_WITH_DETAILS]" 
+- "📸 Then I asked for [FOLLOW_UP]"
+- "📸 Final result: [DETAILED_OUTCOME]"
 
 **Include the Valuable Content:** 
 - If they got a list (like towns, tips, recipes, etc.) - include the FULL list or key items
@@ -168,26 +168,31 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
     await generateAISummaryAuto();
   };
 
-  // Track progress when post is created
-  const markPostCreated = async (tidbitNumber: number) => {
+  // 🎯 FIXED: Track progress when post is created
+  const markPostCreated = async (tidbitNumber: number, postId: string) => {
     if (!user) return;
 
     try {
+      console.log(`🎯 Tracking TidbitTutor post for Tidbit ${tidbitNumber}, Post ID: ${postId}`);
+      
       const { error } = await supabase
         .from('user_tidbit_progress')
         .upsert({
           user_id: user.id,
           tidbit_number: tidbitNumber,
-          created_post: true
+          posted_at: new Date().toISOString(),
+          bitboard_post_id: postId  // Track the actual post ID
         }, {
           onConflict: 'user_id,tidbit_number'
         });
 
       if (error) {
-        console.error('Error marking post created:', error);
+        console.error('❌ Error marking tutor post created:', error);
+      } else {
+        console.log(`✅ TidbitTutor posting tracked successfully for Tidbit ${tidbitNumber}!`);
       }
     } catch (error) {
-      console.error('Error updating progress:', error);
+      console.error('❌ Error updating tutor post progress:', error);
     }
   };
 
@@ -222,15 +227,22 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
 
       console.log('Posting to BitBoard with data:', postData);
 
-      const { error: supabaseError } = await supabase.from('posts').insert(postData);
+      // 🔥 KEY: Get the post data back with .select().single()
+      const { data: newPost, error: supabaseError } = await supabase
+        .from('posts')
+        .insert(postData)
+        .select()
+        .single();
 
       if (supabaseError) {
         console.error('Supabase error details:', supabaseError);
         throw new Error(`Failed to post: ${supabaseError.message}`);
       }
 
-      // Track progress
-      await markPostCreated(tidbitNumber);
+      console.log('📝 TidbitTutor post created successfully:', newPost);
+
+      // 🎯 FIXED: Track progress with the actual post ID
+      await markPostCreated(tidbitNumber, newPost.id);
 
       // Success handling
       setShowModal(false);

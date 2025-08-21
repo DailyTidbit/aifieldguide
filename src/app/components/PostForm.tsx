@@ -34,26 +34,31 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
     }
   }, [searchParams])
 
-  // Track progress when post is created
-  const markPostCreated = async (tidbitNumber: number) => {
+  // 🎯 FIXED: Direct progress tracking function
+  const markPostCreated = async (tidbitNumber: number, postId: string) => {
     if (!user) return
 
     try {
+      console.log(`🎯 Tracking BitBoard post for Tidbit ${tidbitNumber}, Post ID: ${postId}`)
+      
       const { error } = await supabase
         .from('user_tidbit_progress')
         .upsert({
           user_id: user.id,
           tidbit_number: tidbitNumber,
-          created_post: true
+          posted_at: new Date().toISOString(),
+          bitboard_post_id: postId // Link to the actual post
         }, {
           onConflict: 'user_id,tidbit_number'
         })
 
       if (error) {
-        console.error('Error marking post created:', error)
+        console.error('❌ Error marking post created:', error)
+      } else {
+        console.log(`✅ BitBoard posting tracked successfully for Tidbit ${tidbitNumber}!`)
       }
     } catch (error) {
-      console.error('Error updating progress:', error)
+      console.error('❌ Error updating progress:', error)
     }
   }
 
@@ -80,21 +85,24 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       }
     }
 
-    const { error } = await supabase.from('posts').insert({
+    // 🔥 KEY: Get the inserted post data back with .select().single()
+    const { data: postData, error } = await supabase.from('posts').insert({
       user_id: user.id,
       content,
       media_url,
       tidbit,
       type: 'text',
       is_private: isPrivate,
-    })
+    }).select().single()
 
     if (error) {
       alert('Error submitting post')
       console.error(error)
     } else {
-      // Track progress - mark that user created a post for this tidbit
-      await markPostCreated(tidbit)
+      console.log('📝 Post created successfully:', postData)
+      
+      // 🎯 FIXED: Track posting immediately with post ID
+      await markPostCreated(tidbit, postData.id)
       
       // Success handling
       const successMessage = isPrivate 
@@ -138,9 +146,19 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
         Share your creation
       </h2>
 
-      {/* Tidbit display */}
-      <div className="text-sm text-gray-600">
-        Posting to <strong>Tidbit #{tidbit}</strong>
+      {/* Tidbit display with progress indication */}
+      <div className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-lg p-4 border border-[#60A875]/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm text-gray-600">
+              Posting to <strong>Tidbit #{tidbit}</strong>
+            </div>
+            <div className="text-xs text-[#60A875] font-medium mt-1">
+              ✨ Complete your learning journey by sharing!
+            </div>
+          </div>
+          <div className="text-2xl">📝</div>
+        </div>
       </div>
 
       {/* Privacy Toggle - Prominent placement */}
@@ -260,6 +278,13 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
           </>
         )}
       </button>
+
+      {/* Progress completion note */}
+      {!isPrivate && (
+        <div className="text-center text-xs text-gray-500 bg-green-50 rounded-lg p-3 border border-green-200">
+          🏆 Sharing this post will complete your Day {tidbit} learning journey!
+        </div>
+      )}
     </form>
   )
 }

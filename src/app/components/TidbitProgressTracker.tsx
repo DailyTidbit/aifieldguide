@@ -2,271 +2,163 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { Check, Clock, Star, MessageSquare, Eye, Target } from 'lucide-react'
+import { 
+  Eye, 
+  MessageSquare, 
+  Share, 
+  CheckCircle, 
+  Clock,
+  Trophy,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Target,
+  Sparkles,
+  Filter,
+  RotateCcw
+} from 'lucide-react'
 
 interface TidbitProgress {
   tidbit_number: number
   viewed_at: string | null
-  completed_at: string | null
-  practiced_with_ai: boolean
-  created_post: boolean
+  tutor_used_at: string | null
+  posted_at: string | null
+  completed_steps: number
+  tidbit_title?: string
+  tidbit_created_at?: string
 }
 
-interface ProgressStats {
-  totalTidbits: number
-  viewedCount: number
-  completedCount: number
-  practicedCount: number
-  sharedCount: number
-  currentStreak: number
-  longestStreak: number
-  progressPercentage: number
+interface TidbitProgressTrackerProps {
+  userId: string
+  isOwnProfile: boolean
 }
 
-// Hook to track and manage tidbit progress
-export function useTidbitProgress() {
+type FilterType = 'all' | 'completed' | 'in-progress' | 'not-started'
+
+export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitProgressTrackerProps) {
   const [progress, setProgress] = useState<TidbitProgress[]>([])
-  const [stats, setStats] = useState<ProgressStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [filter, setFilter] = useState<FilterType>('all')
+  const [showDetails, setShowDetails] = useState(false)
+
+  // Calculate stats
+  const totalTidbits = progress.length
+  const completedTidbits = progress.filter(p => p.completed_steps === 3).length
+  const inProgressTidbits = progress.filter(p => p.completed_steps > 0 && p.completed_steps < 3).length
+  const notStartedTidbits = progress.filter(p => p.completed_steps === 0).length
+  const completionRate = totalTidbits > 0 ? Math.round((completedTidbits / totalTidbits) * 100) : 0
+
+  // Filter progress
+  const filteredProgress = progress.filter(p => {
+    switch (filter) {
+      case 'completed': return p.completed_steps === 3
+      case 'in-progress': return p.completed_steps > 0 && p.completed_steps < 3
+      case 'not-started': return p.completed_steps === 0
+      default: return true
+    }
+  })
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        await fetchProgress(user.id)
-      } else {
-        setLoading(false)
-      }
-    }
-    getUser()
-  }, [])
+    fetchTidbitProgress()
+  }, [userId])
 
-  const fetchProgress = async (userId: string) => {
+  const fetchTidbitProgress = async () => {
     try {
       setLoading(true)
+
+      // Get all published tidbits
+      const { data: tidbits, error: tidbitsError } = await supabase
+        .from('tidbits')
+        .select('day_number, title, created_at')
+        .eq('status', 'published')
+        .order('day_number', { ascending: false })
+
+      if (tidbitsError) throw tidbitsError
+
+      // Get user's progress for all tidbits
+      const tidbitNumbers = tidbits?.map(t => t.day_number) || []
       
-      const { data: progressData, error } = await supabase
+      const { data: userProgress, error: progressError } = await supabase
         .from('user_tidbit_progress')
         .select('*')
         .eq('user_id', userId)
-        .order('tidbit_number')
+        .in('tidbit_number', tidbitNumbers)
 
-      if (error) throw error
+      if (progressError) throw progressError
 
-      setProgress(progressData || [])
-      calculateStats(progressData || [])
+      // Combine tidbit info with progress
+      const progressData: TidbitProgress[] = tidbits?.map(tidbit => {
+        const userProg = userProgress?.find(up => up.tidbit_number === tidbit.day_number)
+        
+        let completedSteps = 0
+        if (userProg?.viewed_at) completedSteps++
+        if (userProg?.tutor_used_at) completedSteps++
+        if (userProg?.posted_at) completedSteps++
+
+        return {
+          tidbit_number: tidbit.day_number,
+          viewed_at: userProg?.viewed_at || null,
+          tutor_used_at: userProg?.tutor_used_at || null,
+          posted_at: userProg?.posted_at || null,
+          completed_steps: completedSteps,
+          tidbit_title: tidbit.title,
+          tidbit_created_at: tidbit.created_at
+        }
+      }) || []
+
+      setProgress(progressData)
     } catch (error) {
-      console.error('Error fetching progress:', error)
+      console.error('Error fetching tidbit progress:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const calculateStats = (progressData: TidbitProgress[]) => {
-    const totalTidbits = 365 // Total tidbits available
-    const viewedCount = progressData.filter(p => p.viewed_at).length
-    const completedCount = progressData.filter(p => p.completed_at).length
-    const practicedCount = progressData.filter(p => p.practiced_with_ai).length
-    const sharedCount = progressData.filter(p => p.created_post).length
-
-    // Calculate streak
-    const sortedProgress = progressData
-      .filter(p => p.viewed_at)
-      .sort((a, b) => new Date(b.viewed_at!).getTime() - new Date(a.viewed_at!).getTime())
-
-    let currentStreak = 0
-    let longestStreak = 0
-    let tempStreak = 0
-
-    // Simple streak calculation based on consecutive days
-    for (let i = 0; i < sortedProgress.length; i++) {
-      const current = new Date(sortedProgress[i].viewed_at!)
-      const previous = i > 0 ? new Date(sortedProgress[i - 1].viewed_at!) : null
-
-      if (!previous || Math.abs(current.getTime() - previous.getTime()) <= 86400000 * 2) { // Within 2 days
-        tempStreak++
-        if (i === 0) currentStreak = tempStreak
-      } else {
-        longestStreak = Math.max(longestStreak, tempStreak)
-        tempStreak = 1
-        if (i === 0) currentStreak = 1
-      }
+  const getProgressIcon = (step: 'viewed' | 'tutor' | 'posted', progress: TidbitProgress) => {
+    const completed = {
+      viewed: !!progress.viewed_at,
+      tutor: !!progress.tutor_used_at,
+      posted: !!progress.posted_at
     }
-    longestStreak = Math.max(longestStreak, tempStreak)
 
-    setStats({
-      totalTidbits,
-      viewedCount,
-      completedCount,
-      practicedCount,
-      sharedCount,
-      currentStreak,
-      longestStreak,
-      progressPercentage: Math.round((viewedCount / totalTidbits) * 100)
-    })
+    const iconClass = completed[step] 
+      ? 'text-green-600 bg-green-100' 
+      : 'text-gray-400 bg-gray-100'
+
+    const IconComponent = {
+      viewed: Eye,
+      tutor: MessageSquare,
+      posted: Share
+    }[step]
+
+    return (
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${iconClass} transition-colors`}>
+        <IconComponent className="w-4 h-4" />
+      </div>
+    )
   }
 
-  // Track when user views a tidbit
-  const markTidbitViewed = async (tidbitNumber: number) => {
-    if (!user) return
-
-    try {
-      const { error } = await supabase
-        .from('user_tidbit_progress')
-        .upsert({
-          user_id: user.id,
-          tidbit_number: tidbitNumber,
-          viewed_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,tidbit_number'
-        })
-
-      if (error) throw error
-
-      // Refresh progress
-      await fetchProgress(user.id)
-    } catch (error) {
-      console.error('Error marking tidbit viewed:', error)
-    }
+  const getTidbitStatusColor = (completedSteps: number) => {
+    if (completedSteps === 3) return 'text-green-600 bg-green-50 border-green-200'
+    if (completedSteps > 0) return 'text-blue-600 bg-blue-50 border-blue-200'
+    return 'text-gray-600 bg-gray-50 border-gray-200'
   }
 
-  // Mark tidbit as completed (finished walkthrough)
-  const markTidbitCompleted = async (tidbitNumber: number) => {
-    if (!user) return
-
-    try {
-      const { error } = await supabase
-        .from('user_tidbit_progress')
-        .upsert({
-          user_id: user.id,
-          tidbit_number: tidbitNumber,
-          completed_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,tidbit_number'
-        })
-
-      if (error) throw error
-      await fetchProgress(user.id)
-    } catch (error) {
-      console.error('Error marking tidbit completed:', error)
-    }
+  const getTidbitStatusText = (completedSteps: number) => {
+    if (completedSteps === 3) return 'Completed'
+    if (completedSteps > 0) return `${completedSteps}/3 steps`
+    return 'Not started'
   }
-
-  // Mark AI practice used
-  const markAIPracticed = async (tidbitNumber: number) => {
-    if (!user) return
-
-    try {
-      const { error } = await supabase
-        .from('user_tidbit_progress')
-        .upsert({
-          user_id: user.id,
-          tidbit_number: tidbitNumber,
-          practiced_with_ai: true
-        }, {
-          onConflict: 'user_id,tidbit_number'
-        })
-
-      if (error) throw error
-      await fetchProgress(user.id)
-    } catch (error) {
-      console.error('Error marking AI practiced:', error)
-    }
-  }
-
-  // Mark post created
-  const markPostCreated = async (tidbitNumber: number) => {
-    if (!user) return
-
-    try {
-      const { error } = await supabase
-        .from('user_tidbit_progress')
-        .upsert({
-          user_id: user.id,
-          tidbit_number: tidbitNumber,
-          created_post: true
-        }, {
-          onConflict: 'user_id,tidbit_number'
-        })
-
-      if (error) throw error
-      await fetchProgress(user.id)
-    } catch (error) {
-      console.error('Error marking post created:', error)
-    }
-  }
-
-  // Get next unviewed tidbit
-  const getNextUnviewedTidbit = () => {
-    if (!progress.length) return 1
-
-    const viewedTidbits = new Set(progress.filter(p => p.viewed_at).map(p => p.tidbit_number))
-    
-    // Find first unviewed tidbit
-    for (let i = 1; i <= 365; i++) {
-      if (!viewedTidbits.has(i)) {
-        return i
-      }
-    }
-    
-    return null // All viewed
-  }
-
-  // Get recommended tidbits (unviewed ones)
-  const getRecommendedTidbits = (limit = 5) => {
-    const viewedTidbits = new Set(progress.filter(p => p.viewed_at).map(p => p.tidbit_number))
-    const unviewed = []
-    
-    for (let i = 1; i <= 365 && unviewed.length < limit; i++) {
-      if (!viewedTidbits.has(i)) {
-        unviewed.push(i)
-      }
-    }
-    
-    return unviewed
-  }
-
-  // Check if tidbit is viewed/completed
-  const getTidbitStatus = (tidbitNumber: number) => {
-    const tidbitProgress = progress.find(p => p.tidbit_number === tidbitNumber)
-    return {
-      viewed: !!tidbitProgress?.viewed_at,
-      completed: !!tidbitProgress?.completed_at,
-      practiced: !!tidbitProgress?.practiced_with_ai,
-      shared: !!tidbitProgress?.created_post
-    }
-  }
-
-  return {
-    progress,
-    stats,
-    loading,
-    user,
-    markTidbitViewed,
-    markTidbitCompleted,
-    markAIPracticed,
-    markPostCreated,
-    getNextUnviewedTidbit,
-    getRecommendedTidbits,
-    getTidbitStatus,
-    refreshProgress: () => user && fetchProgress(user.id)
-  }
-}
-
-// Progress Dashboard Component
-export default function TidbitProgressDashboard() {
-  const { stats, loading, getRecommendedTidbits, getNextUnviewedTidbit } = useTidbitProgress()
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-4 bg-gray-200 rounded w-full"></div>
             ))}
           </div>
         </div>
@@ -274,134 +166,207 @@ export default function TidbitProgressDashboard() {
     )
   }
 
-  if (!stats) return null
-
-  const nextTidbit = getNextUnviewedTidbit()
-  const recommended = getRecommendedTidbits(3)
+  if (!isOwnProfile && completedTidbits === 0) {
+    return null // Don't show tracker for other users with no progress
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Progress Overview */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <Target className="w-5 h-5 text-[#60A875]" />
-          Your Progress
-        </h2>
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Header Summary */}
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-[#60A875] to-[#59B1E3] text-white">
+              <Target className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                Learning Progress
+              </h3>
+              <p className="text-gray-600 text-sm">
+                {isOwnProfile ? 'Your tidbit completion journey' : `${completedTidbits} tidbits completed`}
+              </p>
+            </div>
+          </div>
+          
+          {isOwnProfile && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            </button>
+          )}
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="text-2xl font-bold text-green-600">{completedTidbits}</div>
+            <div className="text-sm text-green-700">Completed</div>
+          </div>
+          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="text-2xl font-bold text-blue-600">{inProgressTidbits}</div>
+            <div className="text-sm text-blue-700">In Progress</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-2xl font-bold text-gray-600">{notStartedTidbits}</div>
+            <div className="text-sm text-gray-700">Not Started</div>
+          </div>
+          <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+            <div className="text-2xl font-bold text-purple-600">{completionRate}%</div>
+            <div className="text-sm text-purple-700">Complete</div>
+          </div>
+        </div>
 
         {/* Progress Bar */}
-        <div className="mb-6">
+        <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">
-              {stats.viewedCount} of {stats.totalTidbits} tidbits explored
-            </span>
-            <span className="text-sm font-bold text-[#60A875]">
-              {stats.progressPercentage}%
-            </span>
+            <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+            <span className="text-sm text-gray-600">{completedTidbits}/{totalTidbits}</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div 
               className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] h-3 rounded-full transition-all duration-500"
-              style={{ width: `${stats.progressPercentage}%` }}
+              style={{ width: `${completionRate}%` }}
             ></div>
           </div>
         </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <Eye className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-blue-600">{stats.viewedCount}</div>
-            <div className="text-sm text-blue-700">Viewed</div>
-          </div>
-          
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <Check className="w-6 h-6 text-green-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-green-600">{stats.completedCount}</div>
-            <div className="text-sm text-green-700">Completed</div>
-          </div>
-          
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <Star className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-purple-600">{stats.practicedCount}</div>
-            <div className="text-sm text-purple-700">Practiced</div>
-          </div>
-          
-          <div className="text-center p-4 bg-orange-50 rounded-lg">
-            <MessageSquare className="w-6 h-6 text-orange-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-orange-600">{stats.sharedCount}</div>
-            <div className="text-sm text-orange-700">Shared</div>
-          </div>
-        </div>
-
-        {/* Streak Info */}
-        {stats.currentStreak > 0 && (
-          <div className="mt-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🔥</span>
-              <div>
-                <div className="font-bold text-yellow-800">
-                  {stats.currentStreak} day streak!
-                </div>
-                <div className="text-sm text-yellow-700">
-                  Longest streak: {stats.longestStreak} days
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Next Steps */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Continue Learning</h3>
-        
-        {nextTidbit ? (
-          <div className="space-y-3">
-            <div className="p-4 bg-gradient-to-r from-[#60A875] to-[#59B1E3] rounded-lg text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-bold">Next Up: Day {nextTidbit}</div>
-                  <div className="text-sm opacity-90">Continue your AI journey</div>
-                </div>
-                <a
-                  href={`/day/${nextTidbit}`}
-                  className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors font-medium"
+      {/* Detailed Progress (Expandable) */}
+      {expanded && isOwnProfile && (
+        <div className="p-6 space-y-6">
+          {/* Filters */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Filter:</span>
+            </div>
+            <div className="flex gap-2">
+              {[
+                { key: 'all', label: 'All', count: totalTidbits },
+                { key: 'completed', label: 'Completed', count: completedTidbits },
+                { key: 'in-progress', label: 'In Progress', count: inProgressTidbits },
+                { key: 'not-started', label: 'Not Started', count: notStartedTidbits }
+              ].map(({ key, label, count }) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key as FilterType)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    filter === key 
+                      ? 'bg-[#60A875] text-white' 
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
-                  Start →
-                </a>
+                  {label} ({count})
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Progress Legend */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Progress Steps</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-100 text-blue-600">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">Viewed</div>
+                  <div className="text-xs text-gray-600">Read the tidbit</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-100 text-purple-600">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">Tutor Used</div>
+                  <div className="text-xs text-gray-600">Tried with AI</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-100 text-green-600">
+                  <Share className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">Posted</div>
+                  <div className="text-xs text-gray-600">Shared creation</div>
+                </div>
               </div>
             </div>
-            
-            {recommended.length > 1 && (
-              <div>
-                <h4 className="font-medium text-gray-700 mb-2">Or try these:</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {recommended.slice(1).map(tidbit => (
-                    <a
-                      key={tidbit}
-                      href={`/day/${tidbit}`}
-                      className="p-3 border border-gray-200 rounded-lg hover:border-[#60A875] transition-colors text-center"
-                    >
-                      <div className="font-medium text-gray-900">Day {tidbit}</div>
-                      <div className="text-sm text-gray-600">Not started</div>
-                    </a>
-                  ))}
-                </div>
+          </div>
+
+          {/* Progress List */}
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {filteredProgress.length === 0 ? (
+              <div className="text-center py-8">
+                <Target className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No tidbits match this filter</p>
+                <button
+                  onClick={() => setFilter('all')}
+                  className="text-[#60A875] hover:text-green-600 text-sm mt-2"
+                >
+                  Show all tidbits
+                </button>
               </div>
+            ) : (
+              filteredProgress.map((item) => (
+                <div 
+                  key={item.tidbit_number}
+                  className={`border rounded-lg p-4 transition-all hover:shadow-md ${getTidbitStatusColor(item.completed_steps)}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-sm font-bold bg-[#59B1E3] text-white px-2 py-1 rounded-full">
+                          Day {item.tidbit_number}
+                        </span>
+                        <h4 className="font-semibold text-gray-900 text-sm line-clamp-1">
+                          {item.tidbit_title || `Tidbit ${item.tidbit_number}`}
+                        </h4>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {getProgressIcon('viewed', item)}
+                        {getProgressIcon('tutor', item)}
+                        {getProgressIcon('posted', item)}
+                        
+                        <span className="text-xs font-medium ml-2">
+                          {getTidbitStatusText(item.completed_steps)}
+                        </span>
+                        
+                        {item.completed_steps === 3 && (
+                          <div className="flex items-center gap-1 text-green-600">
+                            <Trophy className="w-4 h-4" />
+                            <span className="text-xs font-bold">Complete!</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <a
+                        href={`/day/${item.tidbit_number}`}
+                        className="text-[#60A875] hover:text-green-600 text-sm font-medium"
+                      >
+                        {item.completed_steps === 0 ? 'Start' : 'Continue'}
+                      </a>
+                      {item.tidbit_created_at && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {new Date(item.tidbit_created_at).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
           </div>
-        ) : (
-          <div className="text-center py-8">
-            <div className="text-6xl mb-4">🎉</div>
-            <div className="text-xl font-bold text-gray-900 mb-2">
-              Incredible! You've viewed all 365 tidbits!
-            </div>
-            <div className="text-gray-600">
-              You're a true AI learning champion!
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
