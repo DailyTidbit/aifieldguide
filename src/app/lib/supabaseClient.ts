@@ -1,12 +1,20 @@
-import { createClient } from '@supabase/supabase-js'
+// src/app/lib/supabaseClient.ts
+'use client';
 
-// Get values from environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+import { createBrowserClient } from '@supabase/ssr';
+// import type { Database } from '@/app/types' // if you generated types, you can add them
 
-// Check that we have the required values
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// If you have DB types, you can do:
+// export const supabaseClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
+
+// Back-compat aliases so existing imports don’t break
+export const supabase = supabaseClient;
+export default supabaseClient;

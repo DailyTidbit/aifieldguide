@@ -6,6 +6,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '../lib/supabaseClient'
 import AuthModal from './AuthModal'
+import UserProfile from './UserProfile'
 
 export default function Navigation() {
   const [user, setUser] = useState<any>(null)
@@ -13,6 +14,7 @@ export default function Navigation() {
   const [searchQuery, setSearchQuery] = useState('')
   const [todaysTidbit, setTodaysTidbit] = useState<number | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showUserProfile, setShowUserProfile] = useState(false)
 
   // Send users back to the current page after OAuth
   const redirectTo = useMemo(() => (
@@ -142,20 +144,15 @@ export default function Navigation() {
               </div>
 
               {user ? (
-                <div className="relative group">
-                  <button className="flex items-center gap-2 text-gray-700 hover:text-[#60A875] transition-colors">
-                    <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <span className="hidden sm:inline font-medium text-sm">{user.email?.split('@')[0]}</span>
-                  </button>
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                    <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg">Your Profile</Link>
-                    <Link href="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Settings</Link>
-                    <hr className="my-1" />
-                    <button onClick={handleSignOut} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 last:rounded-b-lg">Sign Out</button>
+                <button
+                  onClick={() => setShowUserProfile(true)}
+                  className="flex items-center gap-2 text-gray-700 hover:text-[#60A875] transition-colors"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-300 rounded-full hover:ring-2 hover:ring-[#60A875]/20 transition-all flex items-center justify-center text-xs sm:text-sm font-medium">
+                    {user.email?.charAt(0).toUpperCase()}
                   </div>
-                </div>
+                  <span className="hidden sm:inline font-medium text-sm">{user.email?.split('@')[0]}</span>
+                </button>
               ) : (
                 <button onClick={openAuthModal} className="bg-[#60A875] text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium text-sm">LOGIN</button>
               )}
@@ -222,6 +219,26 @@ export default function Navigation() {
         subtitle="Sign in to save, post, and use the Tutor"
         redirectTo={redirectTo}
       />
+
+      {/* User Profile Modal - Matching BitBoard Style */}
+      {user && showUserProfile && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto relative">
+            <div className="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 z-10">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Your Profile</h2>
+              <button
+                onClick={() => setShowUserProfile(false)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
+            <div className="p-0">
+              <UserProfile userId={user.id} isOwnProfile={true} />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
