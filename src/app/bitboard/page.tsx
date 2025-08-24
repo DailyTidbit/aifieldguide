@@ -10,12 +10,12 @@ import UserProfile from '../components/UserProfile'
 import ProfileSetupWizard from '../components/ProfileSetupWizard'
 import PostModal from '../components/PostModal'
 import PostCard from '../components/PostCard' // ✅ Import the enhanced PostCard
-import {
-  Loader2,
-  RefreshCw,
-  Filter,
-  TrendingUp,
-  Users,
+import { 
+  Loader2, 
+  RefreshCw, 
+  Filter, 
+  TrendingUp, 
+  Users, 
   Sparkles,
   Plus,
   Search,
@@ -73,7 +73,7 @@ type ViewMode = 'masonry' | 'grid' | 'list'
 function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'default' | 'wide' }) {
   const heightClass = {
     tall: 'h-80',
-    default: 'h-64',
+    default: 'h-64', 
     wide: 'h-48'
   }[variant]
 
@@ -82,7 +82,7 @@ function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'defau
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
         {/* Image skeleton */}
         <div className={`w-full ${heightClass} bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-shimmer`}></div>
-
+        
         {/* Content skeleton - mobile optimized */}
         <div className="p-3 sm:p-4 space-y-3">
           <div className="space-y-2">
@@ -90,7 +90,7 @@ function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'defau
             <div className="h-4 bg-gray-200 rounded w-4/5"></div>
             <div className="h-4 bg-gray-200 rounded w-3/5"></div>
           </div>
-
+          
           {/* User info skeleton */}
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-2">
@@ -110,18 +110,18 @@ function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'defau
 }
 
 // Mobile-optimized masonry component with privacy support
-function MobileOptimizedMasonry({
-  posts,
-  onTidbitClick,
-  onLike,
+function MobileOptimizedMasonry({ 
+  posts, 
+  onTidbitClick, 
+  onLike, 
   userLikedPosts,
   viewMode,
   loading = false,
   onPostClick,
   currentUser
-}: {
+}: { 
   posts: Post[]
-  onTidbitClick: (tidbit: number) => void
+  onTidbitClick: (tidbit: number) => void 
   onLike: (postId: string) => void
   userLikedPosts: string[]
   viewMode: ViewMode
@@ -213,7 +213,7 @@ function MobileOptimizedMasonry({
     const startIndex = (page - 1) * postsPerPage
     const endIndex = page * postsPerPage
     const newPosts = posts.slice(startIndex, endIndex)
-
+    
     if (newPosts.length > 0) {
       setVisiblePosts(prev => [...prev, ...newPosts])
       setPage(prev => prev + 1)
@@ -251,7 +251,7 @@ function MobileOptimizedMasonry({
   // Enhanced PostCard with privacy awareness
   const EnhancedPostCard = ({ post }: { post: Post }) => {
     const isOwnPost = currentUser?.id === post.user_id
-
+    
     return (
       <div className="break-inside-avoid mb-3 w-full">
         <div className="relative">
@@ -262,7 +262,7 @@ function MobileOptimizedMasonry({
               Private
             </div>
           )}
-
+          
           {/* Pin indicator */}
           {post.is_pinned && (
             <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
@@ -270,7 +270,7 @@ function MobileOptimizedMasonry({
               Pinned
             </div>
           )}
-
+          
           <PostCard
             post={post}
             isLiked={userLikedPosts.includes(post.id)}
@@ -287,15 +287,15 @@ function MobileOptimizedMasonry({
     if (loading) {
       const skeletonVariants: Array<'tall' | 'default' | 'wide'> = ['default', 'tall', 'wide']
       return Array.from({ length: 12 }).map((_, index) => (
-        <MobileSkeletonCard
-          key={`skeleton-${index}`}
-          variant={skeletonVariants[index % skeletonVariants.length]}
+        <MobileSkeletonCard 
+          key={`skeleton-${index}`} 
+          variant={skeletonVariants[index % skeletonVariants.length]} 
         />
       ))
     }
 
-    return visiblePosts.map((post) => (
-      <EnhancedPostCard key={post.id} post={post} />
+    return visiblePosts.map((post, index) => (
+      <EnhancedPostCard key={`${post.id}-${index}`} post={post} />
     ))
   }
 
@@ -308,7 +308,7 @@ function MobileOptimizedMasonry({
   return (
     <>
       <style>{masonryStyles}</style>
-
+      
       <div className={containerClass}>
         {renderPosts()}
       </div>
@@ -373,7 +373,7 @@ export default function MobileOptimizedBitBoard() {
     // Apply search filter
     if (debouncedSearchQuery.trim()) {
       const query = debouncedSearchQuery.toLowerCase()
-      filtered = filtered.filter(post =>
+      filtered = filtered.filter(post => 
         post.content?.toLowerCase().includes(query) ||
         post.description?.toLowerCase().includes(query) ||
         post.username?.toLowerCase().includes(query)
@@ -452,7 +452,7 @@ export default function MobileOptimizedBitBoard() {
 
       // Get user profiles
       const userIds = [...new Set(postsWithComments.map(post => post.user_id).filter(Boolean))]
-
+      
       let profilesData: Profile[] = []
       if (userIds.length > 0) {
         const { data, error: profilesError } = await supabase
@@ -477,7 +477,7 @@ export default function MobileOptimizedBitBoard() {
 
       setPosts(postsWithProfiles)
     } catch (err) {
-      console.error('❌ Error fetching posts:', err)
+      console.error('⌐ Error fetching posts:', err)
       setError('Failed to load posts. Please try again.')
     } finally {
       setLoading(false)
@@ -531,7 +531,7 @@ export default function MobileOptimizedBitBoard() {
       alert('Please log in to like posts.')
       return
     }
-
+    
     const alreadyLiked = userLikedPosts.includes(postId)
 
     try {
@@ -544,14 +544,14 @@ export default function MobileOptimizedBitBoard() {
       }
 
       // Update like count in posts
-      setPosts(prev => prev.map(post =>
-        post.id === postId
-          ? {
-            ...post,
-            likes_count: alreadyLiked
-              ? (post.likes_count ?? 1) - 1
-              : (post.likes_count ?? 0) + 1
-          }
+      setPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? { 
+              ...post, 
+              likes_count: alreadyLiked 
+                ? (post.likes_count ?? 1) - 1 
+                : (post.likes_count ?? 0) + 1 
+            }
           : post
       ))
     } catch (error) {
@@ -617,7 +617,7 @@ export default function MobileOptimizedBitBoard() {
       <nav className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-white border-b border-gray-200 relative z-50 sticky top-0">
         {/* Left Section - Mobile Optimized */}
         <div className="flex items-center gap-2 sm:gap-4">
-          <button
+          <button 
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors"
           >
@@ -625,9 +625,9 @@ export default function MobileOptimizedBitBoard() {
           </button>
           <div className="flex items-center gap-1 sm:gap-2">
             <div className="bg-gradient-to-br from-[#60A875] to-[#59B1E3] p-1.5 sm:p-2 rounded-lg">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <span className="text-lg sm:text-xl">🏖️</span>
             </div>
-            <h1
+            <h1 
               className="text-lg sm:text-xl font-bold text-gray-900 hidden sm:block"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
@@ -663,10 +663,11 @@ export default function MobileOptimizedBitBoard() {
           {/* Filter Button - Mobile Priority */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`p-2 sm:p-3 rounded-full transition-colors relative ${getActiveFiltersCount() > 0
-              ? 'bg-[#60A875] text-white hover:bg-green-600'
-              : 'hover:bg-gray-100 text-gray-700'
-              }`}
+            className={`p-2 sm:p-3 rounded-full transition-colors relative ${
+              getActiveFiltersCount() > 0 
+                ? 'bg-[#60A875] text-white'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
           >
             <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
             {getActiveFiltersCount() > 0 && (
@@ -679,7 +680,7 @@ export default function MobileOptimizedBitBoard() {
           {user && (
             <button
               onClick={() => setShowPostForm(!showPostForm)}
-              className="p-2 sm:p-3 bg-[#60A875] text-white rounded-full hover:bg-green-600 transition-colors"
+              className="p-2 sm:p-3 bg-[#60A875] text-white rounded-full hover:bg-[#60A875] transition-colors"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -697,62 +698,68 @@ export default function MobileOptimizedBitBoard() {
         </div>
       </nav>
 
-      {/* Enhanced Mobile-Optimized Filters Bar with Privacy Support */}
+      {/* Enhanced Desktop/Mobile-Optimized Filters Bar with Privacy Support */}
       {showFilters && (
         <div className="px-3 sm:px-4 py-2 sm:py-3 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide">
-
-
-            {['recent', 'trending', 'popular', 'liked', 'commented'].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setFilterOption(filter as FilterOption)}
-                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full transition-colors whitespace-nowrap capitalize text-xs sm:text-sm font-medium ${filterOption === filter
-                    ? 'bg-[#60A875] text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                  }`}
-              >
-                {filter === 'trending' && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
-                {filter === 'liked' && <Heart className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
-                {filter === 'commented' && <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
-                {filter}
-              </button>
-            ))}
-
-            {/* Private Posts Filter - Only for logged-in users */}
-            {user && (
-              <button
-                onClick={() => setFilterOption('private')}
-                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full transition-colors whitespace-nowrap text-xs sm:text-sm font-medium ${filterOption === 'private'
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                  }`}
-              >
-                <Lock className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
-                Private
-              </button>
-            )}
-
-            {selectedTidbit !== null && (
-              <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-[#59B1E3] text-white rounded-full">
-                <span className="text-xs sm:text-sm font-medium">Day {selectedTidbit}</span>
+          <div className="lg:flex lg:items-center lg:justify-between">
+            {/* Filter buttons - wrap on mobile, stay inline on desktop */}
+            <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide lg:overflow-visible">
+              {['recent', 'trending', 'popular', 'liked', 'commented'].map((filter) => (
                 <button
-                  onClick={() => setSelectedTidbit(null)}
-                  className="hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                  key={filter}
+                  onClick={() => setFilterOption(filter as FilterOption)}
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full transition-colors whitespace-nowrap capitalize text-xs sm:text-sm font-medium ${
+                    filterOption === filter
+                      ? 'bg-[#60A875] text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
                 >
-                  <X className="w-3 h-3" />
+                  {filter === 'trending' && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
+                  {filter === 'liked' && <Heart className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
+                  {filter === 'commented' && <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />}
+                  {filter}
                 </button>
-              </div>
-            )}
+              ))}
 
-            {getActiveFiltersCount() > 0 && (
-              <button
-                onClick={clearFilters}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap text-xs sm:text-sm"
-              >
-                Clear all
-              </button>
-            )}
+              {/* Private Posts Filter - Only for logged-in users */}
+              {user && (
+                <button
+                  onClick={() => setFilterOption('private')}
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full transition-colors whitespace-nowrap text-xs sm:text-sm font-medium ${
+                    filterOption === 'private'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <Lock className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                  Private
+                </button>
+              )}
+            </div>
+
+            {/* Secondary filters - on new line for mobile, same line for desktop */}
+            <div className="flex items-center gap-2 mt-2 lg:mt-0 lg:ml-4">
+              {selectedTidbit !== null && (
+                <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-[#59B1E3] text-white rounded-full">
+                  <span className="text-xs sm:text-sm font-medium">Day {selectedTidbit}</span>
+                  <button
+                    onClick={() => setSelectedTidbit(null)}
+                    className="hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+
+              {getActiveFiltersCount() > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap text-xs sm:text-sm"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -779,8 +786,8 @@ export default function MobileOptimizedBitBoard() {
 
         {/* Profile Setup Modal */}
         {user && needsProfileSetup && (
-          <ProfileSetupWizard
-            userId={user.id}
+          <ProfileSetupWizard 
+            userId={user.id} 
             onComplete={() => {
               setNeedsProfileSetup(false)
               handleRefresh()
@@ -829,9 +836,9 @@ export default function MobileOptimizedBitBoard() {
 
         {/* Post Detail Modal */}
         {selectedPost && (
-          <PostModal
-            post={selectedPost}
-            onClose={() => setSelectedPost(null)}
+          <PostModal 
+            post={selectedPost} 
+            onClose={() => setSelectedPost(null)} 
           />
         )}
 
@@ -871,22 +878,22 @@ export default function MobileOptimizedBitBoard() {
                   )}
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">
-                  {filterOption === 'private' ? 'No private posts yet' :
-                    debouncedSearchQuery ? 'No posts found' : 'No posts yet'}
+                  {filterOption === 'private' ? 'No private posts yet' : 
+                   debouncedSearchQuery ? 'No posts found' : 'No posts yet'}
                 </h3>
                 <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">
-                  {filterOption === 'private'
+                  {filterOption === 'private' 
                     ? "Private posts you create will appear here. They're only visible to you!"
-                    : debouncedSearchQuery
+                    : debouncedSearchQuery 
                       ? `No posts match "${debouncedSearchQuery}". Try a different search.`
-                      : selectedTidbit
+                      : selectedTidbit 
                         ? `No posts for Day ${selectedTidbit} yet. Be the first to create one!`
                         : filterOption === 'commented'
                           ? "You haven't commented on any posts yet. Start engaging with the community!"
                           : "Be the first to share your AI creation and inspire the community!"
                   }
                 </p>
-
+                
                 <div className="flex flex-col gap-3">
                   {user && (
                     <button
@@ -909,8 +916,8 @@ export default function MobileOptimizedBitBoard() {
               </div>
             </div>
           ) : (
-            <MobileOptimizedMasonry
-              posts={filteredPosts}
+            <MobileOptimizedMasonry 
+              posts={filteredPosts} 
               onTidbitClick={setSelectedTidbit}
               onLike={handleLike}
               userLikedPosts={userLikedPosts}

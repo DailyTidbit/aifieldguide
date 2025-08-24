@@ -1,20 +1,27 @@
+// src/app/components/Navigation.tsx - Fixed TypeScript Errors
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Search, User, Menu, X, Sparkles, Compass } from 'lucide-react'
+import { Search, User, Menu, X, Sparkles, Compass, Building2, ChevronDown } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { supabase } from '../lib/supabaseClient'
+import { supabaseClient } from '@/app/lib/supabaseClient'
+import { User as SupabaseUser } from '@supabase/supabase-js'
 import AuthModal from './AuthModal'
 import UserProfile from './UserProfile'
+import PartnerProfileModal from './PartnerProfileModal'
+import type { PartnerInfo } from './types/partner'
 
 export default function Navigation() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [todaysTidbit, setTodaysTidbit] = useState<number | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showUserProfile, setShowUserProfile] = useState(false)
+  const [showPartnerProfile, setShowPartnerProfile] = useState(false)
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
 
   // Send users back to the current page after OAuth
   const redirectTo = useMemo(() => (
@@ -22,27 +29,36 @@ export default function Navigation() {
   ), [])
 
   useEffect(() => {
-    // Get current user
+    // Get current user and check partner status
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabaseClient.auth.getUser()
       setUser(user)
+
+      // Check if user is a partner
+      if (user) {
+        await checkPartnerStatus(user.id)
+      }
     }
     getUser()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
         setUser(session?.user ?? null)
         setShowAuthModal(false)
+        if (session?.user) {
+          await checkPartnerStatus(session.user.id)
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
+        setPartnerInfo(null)
       }
     })
 
     // Get today's tidbit number (latest published)
     const fetchTodaysTidbit = async () => {
       try {
-        const { data } = await supabase
+        const { data } = await supabaseClient
           .from('tidbits')
           .select('day_number')
           .eq('status', 'published')
@@ -59,6 +75,34 @@ export default function Navigation() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Check if user is a partner
+  const checkPartnerStatus = async (userId: string) => {
+    try {
+      const { data: partnerData, error } = await supabaseClient
+        .from('company_users')
+        .select(`
+          company_id,
+          role,
+          created_at,
+          companies!inner(name)
+        `)
+        .eq('user_id', userId)
+        .limit(1)
+        .single()
+
+      if (partnerData && !error) {
+        setPartnerInfo({
+          companyId: partnerData.company_id,
+          companyName: (partnerData as any).companies.name,
+          role: partnerData.role,
+          memberSince: partnerData.created_at
+        })
+      }
+    } catch (error) {
+      console.error('Error checking partner status:', error)
+    }
+  }
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
@@ -67,12 +111,36 @@ export default function Navigation() {
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await supabaseClient.auth.signOut()
     setUser(null)
+    setPartnerInfo(null)
     window.location.reload()
   }
 
   const openAuthModal = () => setShowAuthModal(true)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setShowProfileDropdown(false)
+    if (showProfileDropdown) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showProfileDropdown])
+
+  // Get display name from user
+  const getDisplayName = (user: SupabaseUser) => {
+    return user.user_metadata?.full_name || 
+           user.user_metadata?.name || 
+           user.email?.split('@')[0] || 
+           'User'
+  }
+
+  // Get user initial
+  const getUserInitial = (user: SupabaseUser) => {
+    const name = getDisplayName(user)
+    return name.charAt(0).toUpperCase()
+  }
 
   return (
     <>
@@ -124,6 +192,15 @@ export default function Navigation() {
                 BITBOARD
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
               </Link>
+
+              {/* Partner Dashboard Link (if partner) */}
+              {partnerInfo && (
+                <Link href="/partners/dashboard" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#59B1E3] relative group flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  PARTNER HUB
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#59B1E3] transition-all duration-300 group-hover:w-full"></span>
+                </Link>
+              )}
             </nav>
 
             {/* Right - Search & Auth */}
@@ -144,15 +221,102 @@ export default function Navigation() {
               </div>
 
               {user ? (
-                <button
-                  onClick={() => setShowUserProfile(true)}
-                  className="flex items-center gap-2 text-gray-700 hover:text-[#60A875] transition-colors"
-                >
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-300 rounded-full hover:ring-2 hover:ring-[#60A875]/20 transition-all flex items-center justify-center text-xs sm:text-sm font-medium">
-                    {user.email?.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="hidden sm:inline font-medium text-sm">{user.email?.split('@')[0]}</span>
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowProfileDropdown(!showProfileDropdown)
+                    }}
+                    className="flex items-center gap-2 text-gray-700 hover:text-[#60A875] transition-colors"
+                  >
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-300 rounded-full hover:ring-2 hover:ring-[#60A875]/20 transition-all flex items-center justify-center text-xs sm:text-sm font-medium">
+                      {getUserInitial(user)}
+                    </div>
+                    <div className="hidden sm:flex items-center gap-1">
+                      <span className="font-medium text-sm">{getDisplayName(user)}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </button>
+
+                  {/* Profile Dropdown */}
+                  {showProfileDropdown && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-[60]">
+                      <div className="p-3 border-b border-gray-100">
+                        <div className="text-sm font-medium text-gray-900">{user.email}</div>
+                        {partnerInfo && (
+                          <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {partnerInfo.companyName} • {partnerInfo.role === 'company_admin' ? 'Admin' : 'Member'}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            setShowUserProfile(true)
+                            setShowProfileDropdown(false)
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                        >
+                          <User className="w-4 h-4" />
+                          <div>
+                            <div className="font-medium">Personal Profile</div>
+                            <div className="text-xs text-gray-500">Your Daily Tidbit profile</div>
+                          </div>
+                        </button>
+
+                        {partnerInfo && (
+                          <button
+                            onClick={() => {
+                              setShowPartnerProfile(true)
+                              setShowProfileDropdown(false)
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                          >
+                            <Building2 className="w-4 h-4" />
+                            <div>
+                              <div className="font-medium">Partner Profile</div>
+                              <div className="text-xs text-gray-500">{partnerInfo.companyName} business profile</div>
+                            </div>
+                          </button>
+                        )}
+
+                        {partnerInfo && (
+                          <>
+                            <div className="border-t border-gray-100 my-2"></div>
+                            <Link
+                              href="/partners/dashboard"
+                              onClick={() => setShowProfileDropdown(false)}
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              Partner Dashboard
+                            </Link>
+                            <Link
+                              href="/partners/settings"
+                              onClick={() => setShowProfileDropdown(false)}
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              Partner Settings
+                            </Link>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="border-t border-gray-100 p-2">
+                        <button
+                          onClick={() => {
+                            handleSignOut()
+                            setShowProfileDropdown(false)
+                          }}
+                          className="w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <button onClick={openAuthModal} className="bg-[#60A875] text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium text-sm">LOGIN</button>
               )}
@@ -163,6 +327,7 @@ export default function Navigation() {
             </div>
           </div>
 
+          {/* Mobile Menu */}
           {isMenuOpen && (
             <div className="lg:hidden border-t border-gray-200 py-4">
               <div className="flex flex-col space-y-4">
@@ -201,6 +366,41 @@ export default function Navigation() {
                 
                 <Link href="/bitboard" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }} onClick={() => setIsMenuOpen(false)}>BITBOARD</Link>
 
+                {partnerInfo && (
+                  <Link href="/partners/dashboard" className="block py-2 text-gray-700 hover:text-[#59B1E3] font-medium transition-colors duration-300 flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
+                    <Building2 className="w-4 h-4" />
+                    PARTNER HUB
+                  </Link>
+                )}
+
+                {user && (
+                  <div className="border-t border-gray-200 pt-4 space-y-2">
+                    <button 
+                      onClick={() => { 
+                        setShowUserProfile(true)
+                        setIsMenuOpen(false) 
+                      }} 
+                      className="w-full text-left py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300 flex items-center gap-2"
+                    >
+                      <User className="w-4 h-4" />
+                      Personal Profile
+                    </button>
+                    
+                    {partnerInfo && (
+                      <button 
+                        onClick={() => { 
+                          setShowPartnerProfile(true)
+                          setIsMenuOpen(false) 
+                        }} 
+                        className="w-full text-left py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300 flex items-center gap-2"
+                      >
+                        <Building2 className="w-4 h-4" />
+                        Partner Profile ({partnerInfo.companyName})
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {!user && (
                   <button onClick={() => { openAuthModal(); setIsMenuOpen(false) }} className="w-full text-left py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300">LOGIN / SIGN UP</button>
                 )}
@@ -220,12 +420,12 @@ export default function Navigation() {
         redirectTo={redirectTo}
       />
 
-      {/* User Profile Modal - Matching BitBoard Style */}
+      {/* Personal User Profile Modal */}
       {user && showUserProfile && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto relative">
             <div className="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 z-10">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Your Profile</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Personal Profile</h2>
               <button
                 onClick={() => setShowUserProfile(false)}
                 className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
@@ -238,6 +438,16 @@ export default function Navigation() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Partner Profile Modal */}
+      {user && partnerInfo && showPartnerProfile && (
+        <PartnerProfileModal
+          isOpen={showPartnerProfile}
+          onClose={() => setShowPartnerProfile(false)}
+          userId={user.id}
+          partnerInfo={partnerInfo}
+        />
       )}
     </>
   )
