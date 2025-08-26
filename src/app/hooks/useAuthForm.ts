@@ -1,3 +1,4 @@
+// src/app/hooks/useAuthForm.ts
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
@@ -7,6 +8,7 @@ export type AuthMode = 'login' | 'signup'
 
 export interface UseAuthFormOptions {
   redirectTo?: string | null
+  isVendorFlow?: boolean
 }
 
 export function useAuthForm(opts: UseAuthFormOptions = {}) {
@@ -19,6 +21,21 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
   const [error, setError] = useState<string | null>(null)
 
   const redirectTo = useMemo(() => opts.redirectTo ?? null, [opts.redirectTo])
+  const isVendorFlow = useMemo(() => opts.isVendorFlow ?? false, [opts.isVendorFlow])
+
+  // Detect company from email domain
+  const getCompanyFromEmail = useCallback((email: string) => {
+    const domain = email.split('@')[1]
+    if (!domain) return null
+    
+    return {
+      name: domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1),
+      domain: domain,
+      isVerified: ['microsoft.com', 'google.com', 'stripe.com', 'anthropic.com'].includes(domain)
+    }
+  }, [])
+
+  const company = useMemo(() => getCompanyFromEmail(email), [email, getCompanyFromEmail])
 
   const clearAlerts = useCallback(() => {
     setMessage(null)
@@ -27,8 +44,14 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
 
   const handleEmailAuth = useCallback(async () => {
     clearAlerts()
-    if (!email || !password) { setError('Please enter your email and password.'); return }
-    if (mode === 'signup' && password !== confirmPassword) { setError('Passwords do not match.'); return }
+    if (!email || !password) { 
+      setError('Please enter your email and password.') 
+      return 
+    }
+    if (mode === 'signup' && password !== confirmPassword) { 
+      setError('Passwords do not match.') 
+      return 
+    }
 
     try {
       setLoading(true)
@@ -40,7 +63,17 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
         }
         setMessage('Signed in!')
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password })
+        const { data, error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            emailRedirectTo: redirectTo || (typeof window !== 'undefined' ? window.location.origin : undefined),
+            data: {
+              email: email,
+              vendor_flow: isVendorFlow
+            }
+          }
+        })
         if (error) throw error
         if (data?.user?.id) {
           await supabase.from('profiles').upsert({ id: data.user.id }, { onConflict: 'id' })
@@ -52,7 +85,36 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, confirmPassword, email, mode, password])
+  }, [clearAlerts, confirmPassword, email, mode, password, redirectTo, isVendorFlow])
+
+  const handleMagicLinkAuth = useCallback(async () => {
+    clearAlerts()
+    if (!email) { 
+      setError('Please enter your email address.') 
+      return 
+    }
+
+    try {
+      setLoading(true)
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectTo || (typeof window !== 'undefined' ? window.location.href : undefined),
+          data: {
+            vendor_flow: isVendorFlow,
+            company_domain: company?.domain
+          }
+        }
+      })
+      if (error) throw error
+      
+      setMessage(`📧 Check your email! We sent a sign-in link to ${email}`)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to send magic link.')
+    } finally {
+      setLoading(false)
+    }
+  }, [clearAlerts, email, redirectTo, isVendorFlow, company])
 
   const handleOAuth = useCallback(async (provider: 'google' | 'apple') => {
     clearAlerts()
@@ -63,6 +125,9 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
         options: {
           redirectTo: redirectTo ?? (typeof window !== 'undefined' ? window.location.href : undefined),
           skipBrowserRedirect: false,
+          queryParams: {
+            vendor_flow: isVendorFlow ? 'true' : 'false'
+          }
         },
       })
       if (error) throw error
@@ -70,15 +135,20 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       setError(e?.message ?? 'OAuth sign-in failed.')
       setLoading(false)
     }
-  }, [clearAlerts, redirectTo])
+  }, [clearAlerts, redirectTo, isVendorFlow])
 
   const handleReset = useCallback(async () => {
     clearAlerts()
-    if (!email) { setError('Enter your email first.'); return }
+    if (!email) { 
+      setError('Enter your email first.') 
+      return 
+    }
     try {
       setLoading(true)
       const origin = typeof window !== 'undefined' ? window.location.origin : ''
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/auth/reset` })
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { 
+        redirectTo: `${origin}/auth/reset` 
+      })
       if (error) throw error
       setMessage('Reset link sent. Check your email.')
     } catch (e: any) {
@@ -88,15 +158,52 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     }
   }, [clearAlerts, email])
 
+  const validateEmailDomain = useCallback((email: string, allowedDomains: string[] = []) => {
+    if (!allowedDomains.length) return { isValid: true, message: '' }
+    
+    const domain = email.split('@')[1]?.toLowerCase()
+    if (!domain) return { isValid: false, message: 'Invalid email format' }
+    
+    const isAllowed = allowedDomains.some(allowedDomain => {
+      const normalizedDomain = allowedDomain.toLowerCase()
+      return domain === normalizedDomain || 
+             domain.endsWith(`.${normalizedDomain}`) ||
+             domain === `www.${normalizedDomain}` ||
+             normalizedDomain === `www.${domain}`
+    })
+    
+    if (isAllowed) {
+      return { 
+        isValid: true, 
+        message: `Perfect! Using an email ending in @${domain} allows for automatic verification.` 
+      }
+    } else {
+      return { 
+        isValid: false, 
+        message: `Using an email ending in @${domain} will help us verify your company. Manual verification is also available if needed.` 
+      }
+    }
+  }, [])
+
   return {
-    mode, setMode,
-    email, setEmail,
-    password, setPassword,
-    confirmPassword, setConfirmPassword,
-    loading, message, error,
+    mode, 
+    setMode,
+    email, 
+    setEmail,
+    password, 
+    setPassword,
+    confirmPassword, 
+    setConfirmPassword,
+    loading, 
+    message, 
+    error,
+    company,
     handleEmailAuth,
+    handleMagicLinkAuth,
     handleOAuth,
     handleReset,
     clearAlerts,
+    validateEmailDomain,
+    getCompanyFromEmail,
   }
 }

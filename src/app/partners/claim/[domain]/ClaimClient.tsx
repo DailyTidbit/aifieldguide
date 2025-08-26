@@ -1,4 +1,4 @@
-// src/app/partners/claim/[domain]/ClaimClient.tsx - Enhanced with API Error Handling
+// src/app/partners/claim/[domain]/ClaimClient.tsx - Enhanced with Encouraging Messaging
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -22,7 +22,9 @@ import {
   Crown,
   UserPlus,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 
 interface ClaimResponse {
@@ -44,7 +46,7 @@ interface ClaimResponse {
   supportEmail?: string
 }
 
-type VerificationStep = 'email' | 'sending' | 'sent' | 'verify' | 'success' | 'error'
+type VerificationStep = 'email' | 'sending' | 'sent' | 'verify' | 'password-setup' | 'success' | 'error'
 
 type MessageType = 'success' | 'error' | 'warning' | 'info'
 
@@ -72,9 +74,12 @@ export default function EnhancedClaimClient(props: {
   const [step, setStep] = useState<VerificationStep>('email')
   const [message, setMessage] = useState<StatusMessage | null>(null)
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [claimResponse, setClaimResponse] = useState<ClaimResponse | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [user, setUser] = useState<any>(null)
   const triedAutoVerify = useRef(false)
 
   // Handle auth state changes
@@ -83,18 +88,21 @@ export default function EnhancedClaimClient(props: {
 
     // Check existing session
     supabaseClient.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+      if (session?.user) {
+        setUser(session.user)
         setStep('verify')
         router.refresh()
       }
     })
 
     // Listen for auth state changes
-    const { data } = supabaseClient.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') {
+    const { data } = supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user)
         setStep('verify')
         router.refresh()
       } else if (event === 'SIGNED_OUT') {
+        setUser(null)
         setStep('email')
         setMessage(null)
       }
@@ -112,34 +120,38 @@ export default function EnhancedClaimClient(props: {
   }, [isAuthed, companyId, step])
 
   // Validate email domain in real-time
-  const validateEmailDomain = (email: string): boolean => {
-    if (!email.includes('@')) return false
+  const validateEmailDomain = (email: string): { isValid: boolean; domain: string | null } => {
+    if (!email.includes('@')) return { isValid: false, domain: null }
     
     const emailDomain = email.split('@')[1]?.toLowerCase()
-    if (!emailDomain) return false
+    if (!emailDomain) return { isValid: false, domain: null }
 
-    return allowedDomains.some(domain => {
+    const isValid = allowedDomains.some(domain => {
       const normalizedDomain = domain.toLowerCase()
       return emailDomain === normalizedDomain || 
              emailDomain.endsWith(`.${normalizedDomain}`) ||
              emailDomain === `www.${normalizedDomain}` ||
              normalizedDomain === `www.${emailDomain}`
     })
+
+    return { isValid, domain: emailDomain }
   }
 
+  const { isValid: isDomainValid, domain: emailDomain } = validateEmailDomain(email)
+
   // Send magic link with enhanced validation
-  const sendMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const sendMagicLink = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     setMessage(null)
 
     // Client-side validation
-    if (!validateEmailDomain(email)) {
+    if (!isDomainValid) {
       setMessage({
-        type: 'error',
-        title: 'Invalid Email Domain',
-        description: `Please use an email address from: ${allowedDomains.join(', ')}`,
+        type: 'info',
+        title: 'Email Domain Information',
+        description: `Using an email ending in ${allowedDomains.map(d => `@${d}`).join(', ')} will allow for automatic verification. Manual verification is also available if you don't have access to these domains.`,
         action: {
-          label: 'Need help?',
+          label: 'Request manual verification',
           href: '/partners/messages/new'
         }
       })
@@ -215,8 +227,17 @@ export default function EnhancedClaimClient(props: {
         return
       }
 
-      // Success!
-      handleVerificationSuccess(data)
+      // Check if user needs password setup
+      if (user && !user.user_metadata?.has_password) {
+        setStep('password-setup')
+        setMessage({
+          type: 'success',
+          title: 'Verification Complete!',
+          description: 'Would you like to set up a password for easier future logins?'
+        })
+      } else {
+        handleVerificationSuccess(data)
+      }
       
     } catch (error: any) {
       console.error('Verification error:', error)
@@ -234,6 +255,39 @@ export default function EnhancedClaimClient(props: {
     }
   }
 
+  // Handle password setup
+  const handlePasswordSetup = async () => {
+    if (!user) return
+
+    setBusy(true)
+    setMessage(null)
+
+    try {
+      if (password) {
+        const { error } = await supabaseClient.auth.updateUser({
+          password: password,
+          data: { has_password: true }
+        })
+        if (error) throw error
+      }
+      
+      setStep('success')
+      handleVerificationSuccess(claimResponse || {})
+    } catch (err: any) {
+      setMessage({
+        type: 'error',
+        title: 'Password Setup Failed',
+        description: err.message || 'Failed to set password',
+        action: {
+          label: 'Try again',
+          onClick: () => setMessage(null)
+        }
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Handle verification errors with specific messaging
   const handleVerificationError = (data: ClaimResponse, status: number) => {
     setStep('error')
@@ -242,9 +296,9 @@ export default function EnhancedClaimClient(props: {
     switch (data.code) {
       case 'DOMAIN_NOT_ALLOWED':
         setMessage({
-          type: 'error',
-          title: 'Email Domain Not Authorized',
-          description: data.suggestion || `Your email domain is not authorized for ${companyName}.`,
+          type: 'info',
+          title: 'Email Domain Information',
+          description: `Using an email ending in ${allowedDomains.map(d => `@${d}`).join(', ')} allows for automatic verification. Manual verification is available for other domains.`,
           action: {
             label: 'Request manual verification',
             href: data.manualVerificationLink || '/partners/messages/new'
@@ -360,17 +414,19 @@ export default function EnhancedClaimClient(props: {
     switch (step) {
       case 'email':
       case 'sending':
-        return { current: 1, total: 3, label: 'Email Verification' }
+        return { current: 1, total: 4, label: 'Email Verification' }
       case 'sent':
-        return { current: 2, total: 3, label: 'Check Your Email' }
+        return { current: 2, total: 4, label: 'Check Your Email' }
       case 'verify':
-        return { current: 3, total: 3, label: 'Verifying Access' }
+        return { current: 3, total: 4, label: 'Verifying Access' }
+      case 'password-setup':
+        return { current: 3, total: 4, label: 'Password Setup' }
       case 'success':
-        return { current: 3, total: 3, label: 'Success!' }
+        return { current: 4, total: 4, label: 'Success!' }
       case 'error':
-        return { current: 0, total: 3, label: 'Error' }
+        return { current: 0, total: 4, label: 'Error' }
       default:
-        return { current: 1, total: 3, label: 'Getting Started' }
+        return { current: 1, total: 4, label: 'Getting Started' }
     }
   }
 
@@ -387,7 +443,7 @@ export default function EnhancedClaimClient(props: {
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-brand-green/10 text-brand-green px-4 py-2 rounded-full text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 bg-[#60A875]/10 text-[#60A875] px-4 py-2 rounded-full text-sm font-medium mb-6">
             <Shield className="h-4 w-4" />
             Secure Partner Access
           </div>
@@ -410,8 +466,8 @@ export default function EnhancedClaimClient(props: {
             {/* Company Info */}
             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-brand-green/10 rounded-xl">
-                  <Building2 className="h-6 w-6 text-brand-green" />
+                <div className="p-3 bg-[#60A875]/10 rounded-xl">
+                  <Building2 className="h-6 w-6 text-[#60A875]" />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900 mb-2">
@@ -453,8 +509,8 @@ export default function EnhancedClaimClient(props: {
               <div className="space-y-4">
                 {features.map((feature, index) => (
                   <div key={index} className="flex items-center gap-3">
-                    <div className="p-2 bg-brand-blue/10 rounded-lg">
-                      <feature.icon className="h-5 w-5 text-brand-blue" />
+                    <div className="p-2 bg-[#59B1E3]/10 rounded-lg">
+                      <feature.icon className="h-5 w-5 text-[#59B1E3]" />
                     </div>
                     <div>
                       <div className="font-medium text-gray-900">{feature.title}</div>
@@ -507,24 +563,23 @@ export default function EnhancedClaimClient(props: {
                   const stepNumber = i + 1
                   const isActive = stepNumber === stepInfo.current
                   const isCompleted = stepNumber < stepInfo.current
-                  const isNext = stepNumber === stepInfo.current + 1
 
                   return (
                     <div key={i} className="flex items-center">
                       <div className={`flex items-center gap-2 ${
-                        isActive ? 'text-brand-green' :
+                        isActive ? 'text-[#60A875]' :
                         isCompleted ? 'text-green-600' :
                         'text-gray-400'
                       }`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 ${
-                          isActive ? 'bg-brand-green text-white border-brand-green' :
+                          isActive ? 'bg-[#60A875] text-white border-[#60A875]' :
                           isCompleted ? 'bg-green-600 text-white border-green-600' :
                           'bg-gray-100 text-gray-600 border-gray-300'
                         }`}>
                           {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : stepNumber}
                         </div>
                         <span className="text-sm font-medium hidden sm:block">
-                          {i === 0 ? 'Email' : i === 1 ? 'Verify' : 'Access'}
+                          {i === 0 ? 'Email' : i === 1 ? 'Verify' : i === 2 ? 'Setup' : 'Access'}
                         </span>
                       </div>
                       {i < stepInfo.total - 1 && (
@@ -614,7 +669,7 @@ export default function EnhancedClaimClient(props: {
                   Sign in with your work email
                 </h3>
                 
-                <form onSubmit={sendMagicLink} className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Work email address
@@ -628,39 +683,52 @@ export default function EnhancedClaimClient(props: {
                           setEmail(e.target.value)
                           setMessage(null)
                         }}
-                        className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-brand-green transition-colors text-sm ${
-                          email && !validateEmailDomain(email)
-                            ? 'border-red-300 focus:ring-red-200'
-                            : 'border-gray-300 focus:ring-brand-green/20'
+                        className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-[#60A875] transition-colors text-sm ${
+                          email && !isDomainValid
+                            ? 'border-blue-300 focus:ring-blue-200'
+                            : 'border-gray-300 focus:ring-[#60A875]/20'
                         }`}
                         placeholder={`name@${requestedDomain}`}
-                        required
+                        onKeyPress={(e) => e.key === 'Enter' && sendMagicLink()}
                       />
                       {email && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                          {validateEmailDomain(email) ? (
+                          {isDomainValid ? (
                             <CheckCircle2 className="h-5 w-5 text-green-500" />
                           ) : (
-                            <XCircle className="h-5 w-5 text-red-500" />
+                            <AlertCircle className="h-5 w-5 text-blue-500" />
                           )}
                         </div>
                       )}
                     </div>
                     
-                    {email && !validateEmailDomain(email) && (
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="text-sm text-red-800">
-                          <strong>Domain not authorized.</strong><br />
-                          Use an email ending with: {allowedDomains.map(domain => `@${domain}`).join(', ')}
+                    {email && emailDomain && (
+                      <div className={`mt-2 p-3 rounded-lg border ${
+                        isDomainValid 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-blue-50 border-blue-200'
+                      }`}>
+                        <div className={`text-sm ${
+                          isDomainValid ? 'text-green-800' : 'text-blue-800'
+                        }`}>
+                          {isDomainValid ? (
+                            <>
+                              <strong>Great!</strong> Using an email ending in <strong>@{emailDomain}</strong> allows for automatic verification and immediate access.
+                            </>
+                          ) : (
+                            <>
+                              <strong>Good to know!</strong> Using an email ending in <strong>@{emailDomain}</strong> will require manual verification. We can help verify your company access manually - just contact our team.
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
 
                   <button
-                    type="submit"
-                    disabled={busy || !email || !validateEmailDomain(email)}
-                    className="w-full flex items-center justify-center gap-2 bg-brand-green text-white py-3 px-4 rounded-lg hover:bg-brand-green/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => sendMagicLink()}
+                    disabled={busy || !email}
+                    className="w-full flex items-center justify-center gap-2 bg-[#60A875] text-white py-3 px-4 rounded-lg hover:bg-[#4f8f61] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {busy ? (
                       <>
@@ -674,7 +742,7 @@ export default function EnhancedClaimClient(props: {
                       </>
                     )}
                   </button>
-                </form>
+                </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-200 text-center">
                   <p className="text-sm text-gray-600 mb-3">
@@ -682,7 +750,7 @@ export default function EnhancedClaimClient(props: {
                   </p>
                   <Link 
                     href="/partners/messages/new"
-                    className="inline-flex items-center gap-2 text-brand-green hover:text-brand-green/80 font-medium text-sm"
+                    className="inline-flex items-center gap-2 text-[#60A875] hover:text-[#4f8f61] font-medium text-sm"
                   >
                     <ExternalLink className="h-4 w-4" />
                     Request manual verification
@@ -694,8 +762,8 @@ export default function EnhancedClaimClient(props: {
             {/* Sending State */}
             {step === 'sending' && (
               <div className="text-center">
-                <div className="w-16 h-16 bg-brand-green/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Loader2 className="h-8 w-8 text-brand-green animate-spin" />
+                <div className="w-16 h-16 bg-[#60A875]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Loader2 className="h-8 w-8 text-[#60A875] animate-spin" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">
                   Sending verification email...
@@ -722,7 +790,7 @@ export default function EnhancedClaimClient(props: {
                   <div className="text-sm text-gray-700 space-y-2">
                     <div>📧 Check your inbox (and spam folder)</div>
                     <div>🔗 Click the "Sign in to Daily Tidbit" link</div>
-                    <div>⏱️ Links expire after 1 hour</div>
+                    <div>⏰ Links expire after 1 hour</div>
                   </div>
                 </div>
               </div>
@@ -731,8 +799,8 @@ export default function EnhancedClaimClient(props: {
             {/* Verification Step */}
             {step === 'verify' && (
               <div className="text-center">
-                <div className="w-16 h-16 bg-brand-green/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Loader2 className="h-8 w-8 text-brand-green animate-spin" />
+                <div className="w-16 h-16 bg-[#60A875]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Loader2 className="h-8 w-8 text-[#60A875] animate-spin" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">
                   Verifying your access...
@@ -745,6 +813,61 @@ export default function EnhancedClaimClient(props: {
                     Attempt {retryCount + 1}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Password Setup */}
+            {step === 'password-setup' && (
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Welcome to Daily Tidbit!</h3>
+                <p className="text-gray-600 mb-6">
+                  Set up a password for easier future logins (optional)
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Create Password (Optional)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Choose a secure password"
+                        className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] outline-none"
+                        onKeyPress={(e) => e.key === 'Enter' && handlePasswordSetup()}
+                      />
+                      <button
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      You can always login via email link if you prefer
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handlePasswordSetup}
+                    disabled={busy}
+                    className="w-full bg-[#60A875] text-white py-3 px-4 rounded-lg font-semibold hover:bg-[#4f8f61] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {busy ? (
+                      <>
+                        <Loader2 className="w-4 w-4 animate-spin" />
+                        {password ? 'Setting Password...' : 'Continuing...'}
+                      </>
+                    ) : (
+                      password ? 'Set Password & Continue' : 'Continue Without Password'
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -765,7 +888,7 @@ export default function EnhancedClaimClient(props: {
                     <div className="space-y-2">
                       {claimResponse.nextSteps.map((step, index) => (
                         <div key={index} className="flex items-center gap-2 text-sm text-gray-700">
-                          <div className="w-5 h-5 bg-brand-green/10 rounded-full flex items-center justify-center text-xs font-medium text-brand-green">
+                          <div className="w-5 h-5 bg-[#60A875]/10 rounded-full flex items-center justify-center text-xs font-medium text-[#60A875]">
                             {index + 1}
                           </div>
                           {step}
@@ -781,7 +904,7 @@ export default function EnhancedClaimClient(props: {
                     Redirecting to your dashboard...
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-brand-green h-2 rounded-full animate-pulse transition-all duration-3000" style={{ width: '70%' }}></div>
+                    <div className="bg-[#60A875] h-2 rounded-full animate-pulse transition-all duration-3000" style={{ width: '70%' }}></div>
                   </div>
                 </div>
               </div>
@@ -805,7 +928,7 @@ export default function EnhancedClaimClient(props: {
                       setRetryCount(prev => prev + 1)
                       handleVerification()
                     }}
-                    className="w-full flex items-center justify-center gap-2 bg-brand-green text-white py-3 px-4 rounded-lg hover:bg-brand-green/90 transition-colors font-medium"
+                    className="w-full flex items-center justify-center gap-2 bg-[#60A875] text-white py-3 px-4 rounded-lg hover:bg-[#4f8f61] transition-colors font-medium"
                   >
                     <RefreshCw className="h-4 w-4" />
                     Try again
