@@ -1,4 +1,4 @@
-// src/app/partners/dashboard/DashboardClient.tsx
+// src/app/partners/dashboard/DashboardClient.tsx - Fixed for Magic Link Flow
 'use client'
 import { useEffect, useState } from 'react'
 import { supabaseClient } from '@/app/lib/supabaseClient'
@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Calendar,
   Users,
-  TrendingUp
+  TrendingUp,
+  Lock,
+  ExternalLink
 } from 'lucide-react'
 
 type DashboardData = {
@@ -22,10 +24,12 @@ type DashboardData = {
   userName: string
   companyName: string
   companyId: string
+  userRole: 'company_admin' | 'company_member'
   hasProfile: boolean
   hasListings: number
   recentActivity: any[]
   needsAttention: string[]
+  needsPasswordSetup: boolean
 }
 
 export default function DashboardClient() {
@@ -34,85 +38,118 @@ export default function DashboardClient() {
     userName: '',
     companyName: '',
     companyId: '',
+    userRole: 'company_member',
     hasProfile: false,
     hasListings: 0,
     recentActivity: [],
-    needsAttention: []
+    needsAttention: [],
+    needsPasswordSetup: false
   })
   const [view, setView] = useState<'overview' | 'demo'>('overview')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
+    
     async function loadDashboard() {
       try {
         const { data: { user } } = await supabaseClient.auth.getUser()
+        
         if (!user) { 
-          window.location.href = '/auth'
+          // Redirect to partners page for authentication
+          window.location.href = '/partners'
           return 
         }
 
-        // Get company membership
-        const { data: cu } = await supabaseClient
+        // Check if user needs to complete password setup
+        if (!user.user_metadata?.has_password) {
+          window.location.href = '/partners/setup'
+          return
+        }
+
+        // Get company membership with company details
+        const { data: membership } = await supabaseClient
           .from('company_users')
-          .select('company_id, role')
+          .select(`
+            company_id, 
+            role,
+            companies!inner(name)
+          `)
           .eq('user_id', user.id)
           .limit(1)
           .maybeSingle()
 
-        if (!cu?.company_id) {
+        if (!membership?.company_id) {
           if (mounted) {
             setState(prev => ({ 
               ...prev, 
               loading: false,
-              userName: user.user_metadata?.full_name || user.email || 'User'
+              userName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
             }))
+            setError('You are not associated with any company. Please contact support at partners@dailytidbit.org')
           }
           return
         }
 
-        // Get company info
-        const { data: company } = await supabaseClient
-          .from('companies')
-          .select('name')
-          .eq('id', cu.company_id)
-          .maybeSingle()
+        const companyId = membership.company_id
+        const companyName = (membership.companies as any).name
+        const userRole = membership.role as 'company_admin' | 'company_member'
 
-        // Check profile completeness
-        const { data: profile } = await supabaseClient
-          .from('company_profiles')
-          .select('*')
-          .eq('company_id', cu.company_id)
-          .maybeSingle()
+        // Get profile completeness data
+        const [companyProfileResponse, memberProfileResponse, listingCountResponse] = await Promise.all([
+          supabaseClient
+            .from('company_profiles')
+            .select('*')
+            .eq('company_id', companyId)
+            .maybeSingle(),
+          supabaseClient
+            .from('company_member_profiles')
+            .select('*')
+            .eq('company_id', companyId)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          supabaseClient
+            .from('tool_listings')
+            .select('*', { count: 'exact', head: true })
+            .eq('company_id', companyId)
+        ])
 
-        // Get listing count
-        const { count: listingCount } = await supabaseClient
-          .from('tool_listings')
-          .select('*', { count: 'exact', head: true })
-          .eq('company_id', cu.company_id)
+        const companyProfile = companyProfileResponse.data
+        const memberProfile = memberProfileResponse.data
+        const listingCount = listingCountResponse.count || 0
 
-        // Check what needs attention
+        // Determine what needs attention
         const needsAttention: string[] = []
-        if (!profile?.logo_url) needsAttention.push('Add company logo')
-        if (!profile?.support_email) needsAttention.push('Add support contact')
-        if ((listingCount || 0) === 0) needsAttention.push('Create first tool listing')
+        
+        if (userRole === 'company_admin') {
+          if (!companyProfile?.logo_url) needsAttention.push('Add company logo')
+          if (!companyProfile?.support_email) needsAttention.push('Add support contact')
+        }
+        
+        if (!memberProfile?.title) needsAttention.push('Add your job title')
+        if (listingCount === 0) needsAttention.push('Create first tool listing')
 
         if (mounted) {
           setState({
             loading: false,
-            userName: user.user_metadata?.full_name || user.email || 'User',
-            companyName: company?.name || 'Your Company',
-            companyId: cu.company_id,
-            hasProfile: !!(profile?.logo_url && profile?.support_email),
-            hasListings: listingCount || 0,
+            userName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            companyName,
+            companyId,
+            userRole,
+            hasProfile: !!(
+              (userRole === 'company_admin' ? companyProfile?.logo_url && companyProfile?.support_email : true) && 
+              memberProfile?.title
+            ),
+            hasListings: listingCount,
             recentActivity: [], // TODO: implement recent activity
-            needsAttention
+            needsAttention,
+            needsPasswordSetup: false
           })
         }
       } catch (err) {
         console.error('Error loading dashboard:', err)
         if (mounted) {
-          setError('Failed to load dashboard data')
+          setError('Failed to load dashboard data. Please try refreshing the page.')
           setState(prev => ({ ...prev, loading: false }))
         }
       }
@@ -124,8 +161,11 @@ export default function DashboardClient() {
 
   if (state.loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-2 border-brand-green border-t-transparent rounded-full"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-2 border-brand-green border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
       </div>
     )
   }
@@ -137,12 +177,17 @@ export default function DashboardClient() {
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h1 className="text-xl font-semibold mb-2">Error Loading Dashboard</h1>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full hover:bg-brand-green/90 transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="space-y-3">
+            <button 
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full hover:bg-brand-green/90 transition-colors"
+            >
+              Try Again
+            </button>
+            <div className="text-sm text-gray-500">
+              Need help? Contact <a href="mailto:partners@dailytidbit.org" className="text-brand-green hover:underline">partners@dailytidbit.org</a>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -152,15 +197,23 @@ export default function DashboardClient() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md text-center">
-          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <Lock className="h-12 w-12 text-amber-500 mx-auto mb-4" />
           <h1 className="text-xl font-semibold mb-2">Company Access Required</h1>
-          <p className="text-gray-600 mb-6">You need to be linked to a company to access the partner dashboard.</p>
-          <Link 
-            href="/partners/claim" 
-            className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full hover:bg-brand-green/90 transition-colors"
-          >
-            Claim Your Company <ArrowRight className="h-4 w-4" />
-          </Link>
+          <p className="text-gray-600 mb-6">
+            You need to be associated with a company to access the partner dashboard. 
+            Please contact our team to get added to your company's account.
+          </p>
+          <div className="space-y-3">
+            <Link 
+              href="/partners/request-access"
+              className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full hover:bg-brand-green/90 transition-colors"
+            >
+              Request Access
+            </Link>
+            <div className="text-sm text-gray-500">
+              Or contact <a href="mailto:partners@dailytidbit.org" className="text-brand-green hover:underline">partners@dailytidbit.org</a>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -191,8 +244,6 @@ export default function DashboardClient() {
     )
   }
 
-  const isOnboarded = state.hasProfile && state.hasListings > 0
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -201,9 +252,24 @@ export default function DashboardClient() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-playfair font-semibold text-gray-900">
-                Welcome back, {state.userName.split(' ')[0]}
+                Welcome back, {state.userName}
               </h1>
-              <p className="text-gray-600 mt-1">{state.companyName} • Partner Dashboard</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-gray-600">{state.companyName}</p>
+                <div className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                  {state.userRole === 'company_admin' ? (
+                    <>
+                      <Building2 className="w-3 h-3" />
+                      Admin
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-3 h-3" />
+                      Member
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
             <button 
               onClick={() => setView('demo')}
@@ -305,9 +371,14 @@ export default function DashboardClient() {
               </div>
               <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-brand-green group-hover:translate-x-1 transition-all" />
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Company Settings</h3>
+            <h3 className="font-semibold text-gray-900 mb-2">
+              {state.userRole === 'company_admin' ? 'Company Settings' : 'Profile Settings'}
+            </h3>
             <p className="text-sm text-gray-600 mb-4">
-              Update company profile, contact info, and member preferences
+              {state.userRole === 'company_admin' 
+                ? 'Update company profile, contact info, and member preferences'
+                : 'Update your personal profile and notification preferences'
+              }
             </p>
             <div className="flex items-center gap-2 text-sm">
               {state.hasProfile ? (
@@ -376,6 +447,45 @@ export default function DashboardClient() {
           >
             View Available Dates <ArrowRight className="h-4 w-4" />
           </Link>
+        </div>
+
+        {/* Quick Links */}
+        <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Quick Links</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a
+              href="https://dailytidbit.org/field-guide"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              <ExternalLink className="h-4 w-4 text-gray-400" />
+              AI Field Guide
+            </a>
+            <a
+              href="https://dailytidbit.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              <ExternalLink className="h-4 w-4 text-gray-400" />
+              Daily Tidbit
+            </a>
+            <a
+              href="mailto:partners@dailytidbit.org"
+              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              <MessageSquare className="h-4 w-4 text-gray-400" />
+              Contact Support
+            </a>
+            <Link
+              href="/partners"
+              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              <Building2 className="h-4 w-4 text-gray-400" />
+              Partner Hub
+            </Link>
+          </div>
         </div>
       </div>
     </div>

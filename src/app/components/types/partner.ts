@@ -2,7 +2,7 @@
 export interface PartnerInfo {
   companyId: string
   companyName: string
-  role: 'company_admin' | 'company_editor'
+  role: string  // Change from 'company_admin' | 'company_editor' to string
   memberSince: string
 }
 

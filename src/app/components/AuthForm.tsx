@@ -1,11 +1,22 @@
+// src/app/components/AuthForm.tsx - Refactored to use useAuth hook
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 import ProfileSetupWizard from './ProfileSetupWizard'
 import { Mail, Lock, Eye, EyeOff, Loader2, Check, AlertCircle } from 'lucide-react'
 
 export default function EnhancedAuthForm() {
+  const { 
+    user, 
+    loading: authLoading, 
+    authState,
+    signIn, 
+    signUp, 
+    signInWithOAuth, 
+    resetPassword 
+  } = useAuth()
+  
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,48 +25,6 @@ export default function EnhancedAuthForm() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [needsProfileSetup, setNeedsProfileSetup] = useState(false)
-
-  // Check if user is already logged in
-  useEffect(() => {
-    checkUser()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await handleSignIn(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null)
-        setNeedsProfileSetup(false)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await handleSignIn(user)
-    }
-  }
-
-  const handleSignIn = async (user: any) => {
-    setUser(user)
-    
-    // Check if user has completed profile setup
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name, username')
-      .eq('id', user.id)
-      .single()
-
-    // If no full_name, they need to complete setup
-    if (!profile?.full_name) {
-      setNeedsProfileSetup(true)
-    }
-  }
 
   const validateForm = () => {
     if (!email || !password) {
@@ -85,54 +54,11 @@ export default function EnhancedAuthForm() {
       setMessage(null)
 
       if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({ 
-          email, 
-          password 
-        })
-        
-        if (error) throw error
-        
-        if (data.user) {
-          setMessage('✅ Successfully logged in!')
-          await handleSignIn(data.user)
-        }
+        await signIn(email, password)
+        setMessage('Successfully logged in!')
       } else {
-        const { data, error } = await supabase.auth.signUp({ 
-          email, 
-          password,
-          options: {
-            data: {
-              email: email
-            }
-          }
-        })
-        
-        if (error) throw error
-        
-        if (data.user) {
-          // Create initial profile record
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              username: null,
-              full_name: null,
-              avatar_url: null,
-              bio: null,
-              website: null
-            })
-
-          if (profileError) {
-            console.warn('Profile creation warning:', profileError)
-          }
-
-          if (data.user.email_confirmed_at) {
-            setMessage('✅ Account created! Please complete your profile.')
-            await handleSignIn(data.user)
-          } else {
-            setMessage('📧 Please check your email to confirm your account before signing in.')
-          }
-        }
+        await signUp(email, password)
+        setMessage('Account created! Check your email if confirmation is required.')
       }
     } catch (err: any) {
       console.error('Auth error:', err)
@@ -147,32 +73,42 @@ export default function EnhancedAuthForm() {
       setLoading(true)
       setError(null)
       
-      const { error } = await supabase.auth.signInWithOAuth({ 
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      })
-      
-      if (error) throw error
+      await signInWithOAuth(provider)
     } catch (err: any) {
       setError(err.message || `${provider} login failed`)
       setLoading(false)
     }
   }
 
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setError('Please enter your email address first')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      await resetPassword(email)
+      setMessage('Password reset email sent! Check your inbox.')
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleProfileSetupComplete = () => {
-    setNeedsProfileSetup(false)
-    setMessage('🎉 Profile setup complete! Welcome to Daily Tidbit!')
+    setMessage('Profile setup complete! Welcome to Daily Tidbit!')
   }
 
   const handleSkipSetup = () => {
-    setNeedsProfileSetup(false)
     setMessage('You can complete your profile anytime from the profile page.')
   }
 
-  // Show profile setup wizard
-  if (user && needsProfileSetup) {
+  // Show profile setup wizard if user needs it
+  if (user && authState === 'logged-out' && !user.profile?.full_name) {
     return (
       <ProfileSetupWizard
         userId={user.id}
@@ -182,8 +118,8 @@ export default function EnhancedAuthForm() {
     )
   }
 
-  // Hide form if user is already logged in and setup is complete
-  if (user && !needsProfileSetup) {
+  // Hide form if user is already authenticated and setup is complete
+  if (authState === 'has-company-access' || authState === 'needs-password-setup') {
     return null
   }
 
@@ -224,7 +160,7 @@ export default function EnhancedAuthForm() {
       <div className="space-y-3">
         <button
           onClick={() => handleOAuthLogin('google')}
-          disabled={loading}
+          disabled={loading || authLoading}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -240,7 +176,7 @@ export default function EnhancedAuthForm() {
 
         <button
           onClick={() => handleOAuthLogin('apple')}
-          disabled={loading}
+          disabled={loading || authLoading}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -276,7 +212,7 @@ export default function EnhancedAuthForm() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] transition-colors"
               placeholder="Enter your email"
-              disabled={loading}
+              disabled={loading || authLoading}
             />
           </div>
         </div>
@@ -293,7 +229,7 @@ export default function EnhancedAuthForm() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] transition-colors"
               placeholder="Enter your password"
-              disabled={loading}
+              disabled={loading || authLoading}
             />
             <button
               type="button"
@@ -318,7 +254,7 @@ export default function EnhancedAuthForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] transition-colors"
                 placeholder="Confirm your password"
-                disabled={loading}
+                disabled={loading || authLoading}
               />
             </div>
           </div>
@@ -326,10 +262,10 @@ export default function EnhancedAuthForm() {
 
         <button
           onClick={handleEmailAuth}
-          disabled={loading}
+          disabled={loading || authLoading}
           className="w-full flex items-center justify-center gap-2 bg-[#60A875] text-white py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? (
+          {(loading || authLoading) ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
               {isLogin ? 'Signing in...' : 'Creating account...'}
@@ -363,7 +299,11 @@ export default function EnhancedAuthForm() {
 
       {isLogin && (
         <div className="text-center">
-          <button className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+          <button 
+            onClick={handlePasswordReset}
+            disabled={loading || authLoading}
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+          >
             Forgot your password?
           </button>
         </div>

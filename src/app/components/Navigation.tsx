@@ -1,20 +1,19 @@
-// src/app/components/Navigation.tsx - Fixed TypeScript Errors
+// src/app/components/Navigation.tsx - Refactored to use useAuth hook
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import { Search, User, Menu, X, Sparkles, Compass, Building2, ChevronDown } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useAuth } from '../hooks/useAuth'
 import { supabaseClient } from '@/app/lib/supabaseClient'
-import { User as SupabaseUser } from '@supabase/supabase-js'
 import AuthModal from './AuthModal'
 import UserProfile from './UserProfile'
 import PartnerProfileModal from './PartnerProfileModal'
 import type { PartnerInfo } from './types/partner'
 
 export default function Navigation() {
-  const [user, setUser] = useState<SupabaseUser | null>(null)
-  const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
+  const { user, authState, company, isCompanyAdmin, signOut } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [todaysTidbit, setTodaysTidbit] = useState<number | null>(null)
@@ -28,33 +27,19 @@ export default function Navigation() {
     typeof window !== 'undefined' ? window.location.href : null
   ), [])
 
-  useEffect(() => {
-    // Get current user and check partner status
-    const getUser = async () => {
-      const { data: { user } } = await supabaseClient.auth.getUser()
-      setUser(user)
-
-      // Check if user is a partner
-      if (user) {
-        await checkPartnerStatus(user.id)
-      }
+  // Convert company data to PartnerInfo format for compatibility
+  const partnerInfo: PartnerInfo | null = useMemo(() => {
+    if (!user?.companyMembership || !company) return null
+    
+    return {
+      companyId: company.id,
+      companyName: company.name,
+      role: user.companyMembership.role,
+      memberSince: user.companyMembership.created_at || new Date().toISOString()
     }
-    getUser()
+  }, [user?.companyMembership, company])
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        setUser(session?.user ?? null)
-        setShowAuthModal(false)
-        if (session?.user) {
-          await checkPartnerStatus(session.user.id)
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null)
-        setPartnerInfo(null)
-      }
-    })
-
+  useEffect(() => {
     // Get today's tidbit number (latest published)
     const fetchTodaysTidbit = async () => {
       try {
@@ -71,37 +56,14 @@ export default function Navigation() {
       }
     }
     fetchTodaysTidbit()
-
-    return () => subscription.unsubscribe()
   }, [])
 
-  // Check if user is a partner
-  const checkPartnerStatus = async (userId: string) => {
-    try {
-      const { data: partnerData, error } = await supabaseClient
-        .from('company_users')
-        .select(`
-          company_id,
-          role,
-          created_at,
-          companies!inner(name)
-        `)
-        .eq('user_id', userId)
-        .limit(1)
-        .single()
-
-      if (partnerData && !error) {
-        setPartnerInfo({
-          companyId: partnerData.company_id,
-          companyName: (partnerData as any).companies.name,
-          role: partnerData.role,
-          memberSince: partnerData.created_at
-        })
-      }
-    } catch (error) {
-      console.error('Error checking partner status:', error)
+  // Close auth modal when user signs in
+  useEffect(() => {
+    if (user && showAuthModal) {
+      setShowAuthModal(false)
     }
-  }
+  }, [user, showAuthModal])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -111,9 +73,7 @@ export default function Navigation() {
   }
 
   const handleSignOut = async () => {
-    await supabaseClient.auth.signOut()
-    setUser(null)
-    setPartnerInfo(null)
+    await signOut()
     window.location.reload()
   }
 
@@ -129,18 +89,23 @@ export default function Navigation() {
   }, [showProfileDropdown])
 
   // Get display name from user
-  const getDisplayName = (user: SupabaseUser) => {
+  const getDisplayName = () => {
+    if (!user) return ''
     return user.user_metadata?.full_name || 
            user.user_metadata?.name || 
+           user.profile?.full_name ||
            user.email?.split('@')[0] || 
            'User'
   }
 
   // Get user initial
-  const getUserInitial = (user: SupabaseUser) => {
-    const name = getDisplayName(user)
+  const getUserInitial = () => {
+    const name = getDisplayName()
     return name.charAt(0).toUpperCase()
   }
+
+  // Show partner links only if user has company access
+  const showPartnerLinks = authState === 'has-company-access'
 
   return (
     <>
@@ -193,8 +158,8 @@ export default function Navigation() {
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
               </Link>
 
-              {/* Partner Dashboard Link (if partner) */}
-              {partnerInfo && (
+              {/* Partner Dashboard Link (only if has company access) */}
+              {showPartnerLinks && company && (
                 <Link href="/partners/dashboard" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#59B1E3] relative group flex items-center gap-2">
                   <Building2 className="w-4 h-4" />
                   PARTNER HUB
@@ -230,10 +195,10 @@ export default function Navigation() {
                     className="flex items-center gap-2 text-gray-700 hover:text-[#60A875] transition-colors"
                   >
                     <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-300 rounded-full hover:ring-2 hover:ring-[#60A875]/20 transition-all flex items-center justify-center text-xs sm:text-sm font-medium">
-                      {getUserInitial(user)}
+                      {getUserInitial()}
                     </div>
                     <div className="hidden sm:flex items-center gap-1">
-                      <span className="font-medium text-sm">{getDisplayName(user)}</span>
+                      <span className="font-medium text-sm">{getDisplayName()}</span>
                       <ChevronDown className="w-4 h-4" />
                     </div>
                   </button>
@@ -243,10 +208,18 @@ export default function Navigation() {
                     <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-[60]">
                       <div className="p-3 border-b border-gray-100">
                         <div className="text-sm font-medium text-gray-900">{user.email}</div>
-                        {partnerInfo && (
+                        {showPartnerLinks && company && (
                           <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                             <Building2 className="w-3 h-3" />
-                            {partnerInfo.companyName} • {partnerInfo.role === 'company_admin' ? 'Admin' : 'Member'}
+                            {company.name} • {isCompanyAdmin ? 'Admin' : 'Member'}
+                          </div>
+                        )}
+                        {/* Show auth state for debugging/info */}
+                        {authState !== 'has-company-access' && authState !== 'logged-out' && (
+                          <div className="text-xs text-amber-600 mt-1">
+                            {authState === 'needs-password-setup' && 'Complete setup required'}
+                            {authState === 'no-company' && 'No company access'}
+                            {authState === 'loading' && 'Loading...'}
                           </div>
                         )}
                       </div>
@@ -266,7 +239,8 @@ export default function Navigation() {
                           </div>
                         </button>
 
-                        {partnerInfo && (
+                        {/* Partner profile option only if has company access */}
+                        {showPartnerLinks && partnerInfo && (
                           <button
                             onClick={() => {
                               setShowPartnerProfile(true)
@@ -282,7 +256,8 @@ export default function Navigation() {
                           </button>
                         )}
 
-                        {partnerInfo && (
+                        {/* Partner dashboard links only if has company access */}
+                        {showPartnerLinks && (
                           <>
                             <div className="border-t border-gray-100 my-2"></div>
                             <Link
@@ -298,6 +273,33 @@ export default function Navigation() {
                               className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                             >
                               Partner Settings
+                            </Link>
+                          </>
+                        )}
+
+                        {/* Show setup/access links for non-full-access users */}
+                        {user && authState === 'needs-password-setup' && (
+                          <>
+                            <div className="border-t border-gray-100 my-2"></div>
+                            <Link
+                              href="/partners/setup"
+                              onClick={() => setShowProfileDropdown(false)}
+                              className="block px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
+                            >
+                              Complete Setup
+                            </Link>
+                          </>
+                        )}
+
+                        {user && authState === 'no-company' && (
+                          <>
+                            <div className="border-t border-gray-100 my-2"></div>
+                            <Link
+                              href="/partners/request-access"
+                              onClick={() => setShowProfileDropdown(false)}
+                              className="block px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
+                            >
+                              Request Company Access
                             </Link>
                           </>
                         )}
@@ -366,7 +368,8 @@ export default function Navigation() {
                 
                 <Link href="/bitboard" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }} onClick={() => setIsMenuOpen(false)}>BITBOARD</Link>
 
-                {partnerInfo && (
+                {/* Partner hub link only if has company access */}
+                {showPartnerLinks && company && (
                   <Link href="/partners/dashboard" className="block py-2 text-gray-700 hover:text-[#59B1E3] font-medium transition-colors duration-300 flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
                     <Building2 className="w-4 h-4" />
                     PARTNER HUB
@@ -386,7 +389,8 @@ export default function Navigation() {
                       Personal Profile
                     </button>
                     
-                    {partnerInfo && (
+                    {/* Partner profile only if has company access */}
+                    {showPartnerLinks && partnerInfo && (
                       <button 
                         onClick={() => { 
                           setShowPartnerProfile(true)
@@ -397,6 +401,27 @@ export default function Navigation() {
                         <Building2 className="w-4 h-4" />
                         Partner Profile ({partnerInfo.companyName})
                       </button>
+                    )}
+
+                    {/* Show auth state specific actions */}
+                    {authState === 'needs-password-setup' && (
+                      <Link
+                        href="/partners/setup"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors duration-300"
+                      >
+                        Complete Setup Required
+                      </Link>
+                    )}
+
+                    {authState === 'no-company' && (
+                      <Link
+                        href="/partners/request-access"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors duration-300"
+                      >
+                        Request Company Access
+                      </Link>
                     )}
                   </div>
                 )}
