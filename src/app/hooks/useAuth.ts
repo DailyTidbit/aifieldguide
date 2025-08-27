@@ -1,30 +1,47 @@
-// src/app/hooks/useAuth.ts - Simplified single-tier partner system
+// src/app/hooks/useAuth.ts - Updated with missing properties
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { User as SupabaseUser } from '@supabase/supabase-js'
+import { usePathname } from 'next/navigation'
 import { supabaseClient } from '../lib/supabaseClient'
 
 interface CompanyData {
   id: string
-  name: string
+  name: string | null
   website: string | null
   domain: string | null
-  status: string
-  domains: string // JSON array as string
+  status: string | null
+  domains: string | null // JSON array as string
+}
+
+// Add company membership info to the user type
+interface CompanyMembership {
+  company_id: string
+  role: string
+  created_at?: string
 }
 
 interface PartnerUser extends SupabaseUser {
   company?: CompanyData
   role?: string
+  companyMembership?: CompanyMembership // Add this for Navigation compatibility
+  profile?: {
+    full_name?: string | null
+  }
 }
+
+// Add missing properties for Navigation
+type AuthState = 'loading' | 'logged-out' | 'needs-password-setup' | 'no-company' | 'has-company-access'
 
 interface UseAuthReturn {
   user: PartnerUser | null
   loading: boolean
   isPartner: boolean
   company: CompanyData | null
-  
+  authState: AuthState // Add this
+  isCompanyAdmin: boolean // Add this
+
   // Auth methods
   signIn: (email: string, password?: string) => Promise<void>
   signInWithOAuth: (provider: 'google' | 'apple') => Promise<void>
@@ -42,7 +59,21 @@ export function useAuth(): UseAuthReturn {
   const [company, setCompany] = useState<CompanyData | null>(null)
   const [isPartner, setIsPartner] = useState(false)
 
-  // Load user and determine if they're a partner
+  const pathname = usePathname()
+
+  // Calculate derived states
+  const authState: AuthState = (() => {
+    if (loading) return 'loading'
+    if (!user) return 'logged-out'
+    if (!user.companyMembership) return 'no-company'
+    if (!company) return 'no-company'
+    // You can add logic here for 'needs-password-setup' if needed
+    return 'has-company-access'
+  })()
+
+  const isCompanyAdmin = user?.companyMembership?.role === 'company_admin'
+
+  // Load user + partner/company info
   const loadUserData = useCallback(async (supabaseUser: SupabaseUser | null) => {
     try {
       if (!supabaseUser) {
@@ -52,10 +83,17 @@ export function useAuth(): UseAuthReturn {
         return
       }
 
-      // Check if user is a company member - simplified query
+      // Get user profile
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('full_name')
+        .eq('id', supabaseUser.id)
+        .single()
+
+      // membership
       const { data: membership, error: membershipError } = await supabaseClient
         .from('company_users')
-        .select('company_id, role')
+        .select('company_id, role, created_at')
         .eq('user_id', supabaseUser.id)
         .limit(1)
         .maybeSingle()
@@ -64,14 +102,14 @@ export function useAuth(): UseAuthReturn {
         console.warn('Membership check error:', membershipError)
       }
 
-      // If they have a company membership, get company data
+      // company
       let companyData: CompanyData | null = null
       if (membership?.company_id) {
         const { data: companyResult, error: companyError } = await supabaseClient
           .from('companies')
           .select('id, name, website, domain, status, domains')
           .eq('id', membership.company_id)
-          .eq('status', 'active') // Only active companies
+          .eq('status', 'active')
           .single()
 
         if (companyError) {
@@ -81,14 +119,18 @@ export function useAuth(): UseAuthReturn {
         }
       }
 
-      // Create partner user with company info
       const partnerUser: PartnerUser = {
         ...supabaseUser,
         company: companyData || undefined,
-        role: membership?.role || undefined
+        role: membership?.role || undefined,
+        companyMembership: membership ? {
+          company_id: membership.company_id,
+          role: membership.role,
+          created_at: membership.created_at
+        } : undefined,
+        profile: profile ? { full_name: profile.full_name } : undefined
       }
 
-      // Single-tier logic: if they have an active company membership, they're a partner
       const userIsPartner = !!(membership && companyData)
 
       setUser(partnerUser)
@@ -100,9 +142,9 @@ export function useAuth(): UseAuthReturn {
         hasCompanyMembership: !!membership,
         companyActive: companyData?.status === 'active',
         role: membership?.role,
-        isPartner: userIsPartner
+        isPartner: userIsPartner,
+        authState: authState
       })
-
     } catch (error) {
       console.error('User data loading error:', error)
       setUser(supabaseUser as PartnerUser)
@@ -118,20 +160,17 @@ export function useAuth(): UseAuthReturn {
     const initAuth = async () => {
       try {
         const { data: { user: supabaseUser }, error } = await supabaseClient.auth.getUser()
-        
-        if (error) {
-          console.warn('Auth init error:', error)
+        // Not an error to be logged hard if logged out
+        if (error && error.message !== 'Auth session missing!') {
+          console.warn('Auth init warning:', error)
         }
-        
         if (mounted) {
           await loadUserData(supabaseUser)
           setLoading(false)
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
-        if (mounted) {
-          setLoading(false)
-        }
+        if (mounted) setLoading(false)
       }
     }
 
@@ -142,6 +181,14 @@ export function useAuth(): UseAuthReturn {
       async (event, session) => {
         if (!mounted) return
 
+        // ✅ IMPORTANT: while on /auth/reset, ignore churn that happens during password reset.
+        if (pathname.startsWith('/auth/reset')) {
+          if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED' || event === 'SIGNED_IN') {
+            // Avoid doing heavy state work that can cause HMR/UX glitches.
+            return
+          }
+        }
+
         console.log('Auth event:', event)
 
         if (session?.user) {
@@ -151,7 +198,7 @@ export function useAuth(): UseAuthReturn {
           setCompany(null)
           setIsPartner(false)
         }
-        
+
         setLoading(false)
       }
     )
@@ -160,25 +207,19 @@ export function useAuth(): UseAuthReturn {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [loadUserData])
+  }, [loadUserData, pathname])
 
-  // Sign in with email/password
+  // Sign in with email/password or magic link fallback
   const signIn = useCallback(async (email: string, password?: string) => {
     setLoading(true)
     try {
       if (password) {
-        const { error } = await supabaseClient.auth.signInWithPassword({
-          email,
-          password
-        })
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password })
         if (error) throw error
       } else {
-        // Fallback to magic link
         const { error } = await supabaseClient.auth.signInWithOtp({
           email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth`
-          }
+          options: { emailRedirectTo: `${window.location.origin}/auth` },
         })
         if (error) throw error
       }
@@ -195,9 +236,7 @@ export function useAuth(): UseAuthReturn {
     try {
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth`
-        }
+        options: { redirectTo: `${window.location.origin}/auth` },
       })
       if (error) throw error
     } catch (error) {
@@ -215,8 +254,8 @@ export function useAuth(): UseAuthReturn {
         email,
         options: {
           emailRedirectTo: options.redirectTo || `${window.location.origin}/auth`,
-          data: options.data || {}
-        }
+          data: options.data || {},
+        },
       })
       if (error) throw error
     } catch (error) {
@@ -234,9 +273,7 @@ export function useAuth(): UseAuthReturn {
       const { error } = await supabaseClient.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth`
-        }
+        options: { emailRedirectTo: `${window.location.origin}/auth` },
       })
       if (error) throw error
     } catch (error) {
@@ -262,7 +299,7 @@ export function useAuth(): UseAuthReturn {
   const resetPassword = useCallback(async (email: string) => {
     try {
       const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset`
+        redirectTo: `${window.location.origin}/auth/reset`, // your custom page
       })
       if (error) throw error
     } catch (error) {
@@ -271,23 +308,24 @@ export function useAuth(): UseAuthReturn {
     }
   }, [])
 
-  // Update password
+  // Update password (used after recovery)
   const updatePassword = useCallback(async (password: string) => {
-    setLoading(true)
+    console.log('🔄 Starting password update...')
     try {
+      console.log('📡 Calling Supabase updateUser...')
       const { error } = await supabaseClient.auth.updateUser({
         password,
-        data: { has_password: true }
+        data: { has_password: true },
       })
-      if (error) throw error
-      
-      // Refresh to get updated user data
-      await refreshAuth()
+      console.log('🔥 Supabase response:', { error })
+      if (error) {
+        console.error('❌ Supabase error:', error)
+        throw error
+      }
+      console.log('✅ Password update successful')
     } catch (error) {
-      console.error('Update password error:', error)
+      console.error('💥 Update password error:', error)
       throw error
-    } finally {
-      setLoading(false)
     }
   }, [])
 
@@ -298,13 +336,13 @@ export function useAuth(): UseAuthReturn {
   }, [loadUserData])
 
   return {
-    // State - simplified to just what matters for partners
     user,
     loading,
     isPartner,
     company,
-    
-    // Methods
+    authState, // Now included
+    isCompanyAdmin, // Now included
+
     signIn,
     signInWithOAuth,
     signInWithMagicLink,
@@ -312,6 +350,6 @@ export function useAuth(): UseAuthReturn {
     signOut,
     resetPassword,
     updatePassword,
-    refreshAuth
+    refreshAuth,
   }
 }

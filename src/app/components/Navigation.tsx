@@ -1,4 +1,4 @@
-// src/app/components/Navigation.tsx - Refactored to use useAuth hook
+// src/app/components/Navigation.tsx - Fixed all type issues
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -6,7 +6,7 @@ import { Search, User, Menu, X, Sparkles, Compass, Building2, ChevronDown } from
 import Image from 'next/image'
 import Link from 'next/link'
 import { useAuth } from '../hooks/useAuth'
-import { supabaseClient } from '@/app/lib/supabaseClient'
+import { supabaseClient } from '../lib/supabaseClient'
 import AuthModal from './AuthModal'
 import UserProfile from './UserProfile'
 import PartnerProfileModal from './PartnerProfileModal'
@@ -33,24 +33,38 @@ export default function Navigation() {
     
     return {
       companyId: company.id,
-      companyName: company.name,
+      companyName: company.name || '',
       role: user.companyMembership.role,
       memberSince: user.companyMembership.created_at || new Date().toISOString()
     }
   }, [user?.companyMembership, company])
 
   useEffect(() => {
-    // Get today's tidbit number (latest published)
+    // Get today's tidbit number (latest published) with better error handling
     const fetchTodaysTidbit = async () => {
       try {
-        const { data } = await supabaseClient
+        console.log('Fetching today\'s tidbit...')
+        const { data, error } = await supabaseClient
           .from('tidbits')
           .select('day_number')
           .eq('status', 'published')
           .order('day_number', { ascending: false })
           .limit(1)
           .single()
-        if (data) setTodaysTidbit(data.day_number)
+        
+        console.log('Tidbit query result:', { data, error })
+        
+        if (error) {
+          console.error('Error fetching today\'s tidbit:', error)
+          return
+        }
+        
+        if (data) {
+          console.log('Setting today\'s tidbit to:', data.day_number)
+          setTodaysTidbit(data.day_number)
+        } else {
+          console.warn('No published tidbits found')
+        }
       } catch (error) {
         console.error("Error fetching today's tidbit:", error)
       }
@@ -88,14 +102,20 @@ export default function Navigation() {
     }
   }, [showProfileDropdown])
 
-  // Get display name from user
+  // Get display name from user - improved logic
   const getDisplayName = () => {
     if (!user) return ''
-    return user.user_metadata?.full_name || 
-           user.user_metadata?.name || 
-           user.profile?.full_name ||
-           user.email?.split('@')[0] || 
-           'User'
+    
+    // Try different sources for the user's name
+    const sources = [
+      user.user_metadata?.full_name,
+      user.user_metadata?.name,
+      user.profile?.full_name,
+      user.email?.split('@')[0]
+    ]
+    
+    const name = sources.find(source => source && source.trim() && source !== 'DAILY TIDBIT')
+    return name || 'User'
   }
 
   // Get user initial
@@ -144,13 +164,20 @@ export default function Navigation() {
               </Link>
 
               {todaysTidbit && (
-                <Link href={`/day/${todaysTidbit}`} className="transition-all duration-300 hover:scale-105">
-                  <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300">
-                    <Sparkles className="w-4 h-4" />
-                    <span>TODAY'S TIDBIT</span>
-                    <div className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">#{todaysTidbit}</div>
-                  </div>
-                </Link>
+                <>
+                  <Link href={`/day/${todaysTidbit}`} className="transition-all duration-300 hover:scale-105">
+                    <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300">
+                      <Sparkles className="w-4 h-4" />
+                      <span>TODAY'S TIDBIT</span>
+                      <div className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">#{todaysTidbit}</div>
+                    </div>
+                  </Link>
+                  
+                  <Link href={`/day/${todaysTidbit}/walkthrough`} className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group">
+                    WALKTHROUGH
+                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
+                  </Link>
+                </>
               )}
 
               <Link href="/bitboard" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -203,9 +230,9 @@ export default function Navigation() {
                     </div>
                   </button>
 
-                  {/* Profile Dropdown */}
+                  {/* Profile Dropdown - Higher z-index for BitBoard */}
                   {showProfileDropdown && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-[60]">
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]">
                       <div className="p-3 border-b border-gray-100">
                         <div className="text-sm font-medium text-gray-900">{user.email}</div>
                         {showPartnerLinks && company && (
@@ -358,12 +385,18 @@ export default function Navigation() {
                 <Link href="/TidbitLibrary" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" onClick={() => setIsMenuOpen(false)}>TIDBIT LIBRARY</Link>
 
                 {todaysTidbit && (
-                  <Link href={`/day/${todaysTidbit}`} className="block py-2" onClick={() => setIsMenuOpen(false)}>
-                    <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg">
-                      <Sparkles className="w-4 h-4" />
-                      <span>TODAY'S TIDBIT #{todaysTidbit}</span>
-                    </div>
-                  </Link>
+                  <>
+                    <Link href={`/day/${todaysTidbit}`} className="block py-2" onClick={() => setIsMenuOpen(false)}>
+                      <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg">
+                        <Sparkles className="w-4 h-4" />
+                        <span>TODAY'S TIDBIT #{todaysTidbit}</span>
+                      </div>
+                    </Link>
+                    
+                    <Link href={`/day/${todaysTidbit}/walkthrough`} className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" onClick={() => setIsMenuOpen(false)}>
+                      WALKTHROUGH
+                    </Link>
+                  </>
                 )}
                 
                 <Link href="/bitboard" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }} onClick={() => setIsMenuOpen(false)}>BITBOARD</Link>
@@ -403,25 +436,31 @@ export default function Navigation() {
                       </button>
                     )}
 
-                    {/* Show auth state specific actions */}
-                    {authState === 'needs-password-setup' && (
-                      <Link
-                        href="/partners/setup"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors duration-300"
-                      >
-                        Complete Setup Required
-                      </Link>
+                    {/* Show setup/access links for non-full-access users */}
+                    {user && authState === 'needs-password-setup' && (
+                      <>
+                        <div className="border-t border-gray-100 my-2"></div>
+                        <Link
+                          href="/partners/setup"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors duration-300"
+                        >
+                          Complete Setup Required
+                        </Link>
+                      </>
                     )}
 
-                    {authState === 'no-company' && (
-                      <Link
-                        href="/partners/request-access"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors duration-300"
-                      >
-                        Request Company Access
-                      </Link>
+                    {user && authState === 'no-company' && (
+                      <>
+                        <div className="border-t border-gray-100 my-2"></div>
+                        <Link
+                          href="/partners/request-access"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors duration-300"
+                        >
+                          Request Company Access
+                        </Link>
+                      </>
                     )}
                   </div>
                 )}
@@ -445,9 +484,9 @@ export default function Navigation() {
         redirectTo={redirectTo}
       />
 
-      {/* Personal User Profile Modal */}
+      {/* Personal User Profile Modal - Fixed z-index */}
       {user && showUserProfile && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto relative">
             <div className="sticky top-0 bg-white flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 z-10">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Personal Profile</h2>

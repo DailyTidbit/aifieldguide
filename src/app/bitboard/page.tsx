@@ -614,7 +614,7 @@ export default function MobileOptimizedBitBoard() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 overflow-hidden">
       {/* Mobile-Optimized Top Navigation */}
-      <nav className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-white border-b border-gray-200 relative z-50 sticky top-0">
+      <nav className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-white border-b border-gray-200 relative z-40 sticky top-0">
         {/* Left Section - Mobile Optimized */}
         <div className="flex items-center gap-2 sm:gap-4">
           <button 
