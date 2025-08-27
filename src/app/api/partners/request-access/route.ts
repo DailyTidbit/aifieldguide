@@ -1,143 +1,193 @@
 // src/app/api/partners/request-access/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
+import { accessRequestSchema, validateInput } from '@/app/lib/validationSchemas'
+import { checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
 
 export async function POST(request: NextRequest) {
   try {
-    const {
-      email,
-      fullName,
-      companyName,
-      companyWebsite,
-      toolName,
-      toolDescription,
-      role
-    } = await request.json()
-
-    // Validation
-    if (!email || !fullName || !companyName || !toolName || !toolDescription || !role) {
+    // Rate limiting - 3 requests per hour per IP
+    const clientIP = getClientIP(request)
+    const rateLimit = await checkRateLimit(clientIP, 'request-access', 3, 60)
+    
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: 'All required fields must be provided' },
+        { 
+          success: false,
+          message: 'Too many requests. Please try again later.',
+          resetTime: rateLimit.resetTime.toISOString()
+        }, 
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '3',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': Math.floor(rateLimit.resetTime.getTime() / 1000).toString()
+          }
+        }
+      )
+    }
+
+    // Parse and validate request body
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { success: false, message: 'Invalid JSON body' },
         { status: 400 }
       )
     }
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    // Validate with Zod schema
+    const validation = validateInput(accessRequestSchema, body)
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Please provide a valid email address' },
+        { 
+          success: false, 
+          message: 'Invalid input data',
+          errors: validation.errors 
+        },
         { status: 400 }
       )
     }
 
-    // Check if there's already a pending or approved request for this email/company
-    const { data: existingRequest } = await supabaseAdmin
-      .from('partner_requests')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .eq('status', 'pending')
-      .single()
+    const { email, companyName, message } = validation.data
 
-    if (existingRequest) {
-      return NextResponse.json(
-        { error: 'You already have a pending partner request. Please wait for our team to review it.' },
-        { status: 400 }
-      )
-    }
-
-    // Create the partner request
-    const { data, error } = await supabaseAdmin
+    // Insert partner request - using type assertion for missing table types
+    const { error: insertError } = await (supabaseAdmin as any)
       .from('partner_requests')
       .insert({
-        email: email.toLowerCase(),
-        full_name: fullName,
+        email,
         company_name: companyName,
-        company_website: companyWebsite || null,
-        tool_name: toolName,
-        tool_description: toolDescription,
-        role: role,
+        message: message || null,
         status: 'pending',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // Track request metadata for security
+        ip_address: clientIP,
+        user_agent: request.headers.get('user-agent') || null
       })
-      .select()
-      .single()
 
-    if (error) {
-      console.error('Error creating partner request:', error)
+    if (insertError) {
+      console.error('Partner request insert failed:', insertError)
+      // Log the failure but still return success to prevent enumeration
+      try {
+        await (supabaseAdmin as any)
+          .from('partner_security_logs')
+          .insert({
+            user_id: null, // No user for access requests
+            action: 'access_request_failed',
+            target_type: 'partner_request',
+            target_id: email,
+            details: { 
+              error: insertError.message, 
+              companyName,
+              ip: clientIP 
+            },
+            ip_address: clientIP,
+            user_agent: request.headers.get('user-agent') || null,
+            created_at: new Date().toISOString()
+          })
+      } catch (logError) {
+        console.error('Security log failed:', logError)
+      }
+    } else {
+      // Log successful request
+      try {
+        await (supabaseAdmin as any)
+          .from('partner_security_logs')
+          .insert({
+            user_id: null,
+            action: 'access_request_submitted',
+            target_type: 'partner_request',
+            target_id: email,
+            details: { 
+              companyName,
+              hasMessage: !!message,
+              ip: clientIP 
+            },
+            ip_address: clientIP,
+            user_agent: request.headers.get('user-agent') || null,
+            created_at: new Date().toISOString()
+          })
+      } catch (logError) {
+        console.error('Security log failed:', logError)
+      }
+    }
+
+    // Always return generic success message to prevent enumeration
+    return NextResponse.json({
+      success: true,
+      message: "Thanks! If eligible, we'll review and reach out via email."
+    }, {
+      headers: {
+        'X-RateLimit-Limit': '3',
+        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        'X-RateLimit-Reset': Math.floor(rateLimit.resetTime.getTime() / 1000).toString()
+      }
+    })
+
+  } catch (error) {
+    console.error('Access request error:', error)
+    // Return generic success even on errors to prevent information leakage
+    return NextResponse.json({
+      success: true,
+      message: "Thanks! If eligible, we'll review and reach out via email."
+    })
+  }
+}
+
+export async function GET(request: NextRequest) {
+  // Admin-only endpoint to list access requests
+  try {
+    const authHeader = request.headers.get('Authorization')
+    if (authHeader !== `Bearer ${process.env.ADMIN_API_KEY}`) {
       return NextResponse.json(
-        { error: 'Failed to submit request. Please try again.' },
-        { status: 500 }
+        { success: false, message: 'Unauthorized' },
+        { status: 401 }
       )
     }
 
-    // TODO: Send notification email to your team about the new partner request
-    // You might want to use a service like Resend, SendGrid, or similar
-    try {
-      // Example notification (you'll need to implement this with your email service)
-      await sendPartnerRequestNotification({
-        email,
-        fullName,
-        companyName,
-        toolName,
-        toolDescription,
-        role,
-        requestId: data.id
-      })
-    } catch (notificationError) {
-      console.error('Failed to send notification email:', notificationError)
-      // Don't fail the request if notification fails
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status') || 'pending'
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
+    const offset = parseInt(searchParams.get('offset') || '0')
+
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid status filter' },
+        { status: 400 }
+      )
+    }
+
+    const { data: requests, error, count } = await (supabaseAdmin as any)
+      .from('partner_requests')
+      .select('*', { count: 'exact' })
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      throw error
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Partner access request submitted successfully',
-      requestId: data.id
+      requests: requests || [],
+      pagination: {
+        total: count || 0,
+        limit,
+        offset,
+        hasMore: (count || 0) > offset + limit
+      }
     })
 
   } catch (error) {
-    console.error('Partner request error:', error)
+    console.error('Error fetching partner requests:', error)
     return NextResponse.json(
-      { error: 'Internal server error. Please try again later.' },
+      { success: false, message: 'Failed to fetch partner requests' },
       { status: 500 }
     )
   }
-}
-
-// Helper function to send notification email to your team
-async function sendPartnerRequestNotification(requestData: {
-  email: string
-  fullName: string
-  companyName: string
-  toolName: string
-  toolDescription: string
-  role: string
-  requestId: string
-}) {
-  // TODO: Implement with your preferred email service
-  // This is just a placeholder structure
-  
-  const emailContent = `
-    New Partner Access Request
-    
-    Requester: ${requestData.fullName} (${requestData.role})
-    Email: ${requestData.email}
-    Company: ${requestData.companyName}
-    
-    Tool: ${requestData.toolName}
-    Description: ${requestData.toolDescription}
-    
-    Request ID: ${requestData.requestId}
-    
-    Review at: https://dailytidbit.org/admin/partner-requests/${requestData.requestId}
-  `
-
-  // Example with a hypothetical email service
-  // await emailService.send({
-  //   to: 'partners@dailytidbit.org',
-  //   subject: `New Partner Request: ${requestData.companyName}`,
-  //   text: emailContent
-  // })
-
-  console.log('Partner request notification:', emailContent)
 }

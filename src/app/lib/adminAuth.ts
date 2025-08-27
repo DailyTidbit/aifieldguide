@@ -1,18 +1,26 @@
-// src/app/lib/adminAuth.ts - Complete Secure Admin Authentication
+// src/app/lib/adminAuth.ts - TypeScript errors fixed with type assertions
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
+import { supabaseAdmin } from './supabaseAdmin'
 
-export interface AdminUser {
-  id: string
+export interface PartnerUser {
   user_id: string
-  role: 'admin' | 'super_admin'
-  permissions: string[]
-  is_active: boolean
+  company_id: string
+  role: string
+  created_at: string
+  invited_by: string | null
+  updated_at: string
+  // Company info when joined
+  companies?: {
+    id: string
+    name: string
+    status: string
+  }
 }
 
 export interface AuditLogEntry {
-  admin_user_id: string
+  user_id: string
   action: string
   target_type: string
   target_id: string
@@ -21,18 +29,82 @@ export interface AuditLogEntry {
   user_agent?: string
 }
 
-// Server-side admin authentication
-export async function getAdminUser(): Promise<AdminUser | null> {
+// Server-side partner authentication using Bearer token
+export async function requirePartner(request: NextRequest): Promise<{ partner: PartnerUser } | { error: string; status: number }> {
+  try {
+    // Check for Authorization header
+    const authHeader = request.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return { error: 'Missing or invalid authorization header', status: 401 }
+    }
+
+    const token = authHeader.substring(7)
+
+    // Verify the token with Supabase
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+    
+    if (error || !user) {
+      return { error: 'Invalid or expired token', status: 401 }
+    }
+
+    // Check if user is a partner in company_users table - TYPE ASSERTION FIX
+    const { data: partnerUser, error: partnerError } = await (supabaseAdmin as any)
+      .from('company_users')
+      .select(`
+        *,
+        companies:company_id (
+          id,
+          name,
+          status
+        )
+      `)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (partnerError || !partnerUser) {
+      return { error: 'User is not an authorized partner', status: 403 }
+    }
+
+    // Check if their company is active
+    if (partnerUser.companies && partnerUser.companies.status !== 'active') {
+      return { error: 'Partner company is not active', status: 403 }
+    }
+
+    // Update last access time - TYPE ASSERTION FIX
+    await (supabaseAdmin as any)
+      .from('company_users')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .then(({ error }: any) => {
+        if (error) console.warn('Failed to update last access:', error)
+      })
+
+    return { partner: partnerUser as PartnerUser }
+
+  } catch (error) {
+    console.error('Partner auth error:', error)
+    return { error: 'Authentication verification failed', status: 500 }
+  }
+}
+
+// Alternative cookie-based partner auth for pages
+export async function getPartnerUser(): Promise<PartnerUser | null> {
   try {
     const jar = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role key for admin operations
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {
         cookies: {
-          get(n: string) { return jar.get(n)?.value },
-          set(n: string, v: string, o: any) { jar.set({ name: n, value: v, ...o }) },
-          remove(n: string, o: any) { jar.set({ name: n, value: '', ...o }) },
+          get(name: string) { 
+            return jar.get(name)?.value 
+          },
+          set(name: string, value: string, options: any) { 
+            jar.set({ name, value, ...options }) 
+          },
+          remove(name: string, options: any) { 
+            jar.set({ name, value: '', ...options }) 
+          },
         },
       }
     )
@@ -40,77 +112,59 @@ export async function getAdminUser(): Promise<AdminUser | null> {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return null
 
-    // Check if user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('*')
+    // Check if user is a partner - TYPE ASSERTION FIX
+    const { data: partnerUser, error: partnerError } = await (supabase as any)
+      .from('company_users')
+      .select(`
+        *,
+        companies:company_id (
+          id,
+          name,
+          status
+        )
+      `)
       .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single()
+      .maybeSingle()
 
-    if (adminError || !adminUser) return null
+    if (partnerError || !partnerUser) return null
+    if (partnerUser.companies && partnerUser.companies.status !== 'active') return null
 
-    // Update last login
-    await supabase
-      .from('admin_users')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', adminUser.id)
-
-    return adminUser
+    return partnerUser as PartnerUser
   } catch (error) {
-    console.error('Admin auth error:', error)
+    console.error('Partner auth error:', error)
     return null
   }
 }
 
-// Middleware for admin route protection
-export async function requireAdmin(request: NextRequest): Promise<{ admin: AdminUser } | { error: string; status: number }> {
-  const admin = await getAdminUser()
-  
-  if (!admin) {
-    return { error: 'Admin authentication required', status: 401 }
-  }
-
-  return { admin }
+// Check if user has partner access (simplified - everyone with company_users record has full access)
+export function hasPartnerAccess(partner: PartnerUser): boolean {
+  return true // All partners have full access
 }
 
-// Check specific admin permissions
-export function hasPermission(admin: AdminUser, permission: string): boolean {
-  if (admin.role === 'super_admin') return true
-  return admin.permissions.includes(permission)
-}
-
-// Audit logging function
-export async function logAdminAction(entry: AuditLogEntry): Promise<void> {
+// Audit logging function - TYPE ASSERTION FIX for partner_security_logs table
+export async function logPartnerAction(entry: AuditLogEntry): Promise<void> {
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          get: () => undefined,
-          set: () => {},
-          remove: () => {},
-        },
-      }
-    )
-
-    await supabase.rpc('log_admin_action', {
-      p_admin_user_id: entry.admin_user_id,
-      p_action: entry.action,
-      p_target_type: entry.target_type,
-      p_target_id: entry.target_id,
-      p_details: entry.details || null,
-      p_ip_address: entry.ip_address || null,
-      p_user_agent: entry.user_agent || null
-    })
+    await (supabaseAdmin as any)
+      .from('partner_security_logs')
+      .insert({
+        user_id: entry.user_id,
+        action: entry.action,
+        target_type: entry.target_type,
+        target_id: entry.target_id,
+        details: entry.details || null,
+        ip_address: entry.ip_address || null,
+        user_agent: entry.user_agent || null,
+        created_at: new Date().toISOString()
+      })
   } catch (error) {
     console.error('Audit log error:', error)
     // Don't throw - audit log failure shouldn't break the operation
   }
 }
 
-// Rate limiting helper
+// Rate limiting helper with in-memory fallback
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+
 export async function checkRateLimit(
   identifier: string,
   endpoint: string,
@@ -118,78 +172,43 @@ export async function checkRateLimit(
   windowMinutes: number = 15
 ): Promise<{ allowed: boolean; remaining: number; resetTime: Date }> {
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          get: () => undefined,
-          set: () => {},
-          remove: () => {},
-        },
+    const now = Date.now()
+    const windowMs = windowMinutes * 60 * 1000
+    const key = `${identifier}:${endpoint}`
+    
+    // Clean expired entries
+    for (const [k, v] of rateLimitStore.entries()) {
+      if (v.resetTime < now) {
+        rateLimitStore.delete(k)
       }
-    )
-
-    const windowStart = new Date()
-    windowStart.setMinutes(windowStart.getMinutes() - windowMinutes)
-
-    // Clean old entries
-    await supabase
-      .from('rate_limits')
-      .delete()
-      .lt('window_start', windowStart.toISOString())
-
-    // Get current count for this identifier/endpoint
-    const { data: existing } = await supabase
-      .from('rate_limits')
-      .select('*')
-      .eq('identifier', identifier)
-      .eq('endpoint', endpoint)
-      .gte('window_start', windowStart.toISOString())
-      .single()
-
-    const now = new Date()
-    let requestCount = 1
-
-    if (existing) {
-      requestCount = existing.requests_count + 1
-      
-      if (requestCount > limit) {
-        const resetTime = new Date(existing.window_start)
-        resetTime.setMinutes(resetTime.getMinutes() + windowMinutes)
-        
-        return {
-          allowed: false,
-          remaining: 0,
-          resetTime
-        }
-      }
-
-      // Update count
-      await supabase
-        .from('rate_limits')
-        .update({ requests_count: requestCount })
-        .eq('id', existing.id)
-    } else {
-      // Create new entry
-      await supabase
-        .from('rate_limits')
-        .insert({
-          identifier,
-          endpoint,
-          requests_count: 1,
-          window_start: now.toISOString()
-        })
     }
-
-    const resetTime = new Date(existing?.window_start || now)
-    resetTime.setMinutes(resetTime.getMinutes() + windowMinutes)
-
+    
+    // Get or create entry
+    let entry = rateLimitStore.get(key)
+    if (!entry || entry.resetTime < now) {
+      entry = { count: 0, resetTime: now + windowMs }
+      rateLimitStore.set(key, entry)
+    }
+    
+    // Check limit
+    if (entry.count >= limit) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: new Date(entry.resetTime)
+      }
+    }
+    
+    // Increment and store
+    entry.count++
+    rateLimitStore.set(key, entry)
+    
     return {
       allowed: true,
-      remaining: limit - requestCount,
-      resetTime
+      remaining: limit - entry.count,
+      resetTime: new Date(entry.resetTime)
     }
+    
   } catch (error) {
     console.error('Rate limit check error:', error)
     // Default to allowing on error
@@ -201,126 +220,106 @@ export async function checkRateLimit(
   }
 }
 
-// Get client IP address from NextRequest - FIXED
+// Get client IP address from NextRequest
 export function getClientIP(request: NextRequest): string {
-  // Check forwarded headers first (most common in production)
   const forwarded = request.headers.get('x-forwarded-for')
   const realIp = request.headers.get('x-real-ip')
-  const cfConnectingIp = request.headers.get('cf-connecting-ip') // Cloudflare
+  const cfConnectingIp = request.headers.get('cf-connecting-ip')
   
-  if (forwarded) {
-    // x-forwarded-for can contain multiple IPs, get the first one
-    return forwarded.split(',')[0].trim()
-  }
-  
-  if (realIp) {
-    return realIp.trim()
-  }
-  
-  if (cfConnectingIp) {
-    return cfConnectingIp.trim()
-  }
-  
-  // For development/local testing, you can extract from request.url
-  // but this won't give you the actual client IP
-  try {
-    const url = new URL(request.url)
-    // In development, this will likely be localhost
-    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-      return '127.0.0.1'
-    }
-    return url.hostname
-  } catch {
-    // Fallback
-    return 'unknown'
-  }
+  if (forwarded) return forwarded.split(',')[0].trim()
+  if (realIp) return realIp.trim()
+  if (cfConnectingIp) return cfConnectingIp.trim()
+  return '127.0.0.1'
 }
 
-// Helper to validate admin email addresses
-export function isValidAdminEmail(email: string): boolean {
-  const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || []
-  return adminEmails.includes(email)
+// Helper to validate partner email addresses (from environment)
+export function isValidPartnerDomain(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase()
+  const allowedDomains = process.env.PARTNER_DOMAINS?.split(',').map(d => d.trim().toLowerCase()) || []
+  
+  // If no domains specified, allow all
+  if (allowedDomains.length === 0) return true
+  
+  return allowedDomains.includes(domain)
 }
 
-// Helper to create admin user (use this for bootstrapping)
-export async function createAdminUser(
+// Helper to create partner user (for bootstrapping)
+export async function createPartnerUser(
   email: string,
-  role: 'admin' | 'super_admin' = 'admin',
-  permissions: string[] = []
-): Promise<{ success: boolean; message: string; adminId?: string }> {
+  companyId: string,
+  role: string = 'partner',
+  invitedBy?: string
+): Promise<{ success: boolean; message: string; partnerId?: string }> {
   try {
-    if (!isValidAdminEmail(email)) {
-      return { success: false, message: 'Email not in admin whitelist' }
-    }
+    // Check if company exists and is active
+    const { data: company } = await supabaseAdmin
+      .from('companies')
+      .select('id, name, status')
+      .eq('id', companyId)
+      .eq('status', 'active')
+      .single()
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          get: () => undefined,
-          set: () => {},
-          remove: () => {},
-        },
-      }
-    )
+    if (!company) {
+      return { success: false, message: 'Company not found or inactive' }
+    }
 
     // Check if user exists in auth
-    const { data: userList } = await supabase.auth.admin.listUsers()
-    const user = userList?.users.find(u => u.email === email)
+    const { data: userList } = await supabaseAdmin.auth.admin.listUsers()
+    const user = userList?.users.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
     if (!user) {
       return { success: false, message: 'User does not exist in auth system' }
     }
 
-    // Check if already an admin
-    const { data: existingAdmin } = await supabase
-      .from('admin_users')
-      .select('id')
+    // Check if already a partner - TYPE ASSERTION FIX
+    const { data: existingPartner } = await (supabaseAdmin as any)
+      .from('company_users')
+      .select('user_id')
       .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
-    if (existingAdmin) {
-      return { success: false, message: 'User is already an admin' }
+    if (existingPartner) {
+      return { success: false, message: 'User is already a partner of this company' }
     }
 
-    // Create admin record
-    const { data: newAdmin, error } = await supabase
-      .from('admin_users')
+    // Create partner record - TYPE ASSERTION FIX
+    const { data: newPartner, error } = await (supabaseAdmin as any)
+      .from('company_users')
       .insert({
         user_id: user.id,
+        company_id: companyId,
         role,
-        permissions,
-        is_active: true,
-        created_at: new Date().toISOString()
+        invited_by: invitedBy || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .select()
       .single()
 
-    if (error || !newAdmin) {
-      console.error('Error creating admin user:', error)
-      return { success: false, message: 'Failed to create admin record' }
+    if (error || !newPartner) {
+      console.error('Error creating partner user:', error)
+      return { success: false, message: 'Failed to create partner record' }
     }
 
     return { 
       success: true, 
-      message: `Admin user created successfully with role: ${role}`,
-      adminId: newAdmin.id
+      message: `Partner user created successfully with role: ${role}`,
+      partnerId: newPartner.user_id
     }
 
   } catch (error) {
-    console.error('Create admin user error:', error)
-    return { success: false, message: 'Internal error creating admin user' }
+    console.error('Create partner user error:', error)
+    return { success: false, message: 'Internal error creating partner user' }
   }
 }
 
 // Environment validation
-export function validateAdminEnvironment(): { valid: boolean; missing: string[] } {
+export function validatePartnerEnvironment(): { valid: boolean; missing: string[] } {
   const required = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'SUPABASE_SERVICE_ROLE_KEY',
-    'NEXT_PUBLIC_SITE_URL',
-    'ADMIN_EMAILS'
+    'NEXT_PUBLIC_SITE_URL'
   ]
 
   const missing = required.filter(key => !process.env[key])
