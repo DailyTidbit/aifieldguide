@@ -501,14 +501,17 @@ export default function PostModal({ post, onClose }: PostModalProps) {
           {/* Header with Close Button */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
             <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* FIXED: User avatar with proper aspect ratio */}
               {post.user_avatar ? (
-                <Image
-                  src={post.user_avatar}
-                  alt={post.username || 'User'}
-                  width={40}
-                  height={40}
-                  className="rounded-full ring-2 ring-gray-100"
-                />
+                <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-gray-100">
+                  <Image
+                    src={post.user_avatar}
+                    alt={post.username || 'User'}
+                    fill
+                    className="object-cover"
+                    sizes="40px"
+                  />
+                </div>
               ) : (
                 <div className="w-10 h-10 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center">
                   <span className="text-white font-bold">
@@ -785,14 +788,17 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3 group">
+                        {/* FIXED: Comment avatar with proper aspect ratio */}
                         {comment.user_avatar ? (
-                          <Image
-                            src={comment.user_avatar}
-                            alt={comment.username || 'User'}
-                            width={32}
-                            height={32}
-                            className="rounded-full flex-shrink-0"
-                          />
+                          <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                            <Image
+                              src={comment.user_avatar}
+                              alt={comment.username || 'User'}
+                              fill
+                              className="object-cover"
+                              sizes="32px"
+                            />
+                          </div>
                         ) : (
                           <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-white text-xs font-bold">

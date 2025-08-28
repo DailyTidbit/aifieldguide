@@ -1,4 +1,4 @@
-// src/app/components/Navigation.tsx - Fixed all type issues
+// src/app/components/Navigation.tsx - Removed walkthrough links
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -6,7 +6,6 @@ import { Search, User, Menu, X, Sparkles, Compass, Building2, ChevronDown } from
 import Image from 'next/image'
 import Link from 'next/link'
 import { useAuth } from '../hooks/useAuth'
-import { supabaseClient } from '../lib/supabaseClient'
 import AuthModal from './AuthModal'
 import UserProfile from './UserProfile'
 import PartnerProfileModal from './PartnerProfileModal'
@@ -40,36 +39,25 @@ export default function Navigation() {
   }, [user?.companyMembership, company])
 
   useEffect(() => {
-    // Get today's tidbit number (latest published) with better error handling
-    const fetchTodaysTidbit = async () => {
+    // Get today's tidbit number via API route
+    let cancelled = false
+    ;(async () => {
       try {
-        console.log('Fetching today\'s tidbit...')
-        const { data, error } = await supabaseClient
-          .from('tidbits')
-          .select('day_number')
-          .eq('status', 'published')
-          .order('day_number', { ascending: false })
-          .limit(1)
-          .single()
-        
-        console.log('Tidbit query result:', { data, error })
-        
-        if (error) {
-          console.error('Error fetching today\'s tidbit:', error)
-          return
+        console.log('Fetching today\'s tidbit via API...')
+        const res = await fetch('/api/today', { cache: 'no-store' })
+        const json = await res.json()
+        console.log('API /today response:', json)
+        if (!cancelled) {
+          const dayNumber = json?.day_number ?? null
+          setTodaysTidbit(dayNumber)
+          console.log('Set today\'s tidbit to:', dayNumber)
         }
-        
-        if (data) {
-          console.log('Setting today\'s tidbit to:', data.day_number)
-          setTodaysTidbit(data.day_number)
-        } else {
-          console.warn('No published tidbits found')
-        }
-      } catch (error) {
-        console.error("Error fetching today's tidbit:", error)
+      } catch (e) {
+        console.error('fetch /api/today failed:', e)
+        if (!cancelled) setTodaysTidbit(null)
       }
-    }
-    fetchTodaysTidbit()
+    })()
+    return () => { cancelled = true }
   }, [])
 
   // Close auth modal when user signs in
@@ -163,21 +151,14 @@ export default function Navigation() {
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
               </Link>
 
-              {todaysTidbit && (
-                <>
-                  <Link href={`/day/${todaysTidbit}`} className="transition-all duration-300 hover:scale-105">
-                    <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <Sparkles className="w-4 h-4" />
-                      <span>TODAY'S TIDBIT</span>
-                      <div className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">#{todaysTidbit}</div>
-                    </div>
-                  </Link>
-                  
-                  <Link href={`/day/${todaysTidbit}/walkthrough`} className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group">
-                    WALKTHROUGH
-                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#60A875] transition-all duration-300 group-hover:w-full"></span>
-                  </Link>
-                </>
+              {(todaysTidbit ?? 0) > 0 && (
+                <Link href={`/day/${todaysTidbit}`} className="transition-all duration-300 hover:scale-105">
+                  <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300">
+                    <Sparkles className="w-4 h-4" />
+                    <span>TODAY'S TIDBIT</span>
+                    <div className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">#{todaysTidbit}</div>
+                  </div>
+                </Link>
               )}
 
               <Link href="/bitboard" className="transition-colors duration-300 font-medium text-gray-700 hover:text-[#60A875] relative group" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -318,18 +299,7 @@ export default function Navigation() {
                           </>
                         )}
 
-                        {user && authState === 'no-company' && (
-                          <>
-                            <div className="border-t border-gray-100 my-2"></div>
-                            <Link
-                              href="/partners/request-access"
-                              onClick={() => setShowProfileDropdown(false)}
-                              className="block px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
-                            >
-                              Request Company Access
-                            </Link>
-                          </>
-                        )}
+
                       </div>
 
                       <div className="border-t border-gray-100 p-2">
@@ -384,19 +354,13 @@ export default function Navigation() {
                 
                 <Link href="/TidbitLibrary" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" onClick={() => setIsMenuOpen(false)}>TIDBIT LIBRARY</Link>
 
-                {todaysTidbit && (
-                  <>
-                    <Link href={`/day/${todaysTidbit}`} className="block py-2" onClick={() => setIsMenuOpen(false)}>
-                      <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg">
-                        <Sparkles className="w-4 h-4" />
-                        <span>TODAY'S TIDBIT #{todaysTidbit}</span>
-                      </div>
-                    </Link>
-                    
-                    <Link href={`/day/${todaysTidbit}/walkthrough`} className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" onClick={() => setIsMenuOpen(false)}>
-                      WALKTHROUGH
-                    </Link>
-                  </>
+                {(todaysTidbit ?? 0) > 0 && (
+                  <Link href={`/day/${todaysTidbit}`} className="block py-2" onClick={() => setIsMenuOpen(false)}>
+                    <div className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-4 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg">
+                      <Sparkles className="w-4 h-4" />
+                      <span>TODAY'S TIDBIT #{todaysTidbit}</span>
+                    </div>
+                  </Link>
                 )}
                 
                 <Link href="/bitboard" className="block py-2 text-gray-700 hover:text-[#60A875] font-medium transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }} onClick={() => setIsMenuOpen(false)}>BITBOARD</Link>
@@ -450,18 +414,7 @@ export default function Navigation() {
                       </>
                     )}
 
-                    {user && authState === 'no-company' && (
-                      <>
-                        <div className="border-t border-gray-100 my-2"></div>
-                        <Link
-                          href="/partners/request-access"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors duration-300"
-                        >
-                          Request Company Access
-                        </Link>
-                      </>
-                    )}
+
                   </div>
                 )}
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Search, Filter, Calendar, Tag, Clock, Eye, Edit, BarChart3, X, ArrowRight } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { supabaseClient } from '../lib/supabaseClient'
 
 // Enhanced Tidbit type matching your Supabase schema
 interface Tidbit {
@@ -107,7 +107,7 @@ const mockTidbits: Tidbit[] = [
 ]
 
 const loadTidbitsFromSupabase = async (): Promise<Tidbit[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('tidbits')
     .select('*')
     .order('day_number', { ascending: true })
@@ -164,7 +164,24 @@ export default function TidbitSearch() {
   // Get all unique tags
   const allTags = Array.from(new Set(tidbits.flatMap(t => t.tags))).sort()
 
-  // Search function
+  // Helper function to check if query is asking for a specific day number
+  const checkDayNumberQuery = (query: string, dayNumber: number): boolean => {
+    const normalizedQuery = query.toLowerCase().trim()
+    
+    // Match patterns like: "day 3", "day3", "#3", "day #3", "Day 3", etc.
+    const dayPatterns = [
+      new RegExp(`^day\\s*#?\\s*${dayNumber}$`, 'i'),        // "day 3", "day #3"
+      new RegExp(`^day${dayNumber}$`, 'i'),                  // "day3"
+      new RegExp(`^#\\s*${dayNumber}$`, 'i'),                // "#3", "# 3"
+      new RegExp(`^${dayNumber}$`),                          // Just "3"
+      new RegExp(`^tidbit\\s*#?\\s*${dayNumber}$`, 'i'),     // "tidbit 3", "tidbit #3"
+      new RegExp(`^number\\s*${dayNumber}$`, 'i'),           // "number 3"
+    ]
+    
+    return dayPatterns.some(pattern => pattern.test(normalizedQuery))
+  }
+
+  // Enhanced search function
   const performSearch = (query: string, currentFilters = filters) => {
     if (!query.trim() && currentFilters.status === 'all' && currentFilters.difficulty === 'all' && 
         currentFilters.tags.length === 0 && !currentFilters.minTime && !currentFilters.maxTime) {
@@ -173,6 +190,26 @@ export default function TidbitSearch() {
     }
 
     const results = tidbits.filter(tidbit => {
+      // Check for day number queries first
+      const dayNumberMatch = checkDayNumberQuery(query.trim(), tidbit.day_number)
+      
+      // If it's a day number query and matches, prioritize it
+      if (dayNumberMatch) {
+        // Still check other filters
+        const matchesStatus = currentFilters.status === 'all' || tidbit.status === currentFilters.status
+        const matchesDifficulty = currentFilters.difficulty === 'all' || 
+                                 tidbit.difficulty_level.toString() === currentFilters.difficulty
+        const matchesTags = currentFilters.tags.length === 0 || 
+                           currentFilters.tags.some(tag => tidbit.tags.includes(tag))
+        const matchesMinTime = !currentFilters.minTime || 
+                              tidbit.estimated_time >= parseInt(currentFilters.minTime)
+        const matchesMaxTime = !currentFilters.maxTime || 
+                              tidbit.estimated_time <= parseInt(currentFilters.maxTime)
+        
+        return matchesStatus && matchesDifficulty && matchesTags && matchesMinTime && matchesMaxTime
+      }
+      
+      // Regular text search
       const searchFields = [
         tidbit.title,
         tidbit.hero_heading,
@@ -182,6 +219,8 @@ export default function TidbitSearch() {
         tidbit.step_by_step,
         tidbit.try_it,
         tidbit.seo_description || '',
+        `day ${tidbit.day_number}`, // Include day number in search fields
+        `#${tidbit.day_number}`,    // Include hashtag format
         ...tidbit.tags
       ].join(' ').toLowerCase()
 
@@ -200,7 +239,19 @@ export default function TidbitSearch() {
              matchesMinTime && matchesMaxTime
     })
 
-    setSearchResults(results)
+    // Sort results to prioritize exact day matches
+    const sortedResults = results.sort((a, b) => {
+      const aIsExactDay = checkDayNumberQuery(query.trim(), a.day_number)
+      const bIsExactDay = checkDayNumberQuery(query.trim(), b.day_number)
+      
+      if (aIsExactDay && !bIsExactDay) return -1
+      if (!aIsExactDay && bIsExactDay) return 1
+      
+      // If both or neither are exact day matches, sort by day number
+      return a.day_number - b.day_number
+    })
+
+    setSearchResults(sortedResults)
   }
 
   // Handle search input
@@ -255,15 +306,28 @@ export default function TidbitSearch() {
     return colors[status] || colors['draft']
   }
 
-  // Highlight search terms
+  // Enhanced highlight function that handles day numbers
   const highlightText = (text: string, query: string): React.ReactNode => {
     if (!query.trim()) return text
     
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-    const parts = text.split(regex)
+    // Check if it's a day number query
+    const dayMatch = query.match(/(?:day\s*#?\s*|#\s*|^)(\d+)/i)
+    
+    let searchPattern: RegExp
+    
+    if (dayMatch) {
+      const dayNum = dayMatch[1]
+      // Create pattern that matches the day number in various formats
+      searchPattern = new RegExp(`(day\\s*#?\\s*${dayNum}|#\\s*${dayNum}|\\b${dayNum}\\b)`, 'gi')
+    } else {
+      // Regular text search
+      searchPattern = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    }
+    
+    const parts = text.split(searchPattern)
     
     return parts.map((part, index) => 
-      regex.test(part) ? 
+      searchPattern.test(part) ? 
         <mark key={index} className="bg-yellow-200 px-1 rounded">{part}</mark> : 
         part
     )
@@ -277,7 +341,7 @@ export default function TidbitSearch() {
           Search Daily Tidbits
         </h1>
         <p className="text-gray-600" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-          Find the perfect AI tip from your content library
+          Find the perfect AI tip from your content library. Try searching for "day 3" or "#5"!
         </p>
       </div>
 
@@ -311,7 +375,7 @@ export default function TidbitSearch() {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search tidbits by title, content, tags, or description..."
+                placeholder="Search tidbits by title, content, tags, or try 'day 3' or '#5'..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] bg-white shadow-sm"
@@ -510,7 +574,7 @@ export default function TidbitSearch() {
                 <p className="text-gray-600 mb-4">
                   {tidbits.length === 0 
                     ? "No tidbits in your database yet. Add some content to get started!"
-                    : "Try adjusting your search terms or filters"
+                    : "Try adjusting your search terms or filters. You can search for specific days like 'day 3' or '#5'"
                   }
                 </p>
                 <button

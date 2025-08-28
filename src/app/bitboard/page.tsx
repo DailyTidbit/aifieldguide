@@ -1,15 +1,15 @@
-// Mobile-Optimized BitBoard with Enhanced PostCard Integration and Privacy Support
+// Mobile-Optimized BitBoard with Enhanced PostCard Integration, Privacy Support, and Advanced Search
 
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabaseClient } from '../lib/supabaseClient'
 import AuthForm from '../components/AuthForm'
 import PostForm from '../components/PostForm'
 import UserProfile from '../components/UserProfile'
 import ProfileSetupWizard from '../components/ProfileSetupWizard'
 import PostModal from '../components/PostModal'
-import PostCard from '../components/PostCard' // ✅ Import the enhanced PostCard
+import PostCard from '../components/PostCard'
 import { 
   Loader2, 
   RefreshCw, 
@@ -68,6 +68,118 @@ type Profile = {
 
 type FilterOption = 'all' | 'trending' | 'recent' | 'popular' | 'liked' | 'commented' | 'private'
 type ViewMode = 'masonry' | 'grid' | 'list'
+
+// Helper function to parse search dates more reliably
+const parseSearchDate = (dateString: string): Date => {
+  // First try standard Date constructor
+  let date = new Date(dateString)
+  
+  if (!isNaN(date.getTime())) {
+    return date
+  }
+  
+  // Try MM/DD/YYYY format
+  const mmddyyyy = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (mmddyyyy) {
+    const month = parseInt(mmddyyyy[1]) - 1  // Month is 0-indexed
+    const day = parseInt(mmddyyyy[2])
+    const year = parseInt(mmddyyyy[3])
+    return new Date(year, month, day)
+  }
+  
+  // Try MM-DD-YYYY format
+  const mmddyyyyDash = dateString.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (mmddyyyyDash) {
+    const month = parseInt(mmddyyyyDash[1]) - 1
+    const day = parseInt(mmddyyyyDash[2])
+    const year = parseInt(mmddyyyyDash[3])
+    return new Date(year, month, day)
+  }
+  
+  // Try YYYY/MM/DD format
+  const yyyymmdd = dateString.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
+  if (yyyymmdd) {
+    const year = parseInt(yyyymmdd[1])
+    const month = parseInt(yyyymmdd[2]) - 1
+    const day = parseInt(yyyymmdd[3])
+    return new Date(year, month, day)
+  }
+  
+  console.log('Could not parse date:', dateString)
+  return new Date(NaN) // Invalid date
+}
+
+// FIXED: Better search parsing with proper day number handling
+const parseSearchQuery = (query: string) => {
+  const parts = {
+    username: null as string | null,
+    afterDate: null as string | null,
+    beforeDate: null as string | null,
+    dayNumber: null as number | null,
+    textQuery: ''
+  }
+
+  let remainingQuery = query.trim()
+
+  // Extract @username (match @word)
+  const usernameMatch = remainingQuery.match(/@(\w+)/)
+  if (usernameMatch) {
+    parts.username = usernameMatch[1].toLowerCase()
+    remainingQuery = remainingQuery.replace(usernameMatch[0], '').trim()
+  }
+
+  // Extract after:date
+  const afterMatch = remainingQuery.match(/after:(\S+)/)
+  if (afterMatch) {
+    parts.afterDate = afterMatch[1]
+    remainingQuery = remainingQuery.replace(afterMatch[0], '').trim()
+  }
+
+  // Extract before:date
+  const beforeMatch = remainingQuery.match(/before:(\S+)/)
+  if (beforeMatch) {
+    parts.beforeDate = beforeMatch[1]
+    remainingQuery = remainingQuery.replace(beforeMatch[0], '').trim()
+  }
+
+  // FIXED: Extract day number patterns - be more restrictive about standalone numbers
+  const dayPatterns = [
+    /day:(\d+)/i,      // day:5
+    /day\s+(\d+)/i,    // day 5  
+    /#(\d+)/           // #5
+    // Removed /^(\d{1,3})$/ to allow partial numbers like "2", "20", "202" to be text searches
+  ]
+
+  for (const pattern of dayPatterns) {
+    const match = remainingQuery.match(pattern)
+    if (match) {
+      const dayNum = parseInt(match[1])
+      // Only treat as day number if it's reasonable (1-365 or similar)
+      if (dayNum >= 1 && dayNum <= 365) {
+        parts.dayNumber = dayNum
+        remainingQuery = remainingQuery.replace(match[0], '').trim()
+        break
+      }
+    }
+  }
+
+  // Only treat bare numbers as tidbit days if they're complete and reasonable
+  // BUT ALSO keep them as text queries for broader matching
+  const bareNumberMatch = remainingQuery.match(/^(\d{1,2})$/)
+  if (bareNumberMatch) {
+    const dayNum = parseInt(bareNumberMatch[1])
+    if (dayNum >= 1 && dayNum <= 31) { // Only single/double digit days (1-31)
+      parts.dayNumber = dayNum
+      // DON'T remove from remainingQuery - let it also be a text search
+    }
+  }
+
+  // Everything else is text search (including the number if it matched above)
+  parts.textQuery = remainingQuery.toLowerCase().trim()
+  
+  console.log('Search parsed:', JSON.stringify(parts, null, 2), 'from query:', query)
+  return parts
+}
 
 // Mobile-optimized skeleton with touch-friendly design
 function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'default' | 'wide' }) {
@@ -361,23 +473,131 @@ export default function MobileOptimizedBitBoard() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Memoized filtered posts for better performance with privacy support
+  // FIXED: Enhanced filtered posts with better search and debugging
   const filteredPosts = useMemo(() => {
+    console.log('=== SEARCH DEBUG START ===')
+    console.log('Total posts:', posts.length)
+    console.log('Search query:', debouncedSearchQuery)
+    
     let filtered = [...posts]
 
     // Apply tidbit filter
     if (selectedTidbit !== null) {
       filtered = filtered.filter(post => post.tidbit === selectedTidbit)
+      console.log('After tidbit filter:', filtered.length)
     }
 
-    // Apply search filter
+    // Enhanced search filter with better date handling
     if (debouncedSearchQuery.trim()) {
-      const query = debouncedSearchQuery.toLowerCase()
-      filtered = filtered.filter(post => 
-        post.content?.toLowerCase().includes(query) ||
-        post.description?.toLowerCase().includes(query) ||
-        post.username?.toLowerCase().includes(query)
-      )
+      const searchParts = parseSearchQuery(debouncedSearchQuery)
+      console.log('Search parts parsed:', searchParts)
+      
+      const beforeFilterCount = filtered.length
+      
+      filtered = filtered.filter(post => {
+        // Username filter - check both username and full_name
+        if (searchParts.username) {
+          const matchesUsername = post.username?.toLowerCase().includes(searchParts.username)
+          const matchesFullName = post.user_full_name?.toLowerCase().includes(searchParts.username)
+          if (!matchesUsername && !matchesFullName) {
+            return false
+          }
+        }
+        
+        // Date filters - improved logic with better error handling
+        if (searchParts.afterDate || searchParts.beforeDate) {
+          const postDate = new Date(post.created_at)
+          console.log(`Checking post "${post.content?.slice(0, 20)}...": date = ${postDate} (valid: ${!isNaN(postDate.getTime())})`)
+          
+          if (searchParts.afterDate) {
+            const searchDate = parseSearchDate(searchParts.afterDate)
+            console.log(`After comparison: ${postDate.toDateString()} >= ${searchDate.toDateString()} = ${postDate >= searchDate}`)
+            
+            if (isNaN(searchDate.getTime())) {
+              console.warn(`Invalid after date: ${searchParts.afterDate}`)
+              return false // Skip posts if date is invalid
+            }
+            
+            if (postDate < searchDate) {
+              return false
+            }
+          }
+          
+          if (searchParts.beforeDate) {
+            const searchDate = parseSearchDate(searchParts.beforeDate)
+            searchDate.setHours(23, 59, 59, 999) // End of day
+            console.log(`Before comparison: ${postDate.toDateString()} <= ${searchDate.toDateString()} = ${postDate <= searchDate}`)
+            
+            if (isNaN(searchDate.getTime())) {
+              console.warn(`Invalid before date: ${searchParts.beforeDate}`)
+              return false // Skip posts if date is invalid
+            }
+            
+            if (postDate > searchDate) {
+              return false
+            }
+          }
+        }
+        
+        // COMBINED SEARCH: Check both tidbit day AND text content
+        let matchesSearch = true
+        
+        if (searchParts.dayNumber !== null || searchParts.textQuery) {
+          let matchesDay = false
+          let matchesText = false
+          
+          // Check tidbit day match
+          if (searchParts.dayNumber !== null) {
+            const postTidbit = Number(post.tidbit)
+            const searchDay = Number(searchParts.dayNumber)
+            matchesDay = !isNaN(postTidbit) && !isNaN(searchDay) && postTidbit === searchDay
+          }
+          
+          // Check text content match (including dates)
+          if (searchParts.textQuery) {
+            const displayDate = new Date(post.created_at).toLocaleDateString()
+            const isoDate = new Date(post.created_at).toISOString()
+            
+            const searchableText = [
+              post.content || '',
+              post.description || '',
+              post.before_text || '',
+              post.after_text || '',
+              post.username || '',
+              post.user_full_name || '',
+              displayDate, // Add formatted date (e.g., "7/22/2025")
+              isoDate, // Add ISO date (e.g., "2025-07-22T...")
+              post.created_at || '' // Add raw date string
+            ].join(' ').toLowerCase()
+            
+            matchesText = searchableText.includes(searchParts.textQuery)
+          }
+          
+          // Post matches if it matches EITHER day number OR text content
+          matchesSearch = matchesDay || matchesText
+        }
+        
+        return matchesSearch
+      })
+      
+      console.log(`Filter results: ${beforeFilterCount} -> ${filtered.length}`)
+      
+      // Debug: show what we're actually searching for
+      if (searchParts.textQuery) {
+        console.log(`Text search active: "${searchParts.textQuery}"`)
+        console.log('Sample post content:', posts.slice(0, 2).map(p => p.content?.slice(0, 50) + '...'))
+      }
+      if (searchParts.dayNumber !== null) {
+        console.log(`Day number search: ${searchParts.dayNumber}`)
+        console.log('Post tidbits found:', posts.slice(0, 5).map(p => p.tidbit))
+      }
+      
+      // Add helpful feedback for date searches that return all results
+      if (searchParts.afterDate || searchParts.beforeDate) {
+        if (filtered.length === beforeFilterCount) {
+          console.log('🔍 Date filter returned all posts - consider adjusting your date range')
+        }
+      }
     }
 
     // Apply privacy-aware sorting
@@ -408,120 +628,156 @@ export default function MobileOptimizedBitBoard() {
     }
   }, [posts, selectedTidbit, debouncedSearchQuery, filterOption, userLikedPosts, userCommentedPosts, user?.id])
 
-  // Enhanced fetchPosts function with privacy support
+  // OPTIMIZED: Single batched fetchPosts function (no N+1 queries)
   const fetchPosts = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Get current user to check privacy permissions
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      // 1) Who's logged in?
+      const { data: { user: currentUser } } = await supabaseClient.auth.getUser()
 
-      // Fetch posts with privacy filtering
-      let postsQuery = supabase
+      // 2) Get posts (public, or your own privates)
+      let postsQuery = supabaseClient
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false })
 
       if (currentUser) {
-        // Show public posts OR private posts that belong to current user
-        postsQuery = postsQuery.or(`is_private.eq.false,and(is_private.eq.true,user_id.eq.${currentUser.id})`)
+        // public OR (private AND mine)
+        postsQuery = postsQuery.or(
+          `is_private.eq.false,and(is_private.eq.true,user_id.eq.${currentUser.id})`
+        )
       } else {
-        // Show only public posts for non-logged-in users
         postsQuery = postsQuery.eq('is_private', false)
       }
 
       const { data: postsData, error: postsError } = await postsQuery
-
       if (postsError) throw postsError
 
-      // Get comment counts for each post
-      const postsWithComments = await Promise.all(
-        (postsData || []).map(async (post) => {
-          const { count, error: countError } = await supabase
-            .from('comments')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', post.id)
+      const posts = postsData || []
+      if (posts.length === 0) {
+        setPosts([])
+        return
+      }
 
-          return {
-            ...post,
-            comments_count: countError ? 0 : (count || 0)
-          }
-        })
-      )
+      // 3) Batch all secondary fetches in parallel (no per-post requests)
+      const postIds = posts.map(p => p.id)
+      const userIds = [...new Set(posts.map(p => p.user_id).filter(Boolean))] as string[]
 
-      // Get user profiles
-      const userIds = [...new Set(postsWithComments.map(post => post.user_id).filter(Boolean))]
-      
-      let profilesData: Profile[] = []
-      if (userIds.length > 0) {
-        const { data, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, username, avatar_url, full_name')
-          .in('id', userIds)
+      const [
+        // likes by current user (for heart fill)
+        likesByUserPromise,
+        // all likes for these posts (to get counts)
+        allLikesPromise,
+        // all comments for these posts (to get counts)
+        allCommentsPromise,
+        // profiles for authors
+        profilesPromise,
+      ] = [
+        currentUser
+          ? supabaseClient
+              .from('likes')
+              .select('post_id')
+              .eq('user_id', currentUser.id)
+              .in('post_id', postIds)
+          : Promise.resolve({ data: [] as { post_id: string }[] } as any),
 
-        if (!profilesError && data) {
-          profilesData = data as Profile[]
+        supabaseClient
+          .from('likes')
+          .select('post_id')
+          .in('post_id', postIds),
+
+        supabaseClient
+          .from('comments')
+          .select('post_id')
+          .in('post_id', postIds),
+
+        userIds.length
+          ? supabaseClient
+              .from('profiles')
+              .select('id, username, avatar_url, full_name')
+              .in('id', userIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]
+
+      const [{ data: likesByUser = [] }, { data: allLikes = [] }, { data: allComments = [] }, { data: profiles = [] }] =
+        await Promise.all([likesByUserPromise, allLikesPromise, allCommentsPromise, profilesPromise])
+
+      // 4) Build count maps in O(n) - with null safety
+      const likesCountMap = new Map<string, number>()
+      if (allLikes) {
+        for (const row of allLikes) {
+          likesCountMap.set(row.post_id, (likesCountMap.get(row.post_id) || 0) + 1)
         }
       }
 
-      const postsWithProfiles = postsWithComments.map(post => {
-        const profile = profilesData.find(p => p.id === post.user_id)
+      const commentsCountMap = new Map<string, number>()
+      if (allComments) {
+        for (const row of allComments) {
+          commentsCountMap.set(row.post_id, (commentsCountMap.get(row.post_id) || 0) + 1)
+        }
+      }
+
+      // 5) Profile map
+      const profileMap = new Map<string, Profile>()
+      for (const p of profiles) profileMap.set(p.id, p)
+
+      // 6) Merge everything
+      const enriched = posts.map((post) => {
+        const profile = post.user_id ? profileMap.get(post.user_id) : undefined
         return {
           ...post,
+          likes_count: likesCountMap.get(post.id) || 0,
+          comments_count: commentsCountMap.get(post.id) || 0,
           username: profile?.username || null,
           user_avatar: profile?.avatar_url || null,
-          user_full_name: profile?.full_name || null
-        }
+          user_full_name: profile?.full_name || null,
+        } as Post
       })
 
-      setPosts(postsWithProfiles)
+      // 7) Save liked posts list (for heart fill)
+      setUserLikedPosts(likesByUser.map((r: any) => r.post_id))
+
+      setPosts(enriched)
     } catch (err) {
-      console.error('⌐ Error fetching posts:', err)
+      console.error('⚠ Error fetching posts:', err)
       setError('Failed to load posts. Please try again.')
     } finally {
       setLoading(false)
     }
   }, [])
 
-  // Enhanced user and likes fetching
+  // OPTIMIZED: Simplified fetchUserAndLikes (likes now handled in fetchPosts)
   const fetchUserAndLikes = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await supabaseClient.auth.getUser()
     setUser(user)
 
-    if (user) {
-      // Check if profile needs setup
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, username')
-        .eq('id', user.id)
-        .single()
+    if (!user) {
+      setNeedsProfileSetup(false)
+      setUserLikedPosts([])
+      setUserCommentedPosts([])
+      return
+    }
 
-      // If no full_name, they need to complete setup
-      if (!profile?.full_name) {
-        setNeedsProfileSetup(true)
-      }
+    // profile check
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('full_name, username')
+      .eq('id', user.id)
+      .single()
 
-      // Get liked posts
-      const { data: likesData } = await supabase
-        .from('likes')
-        .select('post_id')
-        .eq('user_id', user.id)
+    setNeedsProfileSetup(!profile?.full_name)
 
-      if (likesData) {
-        setUserLikedPosts(likesData.map(like => like.post_id))
-      }
+    // commented posts (for your filter)
+    const { data: commentsData } = await supabaseClient
+      .from('comments')
+      .select('post_id')
+      .eq('user_id', user.id)
 
-      // Get commented posts
-      const { data: commentsData } = await supabase
-        .from('comments')
-        .select('post_id')
-        .eq('user_id', user.id)
-
-      if (commentsData) {
-        const commentedPostIds = [...new Set(commentsData.map(comment => comment.post_id))]
-        setUserCommentedPosts(commentedPostIds)
-      }
+    if (commentsData) {
+      const commentedPostIds = [...new Set(commentsData.map(c => c.post_id))]
+      setUserCommentedPosts(commentedPostIds)
     }
   }, [])
 
@@ -536,10 +792,10 @@ export default function MobileOptimizedBitBoard() {
 
     try {
       if (alreadyLiked) {
-        await supabase.from('likes').delete().eq('user_id', user.id).eq('post_id', postId)
+        await supabaseClient.from('likes').delete().eq('user_id', user.id).eq('post_id', postId)
         setUserLikedPosts(prev => prev.filter(id => id !== postId))
       } else {
-        await supabase.from('likes').insert({ user_id: user.id, post_id: postId })
+        await supabaseClient.from('likes').insert({ user_id: user.id, post_id: postId })
         setUserLikedPosts(prev => [...prev, postId])
       }
 
@@ -570,21 +826,24 @@ export default function MobileOptimizedBitBoard() {
     fetchPosts()
   }, [fetchUserAndLikes, fetchPosts])
 
-  // Real-time subscriptions
+  // OPTIMIZED: Debounced real-time subscriptions
   useEffect(() => {
-    const channel = supabase
+    let timer: any = null
+    const channel = supabaseClient
       .channel('posts_changes')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'posts'
       }, () => {
-        fetchPosts()
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(() => fetchPosts(), 250) // coalesce bursts of events
       })
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (timer) clearTimeout(timer)
+      supabaseClient.removeChannel(channel)
     }
   }, [fetchPosts])
 
@@ -613,36 +872,29 @@ export default function MobileOptimizedBitBoard() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 overflow-hidden">
-      {/* Mobile-Optimized Top Navigation */}
-      <nav className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-white border-b border-gray-200 relative z-40 sticky top-0">
-        {/* Left Section - Mobile Optimized */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          <button 
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
-            className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors"
-          >
-            <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <div className="bg-gradient-to-br from-[#60A875] to-[#59B1E3] p-1.5 sm:p-2 rounded-lg">
-              <span className="text-lg sm:text-xl">🏖️</span>
-            </div>
-            <h1 
-              className="text-lg sm:text-xl font-bold text-gray-900 hidden sm:block"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
+      {/* Professional Header - Similar to Tidbit Library */}
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
+        <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
+          <div className="text-center">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
               BitBoard
             </h1>
+            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
+              Post your AI creations. Explore, connect, and be inspired.
+            </p>
           </div>
         </div>
+      </header>
 
+      {/* Mobile-Optimized Top Navigation */}
+      <nav className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-white border-b border-gray-200 relative z-40 sticky top-0">
         {/* Center - Mobile-Optimized Search */}
         <div className="flex-1 max-w-md sm:max-w-2xl mx-2 sm:mx-4">
           <div className="relative">
             <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search posts..."
+              placeholder="Search posts"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 sm:pl-11 pr-8 sm:pr-12 py-2 sm:py-3 bg-gray-100 border-none rounded-full text-sm sm:text-base focus:ring-2 focus:ring-[#60A875]/20 focus:bg-white focus:shadow-md transition-all"
@@ -683,16 +935,6 @@ export default function MobileOptimizedBitBoard() {
               className="p-2 sm:p-3 bg-[#60A875] text-white rounded-full hover:bg-[#60A875] transition-colors"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-          )}
-
-          {/* Sign Up Button for Non-Logged Users Only */}
-          {!user && (
-            <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors text-xs sm:text-sm font-medium"
-            >
-              Sign up
             </button>
           )}
         </div>
@@ -766,24 +1008,6 @@ export default function MobileOptimizedBitBoard() {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative">
-        {/* Mobile-Optimized Modals */}
-        {!user && showMobileMenu && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm sm:max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Join BitBoard</h2>
-                <button
-                  onClick={() => setShowMobileMenu(false)}
-                  className="p-2 hover:bg-gray-100 rounded-xl"
-                >
-                  <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
-              </div>
-              <AuthForm />
-            </div>
-          </div>
-        )}
-
         {/* Profile Setup Modal */}
         {user && needsProfileSetup && (
           <ProfileSetupWizard 
