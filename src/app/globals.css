@@ -26,9 +26,7 @@ body {
 }
 
 /* Override any light text colors */
-* {
-  color: inherit;
-}
+/* removed global color:inherit to avoid overrides */
 
 /* Ensure all text elements have proper contrast */
 p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label {
@@ -684,4 +682,10 @@ select:focus-visible {
 
 .social-icon:hover svg {
   fill: #FFFFFF; /* White icons on hover */
+}
+
+/* Brand-aligned text selection */
+::selection {
+  background: #59B1E3;
+  color: #FFFFFF;
 }

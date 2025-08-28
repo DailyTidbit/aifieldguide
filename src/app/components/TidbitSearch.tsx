@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Search, Filter, Calendar, Tag, Clock, Eye, Edit, BarChart3, X, ArrowRight } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Search, Clock, Eye, ArrowRight, Loader2, AlertCircle, Book } from 'lucide-react'
 import { supabaseClient } from '../lib/supabaseClient'
+import { useDebounce } from '../hooks/useDebounce'
 
-// Enhanced Tidbit type matching your Supabase schema
 interface Tidbit {
   id: number
   day_number: number
@@ -30,261 +31,185 @@ interface Tidbit {
   updated_at: string
 }
 
-// Mock data for demonstration
-const mockTidbits: Tidbit[] = [
-  {
-    id: 1,
-    day_number: 1,
-    title: "Write Better Emails with AI",
-    hero_heading: "✨ AI for Real People",
-    walkthrough_intro: "Learn how to craft professional emails using ChatGPT and other AI tools.",
-    what_is_ai: "AI can analyze your writing style and suggest improvements for clarity and tone.",
-    what_you_need: "Access to ChatGPT, Gmail or any email client, 5 minutes of your time.",
-    step_by_step: "Step 1: Open ChatGPT and describe your email goal. Step 2: Provide context about the recipient.",
-    try_it: "Try writing an email to reschedule a meeting using AI assistance.",
-    tutor_intro: "I'm here to help you practice email writing with AI!",
-    video_url: null,
-    image_url: null,
-    bitboard_url: null,
-    chatbot_embed: null,
-    status: "published",
-    tags: ["writing", "productivity", "beginner", "email", "communication"],
-    difficulty_level: 1,
-    estimated_time: 5,
-    seo_description: "Learn how to write better emails with AI assistance in just 5 minutes.",
-    extra: null,
-    created_at: "2024-01-01",
-    updated_at: "2024-01-15"
-  },
-  {
-    id: 2,
-    day_number: 2,
-    title: "Generate Creative Ideas with AI",
-    hero_heading: "Spark Your Creativity",
-    walkthrough_intro: "Discover how to use AI for brainstorming and creative problem-solving.",
-    what_is_ai: "AI excels at making unexpected connections and generating diverse ideas quickly.",
-    what_you_need: "Any AI chat tool like ChatGPT, Claude, or Gemini.",
-    step_by_step: "Step 1: Define your creative challenge clearly. Step 2: Ask AI for 10 diverse approaches.",
-    try_it: "Generate 5 unique business ideas for a local coffee shop using AI brainstorming.",
-    tutor_intro: "Ready to unlock your creative potential with AI assistance?",
-    video_url: null,
-    image_url: null,
-    bitboard_url: null,
-    chatbot_embed: null,
-    status: "draft",
-    tags: ["creative", "brainstorming", "business", "ideas"],
-    difficulty_level: 2,
-    estimated_time: 10,
-    seo_description: "Unlock creative potential with AI brainstorming techniques and idea generation.",
-    extra: null,
-    created_at: "2024-01-02",
-    updated_at: "2024-01-16"
-  },
-  {
-    id: 3,
-    day_number: 3,
-    title: "Create Music with AI Tools",
-    hero_heading: "Make Music Magic",
-    walkthrough_intro: "Learn to compose original music using Suno AI and other music generation tools.",
-    what_is_ai: "AI music tools can generate melodies, harmonies, and full compositions.",
-    what_you_need: "Suno AI account, basic understanding of music genres, headphones for listening.",
-    step_by_step: "Step 1: Sign up for Suno AI. Step 2: Write a detailed prompt describing your desired song.",
-    try_it: "Create a 30-second jingle for a fictional product using descriptive prompts.",
-    tutor_intro: "Let's explore the world of AI-generated music together!",
-    video_url: null,
-    image_url: null,
-    bitboard_url: null,
-    chatbot_embed: null,
-    status: "published",
-    tags: ["creative", "music", "advanced", "audio", "suno"],
-    difficulty_level: 4,
-    estimated_time: 15,
-    seo_description: "Create original music using AI tools and techniques.",
-    extra: null,
-    created_at: "2024-01-03",
-    updated_at: "2024-01-17"
+interface SearchState {
+  tidbits: Tidbit[]
+  loading: boolean
+  error: string | null
+  searchResults: Tidbit[]
+  hasSearched: boolean
+}
+
+const trackSearchEvent = (eventName: string, parameters: Record<string, any>) => {
+  if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
+    ; (window as any).gtag('event', eventName, {
+      event_category: 'search',
+      ...parameters
+    })
   }
-]
+}
 
 const loadTidbitsFromSupabase = async (): Promise<Tidbit[]> => {
   const { data, error } = await supabaseClient
     .from('tidbits')
     .select('*')
     .order('day_number', { ascending: true })
-  
   if (error) throw error
   return data || []
 }
 
 export default function TidbitSearch() {
-  const [tidbits, setTidbits] = useState<Tidbit[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Tidbit[]>([])
-  const [filters, setFilters] = useState({
-    status: 'all' as 'all' | 'published' | 'draft' | 'archived',
-    difficulty: 'all' as 'all' | '1' | '2' | '3' | '4' | '5',
-    tags: [] as string[],
-    minTime: '',
-    maxTime: ''
-  })
-  const [showFilters, setShowFilters] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Load tidbits
+  const initialQuery = searchParams?.get('q') || ''
+  const [searchState, setSearchState] = useState<SearchState>({
+    tidbits: [],
+    loading: true,
+    error: null,
+    searchResults: [],
+    hasSearched: false
+  })
+
+  const [searchQuery, setSearchQuery] = useState(initialQuery)
+  const [numberQuery, setNumberQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
   useEffect(() => {
     loadTidbits()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams()
+    if (debouncedSearchQuery) params.set('q', debouncedSearchQuery)
+    const newUrl = params.toString() ? `/search?${params.toString()}` : '/search'
+    window.history.replaceState({}, '', newUrl)
+  }, [debouncedSearchQuery])
+
   const loadTidbits = async () => {
     try {
-      setLoading(true)
-      setError(null)
-
+      setSearchState(prev => ({ ...prev, loading: true, error: null }))
       const data = await loadTidbitsFromSupabase()
-      const processedData = data.map(tidbit => ({
-        ...tidbit,
-        tags: Array.isArray(tidbit.tags) ? tidbit.tags : [],
-        seo_description: tidbit.seo_description || '',
-        status: tidbit.status || 'draft',
-        difficulty_level: tidbit.difficulty_level || 1,
-        estimated_time: tidbit.estimated_time || 5
+      setSearchState(prev => ({
+        ...prev,
+        tidbits: data,
+        searchResults: data,
+        loading: false
       }))
-
-      setTidbits(processedData)
-      setSearchResults(processedData)
+      trackSearchEvent('search_data_loaded', { tidbit_count: data.length })
     } catch (err) {
       console.error('Error loading tidbits:', err)
-      setError('Failed to load tidbits. Please try again.')
-    } finally {
-      setLoading(false)
+      setSearchState(prev => ({
+        ...prev,
+        error: 'Failed to load tidbits. Please try again.',
+        loading: false
+      }))
     }
   }
 
-  // Get all unique tags
-  const allTags = Array.from(new Set(tidbits.flatMap(t => t.tags))).sort()
+  const performKeywordSearch = useCallback(
+    (query: string) => {
+      setIsSearching(true)
+      const startTime = Date.now()
 
-  // Helper function to check if query is asking for a specific day number
-  const checkDayNumberQuery = (query: string, dayNumber: number): boolean => {
-    const normalizedQuery = query.toLowerCase().trim()
-    
-    // Match patterns like: "day 3", "day3", "#3", "day #3", "Day 3", etc.
-    const dayPatterns = [
-      new RegExp(`^day\\s*#?\\s*${dayNumber}$`, 'i'),        // "day 3", "day #3"
-      new RegExp(`^day${dayNumber}$`, 'i'),                  // "day3"
-      new RegExp(`^#\\s*${dayNumber}$`, 'i'),                // "#3", "# 3"
-      new RegExp(`^${dayNumber}$`),                          // Just "3"
-      new RegExp(`^tidbit\\s*#?\\s*${dayNumber}$`, 'i'),     // "tidbit 3", "tidbit #3"
-      new RegExp(`^number\\s*${dayNumber}$`, 'i'),           // "number 3"
-    ]
-    
-    return dayPatterns.some(pattern => pattern.test(normalizedQuery))
-  }
-
-  // Enhanced search function
-  const performSearch = (query: string, currentFilters = filters) => {
-    if (!query.trim() && currentFilters.status === 'all' && currentFilters.difficulty === 'all' && 
-        currentFilters.tags.length === 0 && !currentFilters.minTime && !currentFilters.maxTime) {
-      setSearchResults(tidbits)
-      return
-    }
-
-    const results = tidbits.filter(tidbit => {
-      // Check for day number queries first
-      const dayNumberMatch = checkDayNumberQuery(query.trim(), tidbit.day_number)
-      
-      // If it's a day number query and matches, prioritize it
-      if (dayNumberMatch) {
-        // Still check other filters
-        const matchesStatus = currentFilters.status === 'all' || tidbit.status === currentFilters.status
-        const matchesDifficulty = currentFilters.difficulty === 'all' || 
-                                 tidbit.difficulty_level.toString() === currentFilters.difficulty
-        const matchesTags = currentFilters.tags.length === 0 || 
-                           currentFilters.tags.some(tag => tidbit.tags.includes(tag))
-        const matchesMinTime = !currentFilters.minTime || 
-                              tidbit.estimated_time >= parseInt(currentFilters.minTime)
-        const matchesMaxTime = !currentFilters.maxTime || 
-                              tidbit.estimated_time <= parseInt(currentFilters.maxTime)
-        
-        return matchesStatus && matchesDifficulty && matchesTags && matchesMinTime && matchesMaxTime
+      if (!query.trim()) {
+        setSearchState(prev => ({
+          ...prev,
+          searchResults: prev.tidbits,
+          hasSearched: false
+        }))
+        setIsSearching(false)
+        return
       }
-      
-      // Regular text search
-      const searchFields = [
-        tidbit.title,
-        tidbit.hero_heading,
-        tidbit.walkthrough_intro,
-        tidbit.what_is_ai,
-        tidbit.what_you_need,
-        tidbit.step_by_step,
-        tidbit.try_it,
-        tidbit.seo_description || '',
-        `day ${tidbit.day_number}`, // Include day number in search fields
-        `#${tidbit.day_number}`,    // Include hashtag format
-        ...tidbit.tags
-      ].join(' ').toLowerCase()
 
-      const matchesQuery = !query.trim() || searchFields.includes(query.toLowerCase())
-      const matchesStatus = currentFilters.status === 'all' || tidbit.status === currentFilters.status
-      const matchesDifficulty = currentFilters.difficulty === 'all' || 
-                               tidbit.difficulty_level.toString() === currentFilters.difficulty
-      const matchesTags = currentFilters.tags.length === 0 || 
-                         currentFilters.tags.some(tag => tidbit.tags.includes(tag))
-      const matchesMinTime = !currentFilters.minTime || 
-                            tidbit.estimated_time >= parseInt(currentFilters.minTime)
-      const matchesMaxTime = !currentFilters.maxTime || 
-                            tidbit.estimated_time <= parseInt(currentFilters.maxTime)
+      const queryLower = query.toLowerCase().trim()
+      const results: Array<{ tidbit: Tidbit; score: number }> = []
 
-      return matchesQuery && matchesStatus && matchesDifficulty && matchesTags && 
-             matchesMinTime && matchesMaxTime
-    })
+      searchState.tidbits.forEach(tidbit => {
+        let score = 0
+        const searchableContent = {
+          title: (tidbit.title || '').toLowerCase(),
+          hero_heading: (tidbit.hero_heading || '').toLowerCase(),
+          description: (tidbit.seo_description || '').toLowerCase(),
+          walkthrough: (tidbit.walkthrough_intro || '').toLowerCase(),
+          tags: (tidbit.tags || []).join(' ').toLowerCase()
+        }
 
-    // Sort results to prioritize exact day matches
-    const sortedResults = results.sort((a, b) => {
-      const aIsExactDay = checkDayNumberQuery(query.trim(), a.day_number)
-      const bIsExactDay = checkDayNumberQuery(query.trim(), b.day_number)
-      
-      if (aIsExactDay && !bIsExactDay) return -1
-      if (!aIsExactDay && bIsExactDay) return 1
-      
-      // If both or neither are exact day matches, sort by day number
-      return a.day_number - b.day_number
-    })
+        if (searchableContent.title.includes(queryLower)) score += 100
+        if (searchableContent.hero_heading.includes(queryLower)) score += 80
+        if (searchableContent.description.includes(queryLower)) score += 60
+        if (searchableContent.tags.includes(queryLower)) score += 40
+        if (searchableContent.walkthrough.includes(queryLower)) score += 20
 
-    setSearchResults(sortedResults)
-  }
+        if (score > 0) results.push({ tidbit, score })
+      })
 
-  // Handle search input
+      const sortedResults = results
+        .sort((a, b) => (b.score - a.score) || (a.tidbit.day_number - b.tidbit.day_number))
+        .map(r => r.tidbit)
+
+      setSearchState(prev => ({
+        ...prev,
+        searchResults: sortedResults,
+        hasSearched: true
+      }))
+
+      setIsSearching(false)
+      const searchTime = Date.now() - startTime
+      trackSearchEvent('search_performed', {
+        query,
+        results_count: sortedResults.length,
+        search_time_ms: searchTime
+      })
+    },
+    [searchState.tidbits]
+  )
+
+  const performNumberSearch = useCallback(
+    (num: string) => {
+      if (!num.trim()) {
+        setSearchState(prev => ({
+          ...prev,
+          searchResults: prev.tidbits,
+          hasSearched: false
+        }))
+        return
+      }
+      const dayNum = parseInt(num, 10)
+      if (!isNaN(dayNum)) {
+        const match = searchState.tidbits.filter(t => t.day_number === dayNum)
+        setSearchState(prev => ({
+          ...prev,
+          searchResults: match,
+          hasSearched: true
+        }))
+        trackSearchEvent('search_performed', {
+          query: `day_${dayNum}`,
+          results_count: match.length
+        })
+      }
+    },
+    [searchState.tidbits]
+  )
+
   useEffect(() => {
-    performSearch(searchQuery, filters)
-  }, [searchQuery, filters])
+    if (!searchState.loading && !numberQuery) {
+      performKeywordSearch(debouncedSearchQuery)
+    }
+  }, [debouncedSearchQuery, numberQuery, searchState.loading, performKeywordSearch])
 
-  // Update filters
-  const updateFilters = (newFilters: Partial<typeof filters>) => {
-    const updatedFilters = { ...filters, ...newFilters }
-    setFilters(updatedFilters)
+  useEffect(() => {
+    if (!searchState.loading && numberQuery) {
+      performNumberSearch(numberQuery)
+    }
+  }, [numberQuery, searchState.loading, performNumberSearch])
+
+  const navigateToTidbit = (tidbit: Tidbit) => {
+    router.push(`/day/${tidbit.day_number}`)
   }
 
-  // Toggle tag selection
-  const toggleTag = (tag: string) => {
-    const newTags = filters.tags.includes(tag) 
-      ? filters.tags.filter(t => t !== tag)
-      : [...filters.tags, tag]
-    updateFilters({ tags: newTags })
-  }
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      status: 'all',
-      difficulty: 'all',
-      tags: [],
-      minTime: '',
-      maxTime: ''
-    })
-  }
-
-  // Get difficulty color
   const getDifficultyColor = (level: number): string => {
     const colors: Record<number, string> = {
       1: 'bg-green-100 text-green-800',
@@ -296,7 +221,6 @@ export default function TidbitSearch() {
     return colors[level] || colors[1]
   }
 
-  // Get status color
   const getStatusColor = (status: string): string => {
     const colors: Record<string, string> = {
       published: 'bg-green-100 text-green-800',
@@ -306,290 +230,177 @@ export default function TidbitSearch() {
     return colors[status] || colors['draft']
   }
 
-  // Enhanced highlight function that handles day numbers
-  const highlightText = (text: string, query: string): React.ReactNode => {
-    if (!query.trim()) return text
-    
-    // Check if it's a day number query
-    const dayMatch = query.match(/(?:day\s*#?\s*|#\s*|^)(\d+)/i)
-    
-    let searchPattern: RegExp
-    
-    if (dayMatch) {
-      const dayNum = dayMatch[1]
-      // Create pattern that matches the day number in various formats
-      searchPattern = new RegExp(`(day\\s*#?\\s*${dayNum}|#\\s*${dayNum}|\\b${dayNum}\\b)`, 'gi')
-    } else {
-      // Regular text search
-      searchPattern = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-    }
-    
-    const parts = text.split(searchPattern)
-    
-    return parts.map((part, index) => 
-      searchPattern.test(part) ? 
-        <mark key={index} className="bg-yellow-200 px-1 rounded">{part}</mark> : 
-        part
-    )
-  }
-
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-gray-50 min-h-screen">
+      {/* Top bar: link to Library (mobile only) */}
+<nav className="mb-4 sm:mb-6 flex items-center justify-between sm:hidden">
+  <a
+    href="/TidbitLibrary"
+    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg 
+               bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white font-semibold
+               shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#60A875]"
+  >
+    <span role="img" aria-label="Conch shell" className="text-lg">
+      🐚
+    </span>
+    <span className="text-sm">FULL TIDBIT LIBRARY</span>
+  </a>
+</nav>
+
+
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2" style={{fontFamily: "'Playfair Display', serif"}}>
+      <header className="mb-4 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2">
           Search Daily Tidbits
         </h1>
-        <p className="text-gray-600" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-          Find the perfect AI tip from your content library. Try searching for "day 3" or "#5"!
+        <p className="text-sm sm:text-base text-gray-600">
+          Search by keyword or by tidbit number to quickly find what you need.
         </p>
+      </header>
+
+
+      {/* Two Search Boxes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        {/* Keyword Search */}
+        <div>
+          <label htmlFor="tidbit-search" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+            Search by keyword
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+            <input
+              id="tidbit-search"
+              type="text"
+              placeholder="Search tidbits by keyword, title, or tag"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setNumberQuery('') // clear number query if typing keyword
+              }}
+              className="w-full pl-9 sm:pl-12 pr-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green bg-white shadow-sm"
+            />
+            {isSearching && (
+              <Loader2 className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+            )}
+          </div>
+        </div>
+
+        {/* Tidbit Number Search */}
+        <div>
+          <label htmlFor="tidbit-number" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+            Search by Tidbit number
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+            <input
+              id="tidbit-number"
+              type="number"
+              min={1}
+              placeholder="Enter day number..."
+              value={numberQuery}
+              onChange={(e) => {
+                setNumberQuery(e.target.value)
+                setSearchQuery('') // clear keyword query if typing number
+              }}
+              className="w-full pl-9 sm:pl-12 pr-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green bg-white shadow-sm"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#60A875]"></div>
-          <span className="ml-3 text-gray-600">Loading tidbits...</span>
+      {/* Loading */}
+      {searchState.loading && (
+        <div className="flex items-center justify-center py-10 sm:py-12" role="status">
+          <Loader2 className="animate-spin h-6 w-6 sm:h-8 sm:w-8 text-brand-green mr-3" />
+          <span className="text-sm sm:text-base text-gray-600">Loading tidbits...</span>
         </div>
       )}
 
-      {/* Error State */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-700">{error}</p>
-          <button 
-            onClick={loadTidbits}
-            className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-
-      {/* Search Interface */}
-      {!loading && !error && (
-        <>
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search tidbits by title, content, tags, or try 'day 3' or '#5'..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] bg-white shadow-sm"
-              />
+      {/* Error */}
+      {searchState.error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-5 mb-6">
+          <div className="flex items-start">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3" />
+            <div>
+              <p className="text-red-700 font-semibold">Error Loading Tidbits</p>
+              <p className="text-red-600 mt-1">{searchState.error}</p>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Filter Toggle & Summary */}
-          <div className="flex items-center justify-between mb-6">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+      {/* Results */}
+      {!searchState.loading && !searchState.error && (
+        <div ref={resultsRef} className="space-y-4 sm:space-y-5" role="list">
+          {searchState.searchResults.map((tidbit) => (
+            <article
+              key={tidbit.id}
+              className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+              role="listitem"
             >
-              <Filter className="w-4 h-4" />
-              Advanced Filters
-              {(filters.status !== 'all' || filters.difficulty !== 'all' || filters.tags.length > 0 || filters.minTime || filters.maxTime) && (
-                <span className="bg-[#60A875] text-white text-xs px-2 py-1 rounded-full">
-                  {[
-                    filters.status !== 'all' ? 1 : 0,
-                    filters.difficulty !== 'all' ? 1 : 0,
-                    filters.tags.length,
-                    filters.minTime ? 1 : 0,
-                    filters.maxTime ? 1 : 0
-                  ].reduce((a, b) => a + b, 0)}
-                </span>
-              )}
-            </button>
-            
-            <div className="text-sm text-gray-600">
-              {searchResults.length} of {tidbits.length} tidbits
-            </div>
-          </div>
-
-          {/* Advanced Filters */}
-          {showFilters && (
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
-                  <select
-                    value={filters.status}
-                    onChange={(e) => updateFilters({ status: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875]"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="published">Published</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Difficulty</label>
-                  <select
-                    value={filters.difficulty}
-                    onChange={(e) => updateFilters({ difficulty: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875]"
-                  >
-                    <option value="all">All Levels</option>
-                    <option value="1">Beginner (1)</option>
-                    <option value="2">Easy (2)</option>
-                    <option value="3">Medium (3)</option>
-                    <option value="4">Hard (4)</option>
-                    <option value="5">Advanced (5)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Time (minutes)</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={filters.minTime}
-                      onChange={(e) => updateFilters({ minTime: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875]"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={filters.maxTime}
-                      onChange={(e) => updateFilters({ maxTime: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-end">
-                  <button
-                    onClick={clearFilters}
-                    className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              </div>
-
-              {/* Tags Filter */}
-              <div className="mt-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">Tags</label>
-                <div className="flex flex-wrap gap-2">
-                  {allTags.map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
-                      className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                        filters.tags.includes(tag)
-                          ? 'bg-[#60A875] text-white border-[#60A875]'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-[#60A875]'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Search Results */}
-          <div className="space-y-4">
-            {searchResults.map(tidbit => (
-              <div key={tidbit.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-sm font-semibold text-[#60A875]">Day #{tidbit.day_number}</span>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(tidbit.status)}`}>
-                        {tidbit.status}
-                      </span>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDifficultyColor(tidbit.difficulty_level)}`}>
-                        Level {tidbit.difficulty_level}
-                      </span>
-                      <div className="flex items-center gap-1 text-gray-500">
-                        <Clock className="w-4 h-4" />
-                        <span className="text-sm">{tidbit.estimated_time}m</span>
-                      </div>
+              {/* Card header becomes column on mobile, row on larger screens */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                    <span className="text-xs sm:text-sm font-semibold text-brand-green">Day #{tidbit.day_number}</span>
+                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-full ${getStatusColor(tidbit.status)}`}>
+                      {tidbit.status}
+                    </span>
+                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-full ${getDifficultyColor(tidbit.difficulty_level)}`}>
+                      Level {tidbit.difficulty_level}
+                    </span>
+                    <div className="flex items-center gap-1 text-gray-500">
+                      <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="text-xs sm:text-sm">{tidbit.estimated_time}m</span>
                     </div>
-                    
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      {highlightText(tidbit.title, searchQuery)}
-                    </h3>
-                    
-                    <p className="text-gray-600 mb-3">
-                      {highlightText(tidbit.seo_description || '', searchQuery)}
-                    </p>
+                  </div>
 
-                    <div className="flex flex-wrap gap-2 mb-3">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2">{tidbit.title}</h2>
+
+                  {tidbit.walkthrough_intro && (
+                    <p className="text-[13px] sm:text-base text-gray-700 leading-relaxed">
+                      {tidbit.walkthrough_intro}
+                    </p>
+                  )}
+
+                  {tidbit.tags.length > 0 && (
+                    <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2" aria-label="Tags">
                       {tidbit.tags.map(tag => (
-                        <span key={tag} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                          {highlightText(tag, searchQuery)}
+                        <span key={tag} className="inline-flex px-2 py-1 text-[10px] sm:text-xs bg-gray-100 text-gray-700 rounded">
+                          {tag}
                         </span>
                       ))}
                     </div>
+                  )}
 
-                    <p className="text-sm text-gray-500">
-                      Updated {new Date(tidbit.updated_at).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 ml-4">
-                    <button
-                      onClick={() => window.open(`/day/${tidbit.day_number}`, '_blank')}
-                      className="p-2 text-gray-400 hover:text-[#59B1E3] transition-colors"
-                      title="View Tidbit"
-                    >
-                      <Eye className="w-5 h-5" />
-                    </button>
-                    <button
-                      className="p-2 text-gray-400 hover:text-[#60A875] transition-colors"
-                      title="Edit Tidbit"
-                    >
-                      <Edit className="w-5 h-5" />
-                    </button>
-                    <ArrowRight className="w-5 h-5 text-gray-300" />
-                  </div>
+                  <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-500">
+                    Updated {new Date(tidbit.updated_at).toLocaleDateString()}
+                  </p>
                 </div>
 
-                {/* Content preview */}
-                {searchQuery && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      <strong>Content preview:</strong> {highlightText((tidbit.walkthrough_intro || '').slice(0, 200), searchQuery)}
-                      {(tidbit.walkthrough_intro || '').length > 200 && '...'}
-                    </p>
-                  </div>
-                )}
+                {/* Mobile: full-width button below; Desktop: pill on the right */}
+                <div className="sm:ml-4">
+                  <button
+                    onClick={() => navigateToTidbit(tidbit)}
+                    className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 bg-brand-green text-black font-semibold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2"
+                  >
+                    <Eye className="w-4 h-4 text-black" />
+                    View Tidbit
+                    <ArrowRight className="w-4 h-4 text-black" />
+                  </button>
+                </div>
               </div>
-            ))}
+            </article>
+          ))}
 
-            {/* Empty State */}
-            {searchResults.length === 0 && (
-              <div className="text-center py-12">
-                <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No tidbits found</h3>
-                <p className="text-gray-600 mb-4">
-                  {tidbits.length === 0 
-                    ? "No tidbits in your database yet. Add some content to get started!"
-                    : "Try adjusting your search terms or filters. You can search for specific days like 'day 3' or '#5'"
-                  }
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchQuery('')
-                    clearFilters()
-                  }}
-                  className="px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors"
-                >
-                  {tidbits.length === 0 ? 'Refresh' : 'Clear Search'}
-                </button>
-              </div>
-            )}
-          </div>
-        </>
+          {searchState.searchResults.length === 0 && (
+            <div className="text-center py-12">
+              <Search className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No tidbits found</h3>
+              <p className="text-sm sm:text-base text-gray-600 mb-4">Try a different keyword or tidbit number above.</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

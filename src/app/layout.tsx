@@ -138,7 +138,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${playfairDisplay.variable} ${spaceGrotesk.variable}`}>
+    <html lang="en" className={``}>
       <head>
         {/* Preconnect to external domains for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -184,7 +184,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} antialiased min-h-screen bg-white font-space-grotesk flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-white font-space-grotesk flex flex-col`}
       >
         {/* Skip to main content for accessibility */}
         <a 
