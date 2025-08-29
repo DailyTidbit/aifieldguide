@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display, Space_Grotesk } from "next/font/google";
-import Navigation from './components/Navigation';
-import CookieConsentManager from './components/CookieConsentManager';
-import Footer from './components/Footer';
+import Navigation from "./components/Navigation";
+import CookieConsentManager from "./components/CookieConsentManager";
+import Footer from "./components/Footer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,20 +30,21 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   // ✅ Added metadataBase for reliable OG/Twitter URL resolution
   metadataBase: new URL("https://dailytidbit.org"),
-  
+
   title: "Daily Tidbit - AI for Real People",
-  description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+  description:
+    "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
   keywords: [
-    "AI", 
-    "artificial intelligence", 
-    "daily tips", 
-    "productivity", 
+    "AI",
+    "artificial intelligence",
+    "daily tips",
+    "productivity",
     "creativity",
     "AI tools",
     "machine learning",
     "AI education",
     "practical AI",
-    "AI for beginners"
+    "AI for beginners",
   ],
   authors: [{ name: "Daily Tidbit", url: "https://dailytidbit.org" }],
   creator: "Daily Tidbit",
@@ -54,14 +55,15 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   openGraph: {
     title: "Daily Tidbit - AI for Real People",
-    description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+    description:
+      "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     type: "website",
     url: "https://dailytidbit.org",
     siteName: "Daily Tidbit",
@@ -79,7 +81,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Daily Tidbit - AI for Real People",
-    description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+    description:
+      "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     images: ["https://cdn.dailytidbit.org/og-image.png"],
     creator: "@dailytidbit",
     site: "@dailytidbit",
@@ -120,9 +123,7 @@ export const metadata: Metadata = {
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
       { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
     ],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     other: [
       { url: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
       { url: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
@@ -138,24 +139,28 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={``}>
+    <html
+      lang="en"
+      // ✅ Apply ALL font variables here so Playfair/Space count as “used”
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable}`}
+    >
       <head>
         {/* Preconnect to external domains for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.dailytidbit.org" />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
-        
+
         {/* DNS prefetch for external resources */}
         <link rel="dns-prefetch" href="https://www.google-analytics.com" />
-        
+
         {/* Viewport meta tag for responsive design */}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        
+
         {/* Additional SEO meta tags */}
         <meta name="format-detection" content="telephone=no" />
         <meta name="color-scheme" content="light" />
-        
+
         {/* Structured data for organization */}
         <script
           type="application/ld+json"
@@ -164,52 +169,55 @@ export default function RootLayout({ children }: RootLayoutProps) {
               "@context": "https://schema.org",
               "@type": "Organization",
               "@id": "https://dailytidbit.org#organization",
-              "name": "Daily Tidbit",
-              "url": "https://dailytidbit.org",
-              "logo": "https://cdn.dailytidbit.org/logo.png",
-              "description": "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
-              "foundingDate": "2024",
-              "sameAs": [
-                // Add your social media URLs here when ready
+              name: "Daily Tidbit",
+              url: "https://dailytidbit.org",
+              logo: "https://cdn.dailytidbit.org/logo.png",
+              description:
+                "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+              foundingDate: "2024",
+              sameAs: [
                 // "https://twitter.com/dailytidbit",
                 // "https://linkedin.com/company/dailytidbit"
               ],
-              "contactPoint": {
+              contactPoint: {
                 "@type": "ContactPoint",
-                "contactType": "customer service",
-                "availableLanguage": "English"
-              }
-            })
+                contactType: "customer service",
+                availableLanguage: "English",
+              },
+            }),
           }}
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-white font-space-grotesk flex flex-col`}
+        className={
+          // You can keep utility classes here; font families come from variables above
+          "antialiased min-h-screen bg-white flex flex-col"
+        }
       >
         {/* Skip to main content for accessibility */}
-        <a 
-          href="#main-content" 
+        <a
+          href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 
                      bg-brand-green text-white px-4 py-2 rounded-md z-50
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
           Skip to main content
         </a>
-        
+
         <Navigation />
-        
+
         <main id="main-content" role="main" className="flex-1">
           {children}
         </main>
-        
+
         {/* Footer at bottom of all pages */}
         <Footer />
-        
+
         {/* Cookie Consent Manager - handles GA loading based on consent */}
         <CookieConsentManager />
-        
+
         {/* Service Worker registration for PWA (if you want to add PWA features) */}
-        {process.env.NODE_ENV === 'production' && (
+        {process.env.NODE_ENV === "production" && (
           <script
             dangerouslySetInnerHTML={{
               __html: `

@@ -1,10 +1,10 @@
-// src/app/hooks/useAuth.ts - Updated with missing properties
+// src/app/hooks/useAuth.ts - Updated with optimized Supabase import
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { User as SupabaseUser } from '@supabase/supabase-js'
 import { usePathname } from 'next/navigation'
-import { supabaseClient } from '../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../lib/supabase-browser'
 
 interface CompanyData {
   id: string
@@ -60,6 +60,7 @@ export function useAuth(): UseAuthReturn {
   const [isPartner, setIsPartner] = useState(false)
 
   const pathname = usePathname()
+  const supabase = getSupabaseBrowserClient()
 
   // Calculate derived states
   const authState: AuthState = (() => {
@@ -84,14 +85,14 @@ export function useAuth(): UseAuthReturn {
       }
 
       // Get user profile
-      const { data: profile } = await supabaseClient
+      const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', supabaseUser.id)
         .single()
 
       // membership
-      const { data: membership, error: membershipError } = await supabaseClient
+      const { data: membership, error: membershipError } = await supabase
         .from('company_users')
         .select('company_id, role, created_at')
         .eq('user_id', supabaseUser.id)
@@ -105,7 +106,7 @@ export function useAuth(): UseAuthReturn {
       // company
       let companyData: CompanyData | null = null
       if (membership?.company_id) {
-        const { data: companyResult, error: companyError } = await supabaseClient
+        const { data: companyResult, error: companyError } = await supabase
           .from('companies')
           .select('id, name, website, domain, status, domains')
           .eq('id', membership.company_id)
@@ -151,7 +152,7 @@ export function useAuth(): UseAuthReturn {
       setCompany(null)
       setIsPartner(false)
     }
-  }, [])
+  }, [supabase])
 
   // Initialize auth
   useEffect(() => {
@@ -159,7 +160,7 @@ export function useAuth(): UseAuthReturn {
 
     const initAuth = async () => {
       try {
-        const { data: { user: supabaseUser }, error } = await supabaseClient.auth.getUser()
+        const { data: { user: supabaseUser }, error } = await supabase.auth.getUser()
         // Not an error to be logged hard if logged out
         if (error && error.message !== 'Auth session missing!') {
           console.warn('Auth init warning:', error)
@@ -177,11 +178,11 @@ export function useAuth(): UseAuthReturn {
     initAuth()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
-      async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event: string, session: any) => { // Add explicit types
         if (!mounted) return
 
-        // ✅ IMPORTANT: while on /auth/reset, ignore churn that happens during password reset.
+        // IMPORTANT: while on /auth/reset, ignore churn that happens during password reset.
         if (pathname.startsWith('/auth/reset')) {
           if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED' || event === 'SIGNED_IN') {
             // Avoid doing heavy state work that can cause HMR/UX glitches.
@@ -207,17 +208,17 @@ export function useAuth(): UseAuthReturn {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [loadUserData, pathname])
+  }, [loadUserData, pathname, supabase])
 
   // Sign in with email/password or magic link fallback
   const signIn = useCallback(async (email: string, password?: string) => {
     setLoading(true)
     try {
       if (password) {
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password })
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       } else {
-        const { error } = await supabaseClient.auth.signInWithOtp({
+        const { error } = await supabase.auth.signInWithOtp({
           email,
           options: { emailRedirectTo: `${window.location.origin}/auth` },
         })
@@ -228,13 +229,13 @@ export function useAuth(): UseAuthReturn {
       setLoading(false)
       throw error
     }
-  }, [])
+  }, [supabase])
 
   // OAuth sign in
   const signInWithOAuth = useCallback(async (provider: 'google' | 'apple') => {
     setLoading(true)
     try {
-      const { error } = await supabaseClient.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: `${window.location.origin}/auth` },
       })
@@ -244,13 +245,13 @@ export function useAuth(): UseAuthReturn {
       setLoading(false)
       throw error
     }
-  }, [])
+  }, [supabase])
 
   // Magic link sign in
   const signInWithMagicLink = useCallback(async (email: string, options: any = {}) => {
     setLoading(true)
     try {
-      const { error } = await supabaseClient.auth.signInWithOtp({
+      const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           emailRedirectTo: options.redirectTo || `${window.location.origin}/auth`,
@@ -264,13 +265,13 @@ export function useAuth(): UseAuthReturn {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [supabase])
 
   // Sign up
   const signUp = useCallback(async (email: string, password: string) => {
     setLoading(true)
     try {
-      const { error } = await supabaseClient.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: { emailRedirectTo: `${window.location.origin}/auth` },
@@ -282,23 +283,23 @@ export function useAuth(): UseAuthReturn {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [supabase])
 
   // Sign out
   const signOut = useCallback(async () => {
     try {
-      const { error } = await supabaseClient.auth.signOut()
+      const { error } = await supabase.auth.signOut()
       if (error) throw error
     } catch (error) {
       console.error('Sign out error:', error)
       throw error
     }
-  }, [])
+  }, [supabase])
 
   // Reset password
   const resetPassword = useCallback(async (email: string) => {
     try {
-      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset`, // your custom page
       })
       if (error) throw error
@@ -306,34 +307,34 @@ export function useAuth(): UseAuthReturn {
       console.error('Reset password error:', error)
       throw error
     }
-  }, [])
+  }, [supabase])
 
   // Update password (used after recovery)
   const updatePassword = useCallback(async (password: string) => {
-    console.log('🔄 Starting password update...')
+    console.log('Starting password update...')
     try {
-      console.log('📡 Calling Supabase updateUser...')
-      const { error } = await supabaseClient.auth.updateUser({
+      console.log('Calling Supabase updateUser...')
+      const { error } = await supabase.auth.updateUser({
         password,
         data: { has_password: true },
       })
-      console.log('🔥 Supabase response:', { error })
+      console.log('Supabase response:', { error })
       if (error) {
-        console.error('❌ Supabase error:', error)
+        console.error('Supabase error:', error)
         throw error
       }
-      console.log('✅ Password update successful')
+      console.log('Password update successful')
     } catch (error) {
-      console.error('💥 Update password error:', error)
+      console.error('Update password error:', error)
       throw error
     }
-  }, [])
+  }, [supabase])
 
   // Refresh auth state
   const refreshAuth = useCallback(async () => {
-    const { data: { user: supabaseUser } } = await supabaseClient.auth.getUser()
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser()
     await loadUserData(supabaseUser)
-  }, [loadUserData])
+  }, [loadUserData, supabase])
 
   return {
     user,

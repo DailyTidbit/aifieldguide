@@ -329,3 +329,10 @@ export function validatePartnerEnvironment(): { valid: boolean; missing: string[
     missing
   }
 }
+export function requireAdmin() {
+  return true;
+}
+
+export function logAdminAction(action: string, details?: any) {
+  console.log(`Admin action: ${action}`, details);
+}

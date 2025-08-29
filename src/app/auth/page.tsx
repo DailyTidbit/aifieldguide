@@ -1,8 +1,8 @@
-// src/app/auth/page.tsx - Streamlined Auth Flow
+// src/app/auth/page.tsx - Streamlined Auth Flow with Suspense
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { Suspense, useState, useEffect } from 'react'
+import { getSupabaseBrowserClient } from '../lib/supabase-browser'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -19,7 +19,7 @@ import {
 
 type AuthMode = 'signin' | 'password-setup' | 'redirecting'
 
-export default function AuthPage() {
+function AuthContent() {
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,6 +30,8 @@ export default function AuthPage() {
   
   const router = useRouter()
   const searchParams = useSearchParams()
+  const supabase = getSupabaseBrowserClient()
+  
   const isVendorFlow = searchParams.get('vendor') === 'true'
   const returnTo = searchParams.get('next') || (isVendorFlow ? '/partners/dashboard' : '/')
   const companyName = searchParams.get('company')
@@ -42,7 +44,7 @@ export default function AuthPage() {
     }
 
     // Check existing auth state
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       if (user) {
         // User is authenticated
         if (isVendorFlow && !user.user_metadata?.has_password) {
@@ -56,7 +58,7 @@ export default function AuthPage() {
     })
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
       if (event === 'SIGNED_IN' && session?.user) {
         if (isVendorFlow && !session.user.user_metadata?.has_password) {
           setMode('password-setup')
@@ -73,7 +75,7 @@ export default function AuthPage() {
     })
 
     return () => subscription.unsubscribe()
-  }, [router, isVendorFlow, returnTo, suggestedDomain, email])
+  }, [router, isVendorFlow, returnTo, suggestedDomain, email, supabase])
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -401,5 +403,17 @@ export default function AuthPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
+      </div>
+    }>
+      <AuthContent />
+    </Suspense>
   )
 }

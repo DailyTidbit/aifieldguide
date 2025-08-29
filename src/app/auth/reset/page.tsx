@@ -1,12 +1,12 @@
 // src/app/auth/reset/page.tsx
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabaseClient } from '../../lib/supabaseClient'
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
 
-export default function PasswordResetPage() {
+function PasswordResetContent() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -231,5 +231,17 @@ export default function PasswordResetPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function PasswordResetPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-12 w-12 animate-spin" />
+      </div>
+    }>
+      <PasswordResetContent />
+    </Suspense>
   )
 }

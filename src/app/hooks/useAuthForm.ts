@@ -1,8 +1,8 @@
-// src/app/hooks/useAuthForm.ts
+// src/app/hooks/useAuthForm.ts - Updated with optimized Supabase import
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { supabase } from '../lib/supabaseClient' // adjust if your path differs
+import { getSupabaseBrowserClient } from '../lib/supabase-browser'
 
 export type AuthMode = 'login' | 'signup'
 
@@ -22,6 +22,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
 
   const redirectTo = useMemo(() => opts.redirectTo ?? null, [opts.redirectTo])
   const isVendorFlow = useMemo(() => opts.isVendorFlow ?? false, [opts.isVendorFlow])
+  const supabase = getSupabaseBrowserClient()
 
   // Detect company from email domain
   const getCompanyFromEmail = useCallback((email: string) => {
@@ -85,7 +86,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, confirmPassword, email, mode, password, redirectTo, isVendorFlow])
+  }, [clearAlerts, confirmPassword, email, mode, password, redirectTo, isVendorFlow, supabase])
 
   const handleMagicLinkAuth = useCallback(async () => {
     clearAlerts()
@@ -108,13 +109,13 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       })
       if (error) throw error
       
-      setMessage(`📧 Check your email! We sent a sign-in link to ${email}`)
+      setMessage(`Check your email! We sent a sign-in link to ${email}`)
     } catch (e: any) {
       setError(e?.message ?? 'Failed to send magic link.')
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, email, redirectTo, isVendorFlow, company])
+  }, [clearAlerts, email, redirectTo, isVendorFlow, company, supabase])
 
   const handleOAuth = useCallback(async (provider: 'google' | 'apple') => {
     clearAlerts()
@@ -135,7 +136,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       setError(e?.message ?? 'OAuth sign-in failed.')
       setLoading(false)
     }
-  }, [clearAlerts, redirectTo, isVendorFlow])
+  }, [clearAlerts, redirectTo, isVendorFlow, supabase])
 
   const handleReset = useCallback(async () => {
     clearAlerts()
@@ -156,7 +157,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, email])
+  }, [clearAlerts, email, supabase])
 
   const validateEmailDomain = useCallback((email: string, allowedDomains: string[] = []) => {
     if (!allowedDomains.length) return { isValid: true, message: '' }

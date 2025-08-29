@@ -1,9 +1,8 @@
 // Mobile-Optimized BitBoard with Enhanced PostCard Integration, Privacy Support, and Advanced Search
-
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { supabaseClient } from '../lib/supabaseClient'
+import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { getSupabaseBrowserClient } from '../lib/supabase-browser'
 import AuthForm from '../components/AuthForm'
 import PostForm from '../components/PostForm'
 import UserProfile from '../components/UserProfile'
@@ -64,6 +63,31 @@ type Profile = {
   username: string | null
   avatar_url: string | null
   full_name: string | null
+}
+
+// Define interface for database query results
+interface LikeData {
+  post_id: string
+  user_id?: string
+}
+
+interface CommentData {
+  post_id: string
+  user_id?: string
+}
+
+interface PostData {
+  id: string
+  created_at: string
+  user_id: string | null
+  type: string
+  content: string
+  before_text: string | null
+  after_text: string | null
+  media_url: string | null
+  tidbit: number
+  is_private?: boolean
+  is_pinned?: boolean
 }
 
 type FilterOption = 'all' | 'trending' | 'recent' | 'popular' | 'liked' | 'commented' | 'private'
@@ -435,7 +459,7 @@ function MobileOptimizedMasonry({
   )
 }
 
-export default function MobileOptimizedBitBoard() {
+function BitBoardContent() {
   const [posts, setPosts] = useState<Post[]>([])
   const [selectedTidbit, setSelectedTidbit] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -454,6 +478,8 @@ export default function MobileOptimizedBitBoard() {
   const [showUserProfile, setShowUserProfile] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
+
+  const supabase = getSupabaseBrowserClient()
 
   // Enhanced debounced search
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
@@ -635,10 +661,10 @@ export default function MobileOptimizedBitBoard() {
       setError(null)
 
       // 1) Who's logged in?
-      const { data: { user: currentUser } } = await supabaseClient.auth.getUser()
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
 
       // 2) Get posts (public, or your own privates)
-      let postsQuery = supabaseClient
+      let postsQuery = supabase
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false })
@@ -655,15 +681,15 @@ export default function MobileOptimizedBitBoard() {
       const { data: postsData, error: postsError } = await postsQuery
       if (postsError) throw postsError
 
-      const posts = postsData || []
+      const posts = (postsData || []) as PostData[]
       if (posts.length === 0) {
         setPosts([])
         return
       }
 
       // 3) Batch all secondary fetches in parallel (no per-post requests)
-      const postIds = posts.map(p => p.id)
-      const userIds = [...new Set(posts.map(p => p.user_id).filter(Boolean))] as string[]
+      const postIds = posts.map((p: PostData) => p.id)
+      const userIds = [...new Set(posts.map((p: PostData) => p.user_id).filter(Boolean))] as string[]
 
       const [
         // likes by current user (for heart fill)
@@ -676,55 +702,64 @@ export default function MobileOptimizedBitBoard() {
         profilesPromise,
       ] = [
         currentUser
-          ? supabaseClient
+          ? supabase
               .from('likes')
               .select('post_id')
               .eq('user_id', currentUser.id)
               .in('post_id', postIds)
-          : Promise.resolve({ data: [] as { post_id: string }[] } as any),
+          : Promise.resolve({ data: [] as LikeData[] }),
 
-        supabaseClient
+        supabase
           .from('likes')
           .select('post_id')
           .in('post_id', postIds),
 
-        supabaseClient
+        supabase
           .from('comments')
           .select('post_id')
           .in('post_id', postIds),
 
         userIds.length
-          ? supabaseClient
+          ? supabase
               .from('profiles')
               .select('id, username, avatar_url, full_name')
               .in('id', userIds)
-          : Promise.resolve({ data: [] as any[] } as any),
+          : Promise.resolve({ data: [] as Profile[] }),
       ]
 
-      const [{ data: likesByUser = [] }, { data: allLikes = [] }, { data: allComments = [] }, { data: profiles = [] }] =
-        await Promise.all([likesByUserPromise, allLikesPromise, allCommentsPromise, profilesPromise])
+      const [
+        { data: likesByUser = [] }, 
+        { data: allLikes = [] }, 
+        { data: allComments = [] }, 
+        { data: profiles = [] }
+      ] = await Promise.all([
+        likesByUserPromise, 
+        allLikesPromise, 
+        allCommentsPromise, 
+        profilesPromise
+      ])
 
       // 4) Build count maps in O(n) - with null safety
       const likesCountMap = new Map<string, number>()
       if (allLikes) {
-        for (const row of allLikes) {
+        for (const row of allLikes as LikeData[]) {
           likesCountMap.set(row.post_id, (likesCountMap.get(row.post_id) || 0) + 1)
         }
       }
 
       const commentsCountMap = new Map<string, number>()
       if (allComments) {
-        for (const row of allComments) {
+        for (const row of allComments as CommentData[]) {
           commentsCountMap.set(row.post_id, (commentsCountMap.get(row.post_id) || 0) + 1)
         }
       }
 
       // 5) Profile map
       const profileMap = new Map<string, Profile>()
-      for (const p of profiles) profileMap.set(p.id, p)
+      for (const p of profiles as Profile[]) profileMap.set(p.id, p as Profile)
 
       // 6) Merge everything
-      const enriched = posts.map((post) => {
+      const enriched = posts.map((post: PostData) => {
         const profile = post.user_id ? profileMap.get(post.user_id) : undefined
         return {
           ...post,
@@ -737,7 +772,7 @@ export default function MobileOptimizedBitBoard() {
       })
 
       // 7) Save liked posts list (for heart fill)
-      setUserLikedPosts(likesByUser.map((r: any) => r.post_id))
+      setUserLikedPosts((likesByUser as LikeData[]).map((r: LikeData) => r.post_id))
 
       setPosts(enriched)
     } catch (err) {
@@ -746,11 +781,11 @@ export default function MobileOptimizedBitBoard() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [supabase])
 
   // OPTIMIZED: Simplified fetchUserAndLikes (likes now handled in fetchPosts)
   const fetchUserAndLikes = useCallback(async () => {
-    const { data: { user } } = await supabaseClient.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
 
     if (!user) {
@@ -761,7 +796,7 @@ export default function MobileOptimizedBitBoard() {
     }
 
     // profile check
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await supabase
       .from('profiles')
       .select('full_name, username')
       .eq('id', user.id)
@@ -770,16 +805,16 @@ export default function MobileOptimizedBitBoard() {
     setNeedsProfileSetup(!profile?.full_name)
 
     // commented posts (for your filter)
-    const { data: commentsData } = await supabaseClient
+    const { data: commentsData } = await supabase
       .from('comments')
       .select('post_id')
       .eq('user_id', user.id)
 
     if (commentsData) {
-      const commentedPostIds = [...new Set(commentsData.map(c => c.post_id))]
+      const commentedPostIds = [...new Set((commentsData as CommentData[]).map((c: CommentData) => c.post_id))]
       setUserCommentedPosts(commentedPostIds)
     }
-  }, [])
+  }, [supabase])
 
   // Like handling
   const handleLike = useCallback(async (postId: string) => {
@@ -792,10 +827,10 @@ export default function MobileOptimizedBitBoard() {
 
     try {
       if (alreadyLiked) {
-        await supabaseClient.from('likes').delete().eq('user_id', user.id).eq('post_id', postId)
+        await supabase.from('likes').delete().eq('user_id', user.id).eq('post_id', postId)
         setUserLikedPosts(prev => prev.filter(id => id !== postId))
       } else {
-        await supabaseClient.from('likes').insert({ user_id: user.id, post_id: postId })
+        await supabase.from('likes').insert({ user_id: user.id, post_id: postId })
         setUserLikedPosts(prev => [...prev, postId])
       }
 
@@ -813,7 +848,7 @@ export default function MobileOptimizedBitBoard() {
     } catch (error) {
       console.error('Error updating like:', error)
     }
-  }, [user, userLikedPosts])
+  }, [user, userLikedPosts, supabase])
 
   // Mobile scroll to top
   const scrollToTop = () => {
@@ -828,14 +863,14 @@ export default function MobileOptimizedBitBoard() {
 
   // OPTIMIZED: Debounced real-time subscriptions
   useEffect(() => {
-    let timer: any = null
-    const channel = supabaseClient
+    let timer: NodeJS.Timeout | null = null
+    const channel = supabase
       .channel('posts_changes')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'posts'
-      }, () => {
+      }, (_payload: any) => {
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => fetchPosts(), 250) // coalesce bursts of events
       })
@@ -843,9 +878,9 @@ export default function MobileOptimizedBitBoard() {
 
     return () => {
       if (timer) clearTimeout(timer)
-      supabaseClient.removeChannel(channel)
+      supabase.removeChannel(channel)
     }
-  }, [fetchPosts])
+  }, [fetchPosts, supabase])
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([fetchPosts(), fetchUserAndLikes()])
@@ -1175,5 +1210,17 @@ export default function MobileOptimizedBitBoard() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function MobileOptimizedBitBoard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
+      </div>
+    }>
+      <BitBoardContent />
+    </Suspense>
   )
 }
