@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { Heart, User, Loader2, MessageCircle, ExternalLink, Sparkles, Clock } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { isValidMediaUrl } from '../lib/validateMedia'
 
 const bgColors = [
@@ -28,6 +28,39 @@ export default function PostCard({
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [isTouched, setIsTouched] = useState(false)
+  const [mounted, setMounted] = useState(false) // HYDRATION FIX
+
+  // HYDRATION FIX: Set mounted state
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // HYDRATION FIX: Return early during SSR to prevent hydration mismatches
+  if (!mounted) {
+    return (
+      <div className="break-inside-avoid mb-4 w-full">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 animate-pulse">
+          <div className="h-64 bg-gray-200"></div>
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded w-4/5"></div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+              </div>
+              <div className="flex gap-2">
+                <div className="w-16 h-8 bg-gray-200 rounded-full"></div>
+                <div className="w-16 h-8 bg-gray-200 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const isAudioLink =
     typeof post.media_url === 'string' &&
@@ -41,12 +74,36 @@ export default function PostCard({
 
   const hasTextOnly = !hasImage && !isAudioLink && post.content
 
-  const bgColor = bgColors[post.id.charCodeAt(0) % bgColors.length]
+  // HYDRATION FIX: Use stable background color selection based on post ID hash
+  const getStableBgColor = () => {
+    // Create a simple hash from the post ID for consistent color selection
+    let hash = 0
+    const id = post.id || ''
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash + id.charCodeAt(i)) & 0xffffffff
+    }
+    return bgColors[Math.abs(hash) % bgColors.length]
+  }
+  
+  const bgColor = getStableBgColor()
 
-  // Double the character limit from 280 to 560
-  const contentPreview = post.content && post.content.length > 560 
-    ? `${post.content.substring(0, 560)}...` 
-    : post.content
+  // HYDRATION FIX: Stable content preview
+  const getContentPreview = () => {
+    if (!post.content) return ''
+    
+    // Check if content has user commentary (separated by ---)
+    const parts = post.content.split('\n\n---\n\n')
+    if (parts.length > 1) {
+      // If there's commentary, show that instead of main content
+      const commentary = parts[1]
+      return commentary.length > 560 ? `${commentary.substring(0, 560)}...` : commentary
+    } else {
+      // No commentary, show main content
+      return post.content.length > 560 ? `${post.content.substring(0, 560)}...` : post.content
+    }
+  }
+  
+  const contentPreview = getContentPreview()
 
   return (
     <div 
@@ -127,18 +184,7 @@ export default function PostCard({
             {/* Main content with better typography - prioritize user commentary */}
             <div>
               <div className="text-gray-800 leading-relaxed font-medium text-lg line-clamp-8 whitespace-pre-wrap">
-                {(() => {
-                  // Check if content has user commentary (separated by ---)
-                  const parts = post.content.split('\n\n---\n\n');
-                  if (parts.length > 1) {
-                    // If there's commentary, show that instead of main content
-                    const commentary = parts[1];
-                    return commentary.length > 560 ? `${commentary.substring(0, 560)}...` : commentary;
-                  } else {
-                    // No commentary, show main content as before
-                    return contentPreview;
-                  }
-                })()}
+                {contentPreview}
               </div>
             </div>
 
@@ -191,7 +237,15 @@ export default function PostCard({
                 </div>
                 <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
                   <Clock className="w-3 h-3" />
-                  <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                  <span>
+                    {(() => {
+                      try {
+                        return new Date(post.created_at).toLocaleDateString()
+                      } catch {
+                        return 'Invalid date'
+                      }
+                    })()}
+                  </span>
                 </div>
               </div>
             </div>

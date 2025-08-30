@@ -145,13 +145,13 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            It's trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
+            It's trained on massive datasets – reading patterns in language, images, sounds, and code – so it can generate helpful results.
           </p>
           <p className="mb-3 sm:mb-4">
             Some models write, some generate images, others make music, synthesize voices, or even help with code.
           </p>
           <p className="mb-3 sm:mb-4">
-            You don't see the model — and you don't have to.
+            You don't see the model – and you don't have to.
           </p>
           <p className="font-bold text-[#60A875] text-base sm:text-lg">
             It all happens in the background, but that's where the magic lives.
@@ -169,7 +169,7 @@ const AIExplanationCarousel: React.FC = () => {
             Most people don't interact with the model directly. Instead, they use websites or apps that make it easy.
           </p>
           <p className="mb-3 sm:mb-4">
-            These tools give you a simple interface — like a chat box, design screen, or form.
+            These tools give you a simple interface – like a chat box, design screen, or form.
           </p>
           <p className="font-bold text-[#59B1E3] text-base sm:text-lg">
             You just type what you want, and the tool talks to the model behind the scenes to make it happen.
@@ -184,7 +184,7 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            We make AI feel easy — and honestly? Fun.
+            We make AI feel easy – and honestly? Fun.
           </p>
           <p className="mb-3 sm:mb-4">
             One smart tip a day to help you write better, create faster, and save time with free tools anyone can use.
@@ -298,31 +298,7 @@ const AIExplanationCarousel: React.FC = () => {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{
-        maxWidth: '900px',
-        margin: '0 auto',
-        position: 'relative',
-        height: '550px', // Increased height to accommodate content
-        overflow: 'hidden',
-        borderRadius: '16px', // Smaller radius on mobile
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-      }}
     >
-      {/* Responsive height via CSS media queries */}
-      <style jsx>{`
-        @media (max-width: 640px) {
-          .ai-explanation-carousel {
-            height: 500px !important;
-            border-radius: 16px !important;
-          }
-        }
-        @media (max-width: 480px) {
-          .ai-explanation-carousel {
-            height: 480px !important;
-          }
-        }
-      `}</style>
-
       {/* Vertical sliding container */}
       <div
         style={{
@@ -464,6 +440,7 @@ const AIExplanationCarousel: React.FC = () => {
               {/* Auto-play animation */}
               {index === currentIndex && isAutoPlaying && !isTransitioning && (
                 <div
+                  className="story-progress-animation"
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -471,8 +448,7 @@ const AIExplanationCarousel: React.FC = () => {
                     width: '100%',
                     height: '100%',
                     background: 'rgba(96, 168, 117, 1)',
-                    transformOrigin: 'top',
-                    animation: 'story-progress 6000ms linear infinite'
+                    transformOrigin: 'top'
                   }}
                 />
               )}
@@ -492,18 +468,6 @@ const AIExplanationCarousel: React.FC = () => {
       }}>
         Swipe up ↑ or use arrows
       </div>
-
-      {/* Keyframe animation for story progress */}
-      <style jsx>{`
-        @keyframes story-progress {
-          from { 
-            transform: scaleY(0);
-          }
-          to { 
-            transform: scaleY(1);
-          }
-        }
-      `}</style>
     </div>
   );
 };

@@ -12,11 +12,20 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [isPrivate, setIsPrivate] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [mounted, setMounted] = useState(false) // HYDRATION FIX
 
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  // HYDRATION FIX: Set mounted state
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    // Only run on client-side after mounted
+    if (!mounted) return
+
     // Get logged-in user
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
 
@@ -28,18 +37,32 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
 
     // Pre-fill content from URL params (from walkthrough)
     const contentParam = searchParams.get('content')
-
     if (contentParam) {
       setContent(decodeURIComponent(contentParam))
     }
-  }, [searchParams])
+  }, [searchParams, mounted])
 
-  // 🎯 FIXED: Direct progress tracking function
+  // HYDRATION FIX: Show loading state during hydration
+  if (!mounted) {
+    return (
+      <div className="max-w-2xl mx-auto bg-white border rounded-xl shadow p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+          <div className="h-20 bg-gray-200 rounded"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+          <div className="h-10 bg-gray-200 rounded"></div>
+          <div className="h-12 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  // Direct progress tracking function
   const markPostCreated = async (tidbitNumber: number, postId: string) => {
     if (!user) return
 
     try {
-      console.log(`🎯 Tracking BitBoard post for Tidbit ${tidbitNumber}, Post ID: ${postId}`)
+      console.log(`Tracking BitBoard post for Tidbit ${tidbitNumber}, Post ID: ${postId}`)
       
       const { error } = await supabase
         .from('user_tidbit_progress')
@@ -53,12 +76,12 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
         })
 
       if (error) {
-        console.error('❌ Error marking post created:', error)
+        console.error('Error marking post created:', error)
       } else {
-        console.log(`✅ BitBoard posting tracked successfully for Tidbit ${tidbitNumber}!`)
+        console.log(`BitBoard posting tracked successfully for Tidbit ${tidbitNumber}!`)
       }
     } catch (error) {
-      console.error('❌ Error updating progress:', error)
+      console.error('Error updating progress:', error)
     }
   }
 
@@ -85,7 +108,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       }
     }
 
-    // 🔥 KEY: Get the inserted post data back with .select().single()
+    // Get the inserted post data back with .select().single()
     const { data: postData, error } = await supabase.from('posts').insert({
       user_id: user.id,
       content,
@@ -99,15 +122,15 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       alert('Error submitting post')
       console.error(error)
     } else {
-      console.log('📝 Post created successfully:', postData)
+      console.log('Post created successfully:', postData)
       
-      // 🎯 FIXED: Track posting immediately with post ID
+      // Track posting immediately with post ID
       await markPostCreated(tidbit, postData.id)
       
       // Success handling
       const successMessage = isPrivate 
-        ? '🔒 Private post saved successfully!' 
-        : '🎉 Posted to BitBoard successfully!'
+        ? 'Private post saved successfully!' 
+        : 'Posted to BitBoard successfully!'
       
       if (isPrivate) {
         // For private posts, offer to view profile
@@ -154,7 +177,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
               Posting to <strong>Tidbit #{tidbit}</strong>
             </div>
             <div className="text-xs text-[#60A875] font-medium mt-1">
-              ✨ Complete your learning journey by sharing!
+              Complete your learning journey by sharing!
             </div>
           </div>
           <div className="text-2xl">📝</div>

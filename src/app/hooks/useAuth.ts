@@ -1,4 +1,4 @@
-// src/app/hooks/useAuth.ts - Updated with optimized Supabase import
+// src/app/hooks/useAuth.ts - Updated with hydration safety
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -41,6 +41,7 @@ interface UseAuthReturn {
   company: CompanyData | null
   authState: AuthState // Add this
   isCompanyAdmin: boolean // Add this
+  mounted: boolean // HYDRATION FIX: Add mounted state
 
   // Auth methods
   signIn: (email: string, password?: string) => Promise<void>
@@ -58,13 +59,19 @@ export function useAuth(): UseAuthReturn {
   const [loading, setLoading] = useState(true)
   const [company, setCompany] = useState<CompanyData | null>(null)
   const [isPartner, setIsPartner] = useState(false)
+  const [mounted, setMounted] = useState(false) // HYDRATION FIX
 
   const pathname = usePathname()
   const supabase = getSupabaseBrowserClient()
 
-  // Calculate derived states
+  // HYDRATION FIX: Set mounted state
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Calculate derived states - only after mounted to prevent hydration mismatch
   const authState: AuthState = (() => {
-    if (loading) return 'loading'
+    if (!mounted || loading) return 'loading'
     if (!user) return 'logged-out'
     if (!user.companyMembership) return 'no-company'
     if (!company) return 'no-company'
@@ -72,10 +79,12 @@ export function useAuth(): UseAuthReturn {
     return 'has-company-access'
   })()
 
-  const isCompanyAdmin = user?.companyMembership?.role === 'company_admin'
+  const isCompanyAdmin = mounted ? user?.companyMembership?.role === 'company_admin' : false
 
   // Load user + partner/company info
   const loadUserData = useCallback(async (supabaseUser: SupabaseUser | null) => {
+    if (!mounted) return // HYDRATION FIX: Wait for mount
+
     try {
       if (!supabaseUser) {
         setUser(null)
@@ -144,7 +153,7 @@ export function useAuth(): UseAuthReturn {
         companyActive: companyData?.status === 'active',
         role: membership?.role,
         isPartner: userIsPartner,
-        authState: authState
+        authState: mounted ? authState : 'loading'
       })
     } catch (error) {
       console.error('User data loading error:', error)
@@ -152,11 +161,13 @@ export function useAuth(): UseAuthReturn {
       setCompany(null)
       setIsPartner(false)
     }
-  }, [supabase])
+  }, [supabase, mounted, authState])
 
-  // Initialize auth
+  // Initialize auth - only after mounted
   useEffect(() => {
-    let mounted = true
+    if (!mounted) return
+
+    let mountedLocal = true
 
     const initAuth = async () => {
       try {
@@ -165,13 +176,13 @@ export function useAuth(): UseAuthReturn {
         if (error && error.message !== 'Auth session missing!') {
           console.warn('Auth init warning:', error)
         }
-        if (mounted) {
+        if (mountedLocal) {
           await loadUserData(supabaseUser)
           setLoading(false)
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
-        if (mounted) setLoading(false)
+        if (mountedLocal) setLoading(false)
       }
     }
 
@@ -180,7 +191,7 @@ export function useAuth(): UseAuthReturn {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: any) => { // Add explicit types
-        if (!mounted) return
+        if (!mountedLocal) return
 
         // IMPORTANT: while on /auth/reset, ignore churn that happens during password reset.
         if (pathname.startsWith('/auth/reset')) {
@@ -205,13 +216,15 @@ export function useAuth(): UseAuthReturn {
     )
 
     return () => {
-      mounted = false
+      mountedLocal = false
       subscription.unsubscribe()
     }
-  }, [loadUserData, pathname, supabase])
+  }, [loadUserData, pathname, supabase, mounted])
 
   // Sign in with email/password or magic link fallback
   const signIn = useCallback(async (email: string, password?: string) => {
+    if (!mounted) return // HYDRATION FIX
+
     setLoading(true)
     try {
       if (password) {
@@ -229,10 +242,12 @@ export function useAuth(): UseAuthReturn {
       setLoading(false)
       throw error
     }
-  }, [supabase])
+  }, [supabase, mounted])
 
   // OAuth sign in
   const signInWithOAuth = useCallback(async (provider: 'google' | 'apple') => {
+    if (!mounted) return // HYDRATION FIX
+
     setLoading(true)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -245,10 +260,12 @@ export function useAuth(): UseAuthReturn {
       setLoading(false)
       throw error
     }
-  }, [supabase])
+  }, [supabase, mounted])
 
   // Magic link sign in
   const signInWithMagicLink = useCallback(async (email: string, options: any = {}) => {
+    if (!mounted) return // HYDRATION FIX
+
     setLoading(true)
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -265,10 +282,12 @@ export function useAuth(): UseAuthReturn {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, mounted])
 
   // Sign up
   const signUp = useCallback(async (email: string, password: string) => {
+    if (!mounted) return // HYDRATION FIX
+
     setLoading(true)
     try {
       const { error } = await supabase.auth.signUp({
@@ -283,10 +302,12 @@ export function useAuth(): UseAuthReturn {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, mounted])
 
   // Sign out
   const signOut = useCallback(async () => {
+    if (!mounted) return // HYDRATION FIX
+
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
@@ -294,10 +315,12 @@ export function useAuth(): UseAuthReturn {
       console.error('Sign out error:', error)
       throw error
     }
-  }, [supabase])
+  }, [supabase, mounted])
 
   // Reset password
   const resetPassword = useCallback(async (email: string) => {
+    if (!mounted) return // HYDRATION FIX
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset`, // your custom page
@@ -307,10 +330,12 @@ export function useAuth(): UseAuthReturn {
       console.error('Reset password error:', error)
       throw error
     }
-  }, [supabase])
+  }, [supabase, mounted])
 
   // Update password (used after recovery)
   const updatePassword = useCallback(async (password: string) => {
+    if (!mounted) return // HYDRATION FIX
+
     console.log('Starting password update...')
     try {
       console.log('Calling Supabase updateUser...')
@@ -328,13 +353,15 @@ export function useAuth(): UseAuthReturn {
       console.error('Update password error:', error)
       throw error
     }
-  }, [supabase])
+  }, [supabase, mounted])
 
   // Refresh auth state
   const refreshAuth = useCallback(async () => {
+    if (!mounted) return // HYDRATION FIX
+
     const { data: { user: supabaseUser } } = await supabase.auth.getUser()
     await loadUserData(supabaseUser)
-  }, [loadUserData, supabase])
+  }, [loadUserData, supabase, mounted])
 
   return {
     user,
@@ -343,6 +370,7 @@ export function useAuth(): UseAuthReturn {
     company,
     authState, // Now included
     isCompanyAdmin, // Now included
+    mounted, // HYDRATION FIX: Expose mounted state
 
     signIn,
     signInWithOAuth,

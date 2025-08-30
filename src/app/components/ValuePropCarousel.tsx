@@ -367,12 +367,12 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
               {/* Auto-play progress indicator */}
               {index === currentIndex && isAutoPlaying && !isTransitioning && (
                 <div 
+                  className="dailytidbit-progress-animation"
                   style={{
                     position: 'absolute',
                     inset: '0',
                     background: '#86efac',
-                    borderRadius: '50%',
-                    animation: `dailytidbit-progress ${autoPlayDelay}ms linear infinite`
+                    borderRadius: '50%'
                   }}
                 />
               )}
@@ -410,20 +410,6 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
           )}
         </div>
       )}
-
-      {/* Keyframe animation for progress indicator */}
-      <style jsx>{`
-        @keyframes dailytidbit-progress {
-          from { 
-            transform: scale(0.3); 
-            opacity: 0.5; 
-          }
-          to { 
-            transform: scale(1); 
-            opacity: 0.8; 
-          }
-        }
-      `}</style>
     </div>
   );
 };

@@ -478,8 +478,16 @@ function BitBoardContent() {
   const [showUserProfile, setShowUserProfile] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
+  
+  // HYDRATION FIX: Add mounted state to prevent hydration mismatches
+  const [mounted, setMounted] = useState(false)
 
   const supabase = getSupabaseBrowserClient()
+
+  // HYDRATION FIX: Set mounted after component mounts
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Enhanced debounced search
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
@@ -776,7 +784,7 @@ function BitBoardContent() {
 
       setPosts(enriched)
     } catch (err) {
-      console.error('⚠ Error fetching posts:', err)
+      console.error('⚠️ Error fetching posts:', err)
       setError('Failed to load posts. Please try again.')
     } finally {
       setLoading(false)
@@ -882,10 +890,12 @@ function BitBoardContent() {
     }
   }, [fetchPosts, supabase])
 
+  // HYDRATION FIX: Move handleRefresh callback after fetchPosts/fetchUserAndLikes are defined
   const handleRefresh = useCallback(async () => {
     await Promise.all([fetchPosts(), fetchUserAndLikes()])
   }, [fetchPosts, fetchUserAndLikes])
 
+  // HYDRATION FIX: Use stable callback for handlePostSubmit 
   const handlePostSubmit = useCallback(() => {
     setShowPostForm(false)
     handleRefresh()
@@ -897,12 +907,24 @@ function BitBoardContent() {
     setFilterOption('recent')
   }, [])
 
-  const getActiveFiltersCount = () => {
+  // HYDRATION FIX: Create stable function for calculating active filters
+  const activeFiltersCount = useMemo(() => {
+    if (!mounted) return 0 // Return 0 during SSR/hydration
+    
     let count = 0
     if (selectedTidbit !== null) count++
     if (debouncedSearchQuery.trim()) count++
     if (filterOption !== 'recent') count++
     return count
+  }, [mounted, selectedTidbit, debouncedSearchQuery, filterOption])
+
+  // HYDRATION FIX: Show loading screen during hydration
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-12 w-12 animate-spin text-[#60A875]" />
+      </div>
+    )
   }
 
   return (
@@ -951,15 +973,15 @@ function BitBoardContent() {
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`p-2 sm:p-3 rounded-full transition-colors relative ${
-              getActiveFiltersCount() > 0 
+              activeFiltersCount > 0 
                 ? 'bg-[#60A875] text-white'
                 : 'hover:bg-gray-100 text-gray-700'
             }`}
           >
             <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-            {getActiveFiltersCount() > 0 && (
+            {activeFiltersCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[10px] sm:text-xs">
-                {getActiveFiltersCount()}
+                {activeFiltersCount}
               </span>
             )}
           </button>
@@ -1028,7 +1050,7 @@ function BitBoardContent() {
                 </div>
               )}
 
-              {getActiveFiltersCount() > 0 && (
+              {activeFiltersCount > 0 && (
                 <button
                   onClick={clearFilters}
                   className="px-3 py-1.5 sm:px-4 sm:py-2 text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap text-xs sm:text-sm"
@@ -1217,7 +1239,7 @@ export default function MobileOptimizedBitBoard() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
+        <Loader2 className="h-12 w-12 animate-spin text-[#60A875]" />
       </div>
     }>
       <BitBoardContent />

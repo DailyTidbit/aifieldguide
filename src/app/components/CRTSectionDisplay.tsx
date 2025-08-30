@@ -149,7 +149,7 @@ export default function CRTSectionDisplay({
     {
       id: 'limitations',
       label: 'Limitations',
-      icon: '📝',
+      icon: '🔍',
       content: section?.limitations || 'Important considerations...'
     },
     {
@@ -348,25 +348,6 @@ export default function CRTSectionDisplay({
           sectionColor={sectionColor}
         />
       )}
-
-      {/* Custom CSS for scrollable tabs */}
-      <style jsx>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        
-        @media (max-width: 768px) {
-          .scrollbar-hide {
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-          }
-        }
-      `}</style>
     </div>
   )
 }
@@ -558,9 +539,8 @@ function CRTTVDisplay({
                   {/* Scanlines */}
                   {scanlines && (
                     <div className="absolute inset-0 pointer-events-none z-10 opacity-10">
-                      <div className="h-full w-full" style={{
+                      <div className="h-full w-full crt-scanlines" style={{
                         backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,255,0,0.1) 3px, rgba(0,255,0,0.1) 6px)',
-                        animation: 'scanlines 0.2s linear infinite'
                       }}></div>
                     </div>
                   )}
@@ -635,7 +615,7 @@ function CRTTVDisplay({
                   className="w-10 h-6 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-sm flex items-center justify-center transition-colors text-white text-sm font-bold"
                   title="Play/Stop"
                 >
-                  {tvOn ? '⏹️' : '▶️'}
+                  {tvOn ? '⏸️' : '▶️'}
                 </button>
                 
                 <button 
@@ -717,14 +697,6 @@ function CRTTVDisplay({
           <div className="absolute inset-0 bg-blue-400/5 rounded-lg blur-3xl scale-110 pointer-events-none"></div>
         )}
       </div>
-
-      {/* Scanlines animation CSS */}
-      <style jsx>{`
-        @keyframes scanlines {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(6px); }
-        }
-      `}</style>
     </div>
   )
 }

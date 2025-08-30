@@ -689,6 +689,7 @@ select:focus-visible {
   background: #59B1E3;
   color: #FFFFFF;
 }
+
 /* === Enhanced Mobile Menu Animations === */
 @keyframes slide-up-nav {
   from {
@@ -752,4 +753,89 @@ select:focus-visible {
     align-items: center;
     padding: 12px 8px;
   }
+}
+
+/* === AI Explanation Carousel Styles === */
+.ai-explanation-carousel {
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+  height: 550px;
+  overflow: hidden;
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 640px) {
+  .ai-explanation-carousel {
+    height: 500px !important;
+    border-radius: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-explanation-carousel {
+    height: 480px !important;
+  }
+}
+
+@keyframes story-progress {
+  from { 
+    transform: scaleY(0);
+  }
+  to { 
+    transform: scaleY(1);
+  }
+}
+
+/* === CRT Section Display Styles === */
+@keyframes scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(6px); }
+}
+
+.crt-scanlines {
+  animation: scanlines 0.2s linear infinite;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .scrollbar-hide {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* === Value Prop Carousel Styles === */
+@keyframes dailytidbit-progress {
+  from { 
+    transform: scale(0.3); 
+    opacity: 0.5; 
+  }
+  to { 
+    transform: scale(1); 
+    opacity: 0.8; 
+  }
+}
+
+.dailytidbit-progress-animation {
+  animation: dailytidbit-progress 6000ms linear infinite;
+}
+
+/* === Tidbit Library Client Styles === */
+@keyframes sheet-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.sheet-in-animation {
+  animation: sheet-in 0.3s ease-out;
 }

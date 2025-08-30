@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { supabase } from '../lib/supabaseClient'
 import { User, Camera, ArrowRight, ArrowLeft, Check, Sparkles, Globe, ChevronRight, Upload, Loader2, X } from 'lucide-react'
@@ -17,10 +17,16 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
   const [loading, setLoading] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false) // HYDRATION FIX
 
   const [formData, setFormData] = useState({ full_name: '', username: '', bio: '', website: '', avatar_url: '' })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const totalSteps = 3
+
+  // HYDRATION FIX: Set mounted state
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -41,6 +47,8 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
   }
 
   const handleComplete = async () => {
+    if (!mounted) return // HYDRATION FIX: Prevent action during hydration
+
     try {
       setLoading(true); setError(null)
       if (formData.username) {
@@ -64,10 +72,31 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
     }
   }
 
-  const nextStep = () => { if (currentStep < totalSteps) setCurrentStep((s) => s + 1); else handleComplete() }
-  const prevStep = () => { if (currentStep > 1) setCurrentStep((s) => s - 1) }
+  const nextStep = () => { 
+    if (!mounted) return // HYDRATION FIX
+    if (currentStep < totalSteps) setCurrentStep((s) => s + 1); else handleComplete() 
+  }
 
-  const canProceed = () => (currentStep === 1 ? formData.full_name.trim().length > 0 : true)
+  const prevStep = () => { 
+    if (!mounted) return // HYDRATION FIX
+    if (currentStep > 1) setCurrentStep((s) => s - 1) 
+  }
+
+  const canProceed = () => {
+    if (!mounted) return false // HYDRATION FIX
+    return currentStep === 1 ? formData.full_name.trim().length > 0 : true
+  }
+
+  // HYDRATION FIX: Show loading during hydration
+  if (!mounted) {
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-[#60A875] mx-auto" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -175,10 +204,10 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
         </div>
 
         <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-          <button onClick={prevStep} disabled={currentStep === 1} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ArrowLeft className="w-4 h-4" />Previous</button>
+          <button onClick={prevStep} disabled={currentStep === 1 || !mounted} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ArrowLeft className="w-4 h-4" />Previous</button>
           <div className="flex items-center gap-3">
             {onSkip && currentStep === totalSteps && (<button onClick={onSkip} className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors">Skip for now</button>)}
-            <button onClick={nextStep} disabled={!canProceed() || loading} className="flex items-center gap-2 px-6 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <button onClick={nextStep} disabled={!canProceed() || loading || !mounted} className="flex items-center gap-2 px-6 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {loading ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : currentStep === totalSteps ? (<><Check className="w-4 h-4" />Complete Setup</>) : (<>Next<ArrowRight className="w-4 h-4" /></>)}
             </button>
           </div>
@@ -189,6 +218,24 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
 }
 
 export function ProfilePreview({ profile }: { profile: any }) {
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+        <div className="w-12 h-12 rounded-full bg-gray-200 animate-pulse"></div>
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3"></div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
       <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100">

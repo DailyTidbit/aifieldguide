@@ -47,10 +47,10 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
 
   const filterCategories = useMemo(
     () => [
-      { key: 'writing', label: 'Writing', emoji: '✍️' },
+      { key: 'writing', label: 'Writing', emoji: '✏️' },
       { key: 'creative', label: 'Creative', emoji: '🎨' },
       { key: 'planning', label: 'Planning', emoji: '📋' },
-      { key: 'beginner', label: 'Beginner', emoji: '🤓' },
+      { key: 'beginner', label: 'Beginner', emoji: '🤔' },
       { key: 'productivity', label: 'Productivity', emoji: '⏱️' },
       { key: 'business', label: 'Business', emoji: '💼' },
       { key: 'communication', label: 'Communication', emoji: '💬' },
@@ -78,7 +78,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
 
   const buildUrl = useCallback((nextPage: number) => {
     const u = new URL('/api/tidbits', window.location.origin)
-    // Note: removed q — library is browse-only now
+    // Note: removed q – library is browse-only now
     u.searchParams.set('sort', sort)
     u.searchParams.set('page', String(nextPage))
     u.searchParams.set('perPage', String(perPage))
@@ -269,12 +269,12 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
       {/* Infinite scroll sentinel */}
       <div ref={sentinelRef} aria-hidden="true" className="h-1" />
 
-      {/* Filter dialog (unchanged) */}
+      {/* Filter dialog */}
       {filtersOpen && (
         <div role="dialog" aria-modal="true" aria-label="Filter categories" id="filters-dialog" className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/30" onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} />
           <div className="absolute inset-x-0 bottom-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[min(92vw,720px)]">
-            <div ref={dialogRef} className="bg-white rounded-t-2xl md:rounded-2xl shadow-xl border border-black/5 h-[88vh] md:h-auto md:max-h-[80vh] flex flex-col">
+            <div ref={dialogRef} className="bg-white rounded-t-2xl md:rounded-2xl shadow-xl border border-black/5 h-[88vh] md:h-auto md:max-h-[80vh] flex flex-col sheet-in-animation">
               <div className="flex items-center justify-between px-4 py-3 border-b">
                 <h3 className="font-semibold text-gray-900">Filters</h3>
                 <button onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} className="p-2 rounded-lg hover:bg-gray-100" aria-label="Close filters">
@@ -311,13 +311,6 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes sheet-in {
-          from { transform: translateY(100%); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-      `}</style>
     </main>
   )
 }
