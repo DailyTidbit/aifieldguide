@@ -1,14 +1,70 @@
-// src/app/api/partners/send-invite/route.ts - Complete file with TypeScript errors fixed
+// src/app/api/partners/send-invite/route.ts - Updated for cookie-based auth
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/app/lib/supabaseServer'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
-import { requirePartner, logPartnerAction, checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
 import { partnerInviteSchema, validateInput } from '@/app/lib/validationSchemas'
+import { checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
 
 // Type-safe database helpers to avoid repeated (supabaseAdmin as any)
 const db = {
   companyUsers: () => (supabaseAdmin as any).from('company_users'),
   partnerRequests: () => (supabaseAdmin as any).from('partner_requests'),
   partnerSecurityLogs: () => (supabaseAdmin as any).from('partner_security_logs')
+}
+
+// Helper function for partner auth using cookies
+async function requirePartner(request: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient()
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return { error: 'Authentication required', status: 401 }
+    }
+
+    // Get user's company membership
+    const { data: membership, error: membershipError } = await supabase
+      .from('company_users')
+      .select('company_id, role')
+      .eq('user_id', user.id)
+      .single()
+
+    if (membershipError || !membership?.company_id) {
+      return { error: 'Partner access required', status: 403 }
+    }
+
+    return { 
+      partner: { 
+        user_id: user.id,
+        company_id: membership.company_id,
+        role: membership.role 
+      } 
+    }
+  } catch (error) {
+    console.error('Partner auth error:', error)
+    return { error: 'Authentication failed', status: 500 }
+  }
+}
+
+// Helper function to log partner actions
+async function logPartnerAction(actionData: {
+  user_id: string
+  action: string
+  target_type: string
+  target_id: string
+  details: any
+  ip_address: string
+  user_agent?: string
+}) {
+  try {
+    await db.partnerSecurityLogs().insert({
+      ...actionData,
+      created_at: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Failed to log partner action:', error)
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -35,7 +91,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Partner authentication
+    // Partner authentication using cookies
     const authResult = await requirePartner(request)
     if ('error' in authResult) {
       return NextResponse.json(
@@ -101,7 +157,7 @@ export async function POST(request: NextRequest) {
 
     let userId: string
 
-    // FIXED: Use listUsers with email filter (getUserByEmail doesn't exist in Supabase Admin API)
+    // Use listUsers with email filter
     let existingUser
     try {
       const { data: userList, error: userListError } = await supabaseAdmin.auth.admin.listUsers()
@@ -163,7 +219,6 @@ export async function POST(request: NextRequest) {
           user_agent: request.headers.get('user-agent') || undefined
         })
 
-        // Always return neutral success message
         return NextResponse.json({
           success: true,
           message: 'If the invitation is valid, instructions have been sent.'
@@ -173,7 +228,7 @@ export async function POST(request: NextRequest) {
       userId = newUser.user.id
     }
 
-    // Add user to company_users table (ensures company association)
+    // Add user to company_users table
     const { error: partnershipError } = await db.companyUsers()
       .insert({
         user_id: userId,
@@ -206,19 +261,18 @@ export async function POST(request: NextRequest) {
         user_agent: request.headers.get('user-agent') || undefined
       })
 
-      // Always return neutral success message
       return NextResponse.json({
         success: true,
         message: 'If the invitation is valid, instructions have been sent.'
       })
     }
 
-    // FIXED: Generate magic link with correct redirectTo parameter (camelCase)
+    // Generate magic link with correct redirectTo parameter
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/partners/setup`, // Fixed: camelCase not snake_case
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/partners/setup`,
         data: {
           company_id: companyId,
           company_name: company.name,
@@ -251,7 +305,6 @@ export async function POST(request: NextRequest) {
         user_agent: request.headers.get('user-agent') || undefined
       })
 
-      // Always return neutral success message
       return NextResponse.json({
         success: true,
         message: 'If the invitation is valid, instructions have been sent.'
@@ -313,7 +366,6 @@ export async function POST(request: NextRequest) {
       user_agent: request.headers.get('user-agent') || undefined
     })
 
-    // FIXED: Only include rate limit headers if the values exist
     const responseHeaders: Record<string, string> = {
       'X-RateLimit-Limit': '5'
     }
@@ -349,6 +401,77 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'If the invitation is valid, instructions have been sent.'
     })
+  }
+}
+
+// GET method for listing requests (admin only) - Updated for cookie auth
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient()
+    
+    // Get user from cookie-based auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { success: false, message: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Check if user is admin
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || profile?.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, message: 'Admin access required' },
+        { status: 403 }
+      )
+    }
+
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status') || 'pending'
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
+    const offset = parseInt(searchParams.get('offset') || '0')
+
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid status filter' },
+        { status: 400 }
+      )
+    }
+
+    const { data: requests, error, count } = await db.partnerRequests()
+      .select('*', { count: 'exact' })
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json({
+      success: true,
+      requests: requests || [],
+      pagination: {
+        total: count || 0,
+        limit,
+        offset,
+        hasMore: (count || 0) > offset + limit
+      }
+    })
+
+  } catch (error) {
+    console.error('Error fetching partner requests:', error)
+    return NextResponse.json(
+      { success: false, message: 'Failed to fetch partner requests' },
+      { status: 500 }
+    )
   }
 }
 

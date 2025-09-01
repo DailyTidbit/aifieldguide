@@ -1,8 +1,9 @@
-// app/components/FieldGuideClient.tsx - OPTIMIZED WITH PERFORMANCE IMPROVEMENTS
+// app/components/FieldGuideClient.tsx - HYDRATION SAFETY FIXED
 'use client'
 
 import { useState, useEffect, useDeferredValue, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import React from 'react'
 
 // Types
 interface FieldGuideSection {
@@ -93,11 +94,18 @@ const getSectionColor = (sectionName: string): string => {
 const loadAnalytics = () => import('../lib/gtag')
 
 export default function FieldGuideClient({ initialData }: FieldGuideClientProps) {
+  // HYDRATION FIX: Add mounted state
+  const [mounted, setMounted] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   
-  // ✅ Debounced search for better performance
+  // Debounced search for better performance
   const deferredSearchQuery = useDeferredValue(searchQuery)
+
+  // HYDRATION FIX: Wait for mount before any browser operations
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
   // Memoized filtered sections for better performance
   const filteredSections = useMemo(() => {
@@ -113,16 +121,20 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
 
   // Track analytics with useCallback to prevent recreating function
   const trackEvent = useCallback(async (eventName: string, params: Record<string, any>) => {
+    if (!mounted) return // HYDRATION FIX: Don't track before mount
+
     try {
       const { logEvent } = await loadAnalytics()
       logEvent(eventName, params)
     } catch {
       // Analytics not critical - fail silently
     }
-  }, [])
+  }, [mounted])
 
   // Track page view on mount
   useEffect(() => {
+    if (!mounted) return
+    
     setIsVisible(true)
     trackEvent('page_view', { 
       page_title: 'Field Guide', 
@@ -130,29 +142,55 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
       section_count: initialData.sectionCount,
       total_tools: initialData.totalTools
     })
-  }, [initialData.sectionCount, initialData.totalTools, trackEvent])
+  }, [mounted, initialData.sectionCount, initialData.totalTools, trackEvent])
 
   // Track search with debounced query
   useEffect(() => {
+    if (!mounted) return // HYDRATION FIX: Don't track before mount
+    
     if (deferredSearchQuery.trim()) {
       trackEvent('field_guide_search', {
         search_term: deferredSearchQuery,
         results_count: filteredSections.length
       })
     }
-  }, [deferredSearchQuery, filteredSections.length, trackEvent])
+  }, [mounted, deferredSearchQuery, filteredSections.length, trackEvent])
 
   const handleSectionClick = useCallback((section: FieldGuideSection) => {
+    if (!mounted) return
+    
     trackEvent('field_guide_section_click', {
       section_name: section.section_name,
       section_slug: section.slug,
       tool_count: section.toolCount
     })
-  }, [trackEvent])
+  }, [mounted, trackEvent])
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery('')
   }, [])
+
+  // HYDRATION FIX: Return loading state until mounted to prevent mismatch
+  if (!mounted) {
+    return (
+      <section className="bg-white px-6 md:px-12 py-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl text-[#60A875] mb-6 leading-tight font-bold">
+              🗺️ Loading Field Guide...
+            </h2>
+            <div className="animate-pulse">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="bg-gray-200 h-64 rounded-3xl"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <>
@@ -170,7 +208,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
               className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-medium mb-8"
               style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
             >
-              Pick your adventure — each section is packed with hand-picked tools and real-world use cases.
+              Pick your adventure – each section is packed with hand-picked tools and real-world use cases.
             </p>
 
             {/* Search */}
@@ -315,6 +353,3 @@ const SectionCard = React.memo(function SectionCard({
     </Link>
   )
 })
-
-// Add missing React import
-import React from 'react'

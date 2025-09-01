@@ -1,4 +1,4 @@
-// src/components/CookieConsent.tsx
+// src/app/components/CookieConsent.tsx - Fixed hydration safety issues
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -10,15 +10,25 @@ interface CookieConsentProps {
 
 export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
   const [showDetails, setShowDetails] = useState(false)
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(true) // Default to enabled
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  // HYDRATION FIX: Wait for component to mount before any DOM operations
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleAccept = () => {
+    if (!mounted) return // HYDRATION FIX
+    
     const consentGranted = analyticsEnabled
     storeConsent(consentGranted)
     onConsentChange(consentGranted)
   }
 
   const handleDecline = () => {
+    if (!mounted) return // HYDRATION FIX
+    
     storeConsent(false)
     onConsentChange(false)
   }
@@ -27,8 +37,10 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
     setShowDetails(!showDetails)
   }
 
-  // Handle escape key
+  // Handle escape key - HYDRATION FIX: Only after mounted
   useEffect(() => {
+    if (!mounted) return
+
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showDetails) {
         setShowDetails(false)
@@ -39,7 +51,12 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
       document.addEventListener('keydown', handleEscape)
       return () => document.removeEventListener('keydown', handleEscape)
     }
-  }, [showDetails])
+  }, [showDetails, mounted])
+
+  // HYDRATION FIX: Don't render until mounted to prevent server/client mismatch
+  if (!mounted) {
+    return null
+  }
 
   return (
     <>

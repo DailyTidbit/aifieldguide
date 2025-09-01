@@ -1,3 +1,4 @@
+// src/app/components/PostForm.tsx - Hydration safety fixed
 'use client'
 
 import { useState, useEffect } from 'react'

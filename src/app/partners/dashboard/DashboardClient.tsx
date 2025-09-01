@@ -1,7 +1,8 @@
-// src/app/partners/dashboard/DashboardClient.tsx - Fixed for Magic Link Flow
+// src/app/partners/dashboard/DashboardClient.tsx - FULLY HYDRATION SAFE VERSION
 'use client'
+
 import { useEffect, useState } from 'react'
-import { supabaseClient } from '@/app/lib/supabaseClient'
+import { useSupabaseBrowser } from '../../lib/supabaseClient'
 import PartnerHubDemo from '../../components/partners/PartnerHubDemo'
 import Link from 'next/link'
 import { 
@@ -33,6 +34,8 @@ type DashboardData = {
 }
 
 export default function DashboardClient() {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [state, setState] = useState<DashboardData>({ 
     loading: true,
     userName: '',
@@ -48,12 +51,23 @@ export default function DashboardClient() {
   const [view, setView] = useState<'overview' | 'demo'>('overview')
   const [error, setError] = useState<string | null>(null)
 
+  // Use the safe Supabase hook
+  const { client: supabase, isReady } = useSupabaseBrowser()
+
   useEffect(() => {
-    let mounted = true
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || !isReady || !supabase) return
+
+    let isMounted = true
     
     async function loadDashboard() {
+      if (!isMounted || !isReady || !supabase) return
+
       try {
-        const { data: { user } } = await supabaseClient.auth.getUser()
+        const { data: { user } } = await supabase.auth.getUser()
         
         if (!user) { 
           // Redirect to partners page for authentication
@@ -68,7 +82,7 @@ export default function DashboardClient() {
         }
 
         // Get company membership with company details
-        const { data: membership } = await supabaseClient
+        const { data: membership } = await supabase
           .from('company_users')
           .select(`
             company_id, 
@@ -80,7 +94,7 @@ export default function DashboardClient() {
           .maybeSingle()
 
         if (!membership?.company_id) {
-          if (mounted) {
+          if (isMounted) {
             setState(prev => ({ 
               ...prev, 
               loading: false,
@@ -97,18 +111,18 @@ export default function DashboardClient() {
 
         // Get profile completeness data
         const [companyProfileResponse, memberProfileResponse, listingCountResponse] = await Promise.all([
-          supabaseClient
+          supabase
             .from('company_profiles')
             .select('*')
             .eq('company_id', companyId)
             .maybeSingle(),
-          supabaseClient
+          supabase
             .from('company_member_profiles')
             .select('*')
             .eq('company_id', companyId)
             .eq('user_id', user.id)
             .maybeSingle(),
-          supabaseClient
+          supabase
             .from('tool_listings')
             .select('*', { count: 'exact', head: true })
             .eq('company_id', companyId)
@@ -129,7 +143,7 @@ export default function DashboardClient() {
         if (!memberProfile?.title) needsAttention.push('Add your job title')
         if (listingCount === 0) needsAttention.push('Create first tool listing')
 
-        if (mounted) {
+        if (isMounted) {
           setState({
             loading: false,
             userName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
@@ -148,7 +162,7 @@ export default function DashboardClient() {
         }
       } catch (err) {
         console.error('Error loading dashboard:', err)
-        if (mounted) {
+        if (isMounted) {
           setError('Failed to load dashboard data. Please try refreshing the page.')
           setState(prev => ({ ...prev, loading: false }))
         }
@@ -156,10 +170,11 @@ export default function DashboardClient() {
     }
 
     loadDashboard()
-    return () => { mounted = false }
-  }, [])
+    return () => { isMounted = false }
+  }, [mounted, isReady, supabase])
 
-  if (state.loading) {
+  // Show loading during hydration
+  if (!mounted || state.loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

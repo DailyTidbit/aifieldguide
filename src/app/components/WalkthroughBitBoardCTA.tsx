@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { Users, Share2, Sparkles, Target, ArrowRight, ExternalLink, CheckCircle, Clock } from 'lucide-react'
 import RotatingWord from './RotatingWord'
 
@@ -36,6 +36,8 @@ export default function WalkthroughBitBoardCTA({
   user, 
   latestConversation
 }: WalkthroughBitBoardCTAProps) {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [recentPosts, setRecentPosts] = useState<SimplePost[]>([])
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
@@ -43,16 +45,26 @@ export default function WalkthroughBitBoardCTA({
   const [userProgress, setUserProgress] = useState<any>(null)
 
   useEffect(() => {
-    loadData()
-  }, [tidbitNumber, user])
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (mounted) {
+      loadData()
+    }
+  }, [tidbitNumber, user, mounted])
 
   const loadData = async () => {
     await Promise.all([loadRecentPosts(), loadUserProgress()])
   }
 
   const loadRecentPosts = async () => {
+    if (!mounted) return
+    
     try {
       setLoadingPosts(true)
+      
+      const supabase = getSupabaseBrowserClient()
       
       // Get total count
       const { count } = await supabase
@@ -102,8 +114,10 @@ export default function WalkthroughBitBoardCTA({
   }
 
   const loadUserProgress = async () => {
-    if (!user) return
+    if (!mounted || !user) return
+    
     try {
+      const supabase = getSupabaseBrowserClient()
       const { data: progress } = await supabase
         .from('user_tidbit_progress')
         .select('*')
@@ -117,6 +131,8 @@ export default function WalkthroughBitBoardCTA({
   }
 
   const handleShareClick = () => {
+    if (!mounted) return
+    
     const params = new URLSearchParams({
       tidbit: tidbitNumber.toString(),
       content: latestConversation 
@@ -204,6 +220,21 @@ export default function WalkthroughBitBoardCTA({
             </div>
           )
         })}
+      </div>
+    )
+  }
+
+  // Hydration safety - show loading during hydration
+  if (!mounted) {
+    return (
+      <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 lg:p-12 border border-blue-200 text-center">
+        <div className="animate-pulse">
+          <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-6"></div>
+          <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto mb-4"></div>
+          <div className="h-6 bg-gray-200 rounded w-1/2 mx-auto mb-8"></div>
+          <div className="h-12 bg-gray-200 rounded w-full mb-4"></div>
+          <div className="h-12 bg-gray-200 rounded w-full"></div>
+        </div>
       </div>
     )
   }

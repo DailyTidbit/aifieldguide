@@ -1,4 +1,4 @@
-// components/AIExplanationCarousel.tsx
+// components/AIExplanationCarousel.tsx - Hydration-safe
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -53,7 +53,7 @@ const AISlide: React.FC<AISlideProps> = ({
     <div 
       className={`w-full h-full flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 ${colors.bgLight} relative overflow-hidden`}
       style={{ 
-        minHeight: '400px', // Reduced from 500px for mobile 
+        minHeight: '400px', 
         boxSizing: 'border-box'
       }}
     >
@@ -62,7 +62,7 @@ const AISlide: React.FC<AISlideProps> = ({
         <div className={`w-full h-full bg-gradient-to-br ${colors.gradient}`}></div>
       </div>
       
-      {/* Step indicator - Responsive positioning */}
+      {/* Step indicator */}
       <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-3">
         <div className={`w-8 h-8 sm:w-10 sm:h-10 ${colors.bgAccent} text-white rounded-full flex items-center justify-center font-bold text-sm sm:text-lg`}>
           {stepNumber}
@@ -72,11 +72,10 @@ const AISlide: React.FC<AISlideProps> = ({
         </div>
       </div>
       
-      {/* Main content card - Better mobile spacing */}
+      {/* Main content card */}
       <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 lg:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50 overflow-hidden">
-        {/* AI Host background image for all slides - Mobile optimized */}
+        {/* Host image background */}
         <>
-          {/* Host image background - Better mobile positioning */}
           <div 
             className="absolute bottom-0 right-0 w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 lg:w-96 lg:h-96 opacity-30 sm:opacity-40 pointer-events-none"
             style={{
@@ -85,17 +84,15 @@ const AISlide: React.FC<AISlideProps> = ({
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'bottom center',
               filter: 'blur(0.2px)',
-              transform: 'translateX(10%) translateY(10%) scale(0.8)', // Better mobile scaling
+              transform: 'translateX(10%) translateY(10%) scale(0.8)',
               transformOrigin: 'bottom right'
             }}
           />
-          {/* Lighter overlay for text readability - More opaque on mobile */}
           <div className="absolute inset-0 bg-white/65 sm:bg-white/55 pointer-events-none rounded-2xl sm:rounded-3xl"></div>
         </>
         
-        {/* Content with higher z-index - Mobile optimized spacing */}
+        {/* Content */}
         <div className="relative z-20">
-          {/* Title - Responsive text sizing */}
           <h4 
             className={`text-xl sm:text-2xl md:text-3xl font-bold ${colors.text} mb-4 sm:mb-6 text-center leading-tight`}
             style={{ fontFamily: "var(--font-playfair, 'Playfair Display'), serif" }}
@@ -103,7 +100,6 @@ const AISlide: React.FC<AISlideProps> = ({
             {title}
           </h4>
           
-          {/* Content - Responsive text sizing and spacing */}
           <div 
             className="text-base sm:text-lg text-gray-700 leading-relaxed space-y-3 sm:space-y-4 text-center"
             style={{ fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif" }}
@@ -111,7 +107,6 @@ const AISlide: React.FC<AISlideProps> = ({
             {content}
           </div>
           
-          {/* Button if present - Mobile optimized */}
           {hasButton && buttonText && (
             <div className="mt-6 sm:mt-8 text-center">
               <button 
@@ -126,7 +121,7 @@ const AISlide: React.FC<AISlideProps> = ({
         </div>
       </div>
       
-      {/* Floating elements for visual interest - Mobile hidden to reduce clutter */}
+      {/* Floating elements - hidden on mobile */}
       <div className={`hidden sm:block absolute top-20 right-12 w-16 h-16 ${colors.bgAccent}/10 rounded-full blur-xl animate-pulse`}></div>
       <div className={`hidden sm:block absolute bottom-20 left-12 w-12 h-12 ${colors.bgAccent}/15 rounded-full blur-lg animate-pulse delay-1000`}></div>
     </div>
@@ -137,6 +132,12 @@ const AIExplanationCarousel: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(true);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  // Hydration safety
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const slides: AISlideProps[] = [
     {
@@ -145,13 +146,13 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            It's trained on massive datasets – reading patterns in language, images, sounds, and code – so it can generate helpful results.
+            It's trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
           </p>
           <p className="mb-3 sm:mb-4">
             Some models write, some generate images, others make music, synthesize voices, or even help with code.
           </p>
           <p className="mb-3 sm:mb-4">
-            You don't see the model – and you don't have to.
+            You don't see the model — and you don't have to.
           </p>
           <p className="font-bold text-[#60A875] text-base sm:text-lg">
             It all happens in the background, but that's where the magic lives.
@@ -169,7 +170,7 @@ const AIExplanationCarousel: React.FC = () => {
             Most people don't interact with the model directly. Instead, they use websites or apps that make it easy.
           </p>
           <p className="mb-3 sm:mb-4">
-            These tools give you a simple interface – like a chat box, design screen, or form.
+            These tools give you a simple interface — like a chat box, design screen, or form.
           </p>
           <p className="font-bold text-[#59B1E3] text-base sm:text-lg">
             You just type what you want, and the tool talks to the model behind the scenes to make it happen.
@@ -184,7 +185,7 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            We make AI feel easy – and honestly? Fun.
+            We make AI feel easy — and honestly? Fun.
           </p>
           <p className="mb-3 sm:mb-4">
             One smart tip a day to help you write better, create faster, and save time with free tools anyone can use.
@@ -197,14 +198,18 @@ const AIExplanationCarousel: React.FC = () => {
       accent: 'purple',
       hasButton: true,
       buttonText: "Browse the Tidbit Library",
-      buttonAction: () => window.location.href = '/TidbitLibrary'
+      buttonAction: () => {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/TidbitLibrary'
+        }
+      }
     }
   ];
 
   const totalSlides = slides.length;
 
   const goToSlide = useCallback((index: number) => {
-    if (isTransitioning) return;
+    if (!mounted || isTransitioning) return;
 
     setIsTransitioning(true);
     
@@ -218,7 +223,7 @@ const AIExplanationCarousel: React.FC = () => {
     setCurrentIndex(newIndex);
     
     setTimeout(() => setIsTransitioning(false), 500);
-  }, [totalSlides, isTransitioning]);
+  }, [totalSlides, isTransitioning, mounted]);
 
   const nextSlide = useCallback(() => {
     goToSlide(currentIndex + 1);
@@ -228,25 +233,29 @@ const AIExplanationCarousel: React.FC = () => {
     goToSlide(currentIndex - 1);
   }, [currentIndex, goToSlide]);
 
-  // Auto-play functionality
+  // Auto-play functionality - only after mounted
   useEffect(() => {
+    if (!mounted) return
+    
     if (isAutoPlaying && totalSlides > 1 && !isTransitioning) {
-      const interval = setInterval(nextSlide, 6000); // 6 seconds for reading
+      const interval = setInterval(nextSlide, 6000);
       return () => clearInterval(interval);
     }
-  }, [isAutoPlaying, totalSlides, nextSlide, isTransitioning]);
+  }, [isAutoPlaying, totalSlides, nextSlide, isTransitioning, mounted]);
 
-  // Pause auto-play on hover
+  // Pause auto-play on hover - only after mounted
   const handleMouseEnter = useCallback(() => {
-    setIsAutoPlaying(false);
-  }, []);
+    if (mounted) setIsAutoPlaying(false);
+  }, [mounted]);
 
   const handleMouseLeave = useCallback(() => {
-    setIsAutoPlaying(true);
-  }, []);
+    if (mounted) setIsAutoPlaying(true);
+  }, [mounted]);
 
-  // Keyboard navigation
+  // Keyboard navigation - only after mounted
   useEffect(() => {
+    if (!mounted) return
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -259,34 +268,56 @@ const AIExplanationCarousel: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextSlide, prevSlide]);
+  }, [nextSlide, prevSlide, mounted]);
 
-  // Touch handling for vertical swipes
+  // Touch handling - only after mounted
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!mounted) return
     setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientY); // Changed to clientY for vertical
-  }, []);
+    setTouchStart(e.targetTouches[0].clientY);
+  }, [mounted]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientY); // Changed to clientY for vertical
-  }, []);
+    if (!mounted) return
+    setTouchEnd(e.targetTouches[0].clientY);
+  }, [mounted]);
 
   const handleTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd) return;
+    if (!mounted || !touchStart || !touchEnd) return;
     
     const distance = touchStart - touchEnd;
-    const isUpSwipe = distance > 50;   // Swipe up = next slide
-    const isDownSwipe = distance < -50; // Swipe down = previous slide
+    const isUpSwipe = distance > 50;
+    const isDownSwipe = distance < -50;
 
     if (isUpSwipe) {
       nextSlide();
     } else if (isDownSwipe) {
       prevSlide();
     }
-  }, [touchStart, touchEnd, nextSlide, prevSlide]);
+  }, [touchStart, touchEnd, nextSlide, prevSlide, mounted]);
+
+  // Show loading state during hydration
+  if (!mounted) {
+    return (
+      <div className="ai-explanation-carousel">
+        <div className="w-full h-full flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 bg-green-50 relative overflow-hidden" style={{ minHeight: '400px' }}>
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 lg:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded"></div>
+                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div 
@@ -323,7 +354,7 @@ const AIExplanationCarousel: React.FC = () => {
         ))}
       </div>
 
-      {/* Vertical navigation buttons - Mobile optimized */}
+      {/* Navigation buttons */}
       {totalSlides > 1 && (
         <>
           <button
@@ -331,14 +362,14 @@ const AIExplanationCarousel: React.FC = () => {
             disabled={isTransitioning || currentIndex === 0}
             style={{
               position: 'absolute',
-              top: '15px', // Closer to edge on mobile
+              top: '15px',
               right: '15px',
               zIndex: 20,
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(10px)',
               border: 'none',
               borderRadius: '50%',
-              width: '40px', // Smaller on mobile
+              width: '40px',
               height: '40px',
               display: 'flex',
               alignItems: 'center',
@@ -358,7 +389,7 @@ const AIExplanationCarousel: React.FC = () => {
               e.currentTarget.style.transform = 'scale(1)';
               e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
             }}
-            aria-label="Previous slide (swipe down)"
+            aria-label="Previous slide"
           >
             <ChevronUp style={{ width: '20px', height: '20px', color: '#60A875' }} />
           </button>
@@ -368,14 +399,14 @@ const AIExplanationCarousel: React.FC = () => {
             disabled={isTransitioning || currentIndex === totalSlides - 1}
             style={{
               position: 'absolute',
-              bottom: '15px', // Closer to edge on mobile
+              bottom: '15px',
               right: '15px',
               zIndex: 20,
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(10px)',
               border: 'none',
               borderRadius: '50%',
-              width: '40px', // Smaller on mobile
+              width: '40px',
               height: '40px',
               display: 'flex',
               alignItems: 'center',
@@ -395,36 +426,35 @@ const AIExplanationCarousel: React.FC = () => {
               e.currentTarget.style.transform = 'scale(1)';
               e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
             }}
-            aria-label="Next slide (swipe up)"
+            aria-label="Next slide"
           >
             <ChevronDown style={{ width: '20px', height: '20px', color: '#60A875' }} />
           </button>
         </>
       )}
 
-      {/* Vertical progress indicator - Mobile optimized */}
+      {/* Progress indicator */}
       <div style={{
         position: 'absolute',
-        top: '15px', // Closer to edge on mobile
+        top: '15px',
         left: '15px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px', // Smaller gap on mobile
+        gap: '6px',
         zIndex: 20
       }}>
         {slides.map((_, index) => (
           <div
             key={`progress-${index}`}
             style={{
-              width: '3px', // Thinner on mobile
-              height: '50px', // Shorter on mobile
+              width: '3px',
+              height: '50px',
               borderRadius: '2px',
               background: 'rgba(255, 255, 255, 0.3)',
               position: 'relative',
               overflow: 'hidden'
             }}
           >
-            {/* Progress fill */}
             <div
               style={{
                 position: 'absolute',
@@ -437,7 +467,6 @@ const AIExplanationCarousel: React.FC = () => {
                 borderRadius: '2px'
               }}
             >
-              {/* Auto-play animation */}
               {index === currentIndex && isAutoPlaying && !isTransitioning && (
                 <div
                   className="story-progress-animation"
@@ -457,16 +486,16 @@ const AIExplanationCarousel: React.FC = () => {
         ))}
       </div>
 
-      {/* Story-like instruction hint - Mobile optimized */}
+      {/* Instruction hint */}
       <div style={{
         position: 'absolute',
         bottom: '15px',
         left: '15px',
         color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: '11px', // Smaller on mobile
+        fontSize: '11px',
         fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
       }}>
-        Swipe up ↑ or use arrows
+        Swipe up → or use arrows
       </div>
     </div>
   );

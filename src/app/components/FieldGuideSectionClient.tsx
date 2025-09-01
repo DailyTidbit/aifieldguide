@@ -1,4 +1,4 @@
-// app/components/FieldGuideSectionClient.tsx - SIMPLIFIED WITHOUT SWIPE GESTURES
+// app/components/FieldGuideSectionClient.tsx - HYDRATION SAFETY WITH FIXED HOOKS
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
@@ -53,20 +53,8 @@ const loadAnalytics = () => import('../lib/gtag')
 export default function FieldGuideSectionClient({ initialData }: SectionClientProps) {
   const { section, tools, sectionColor, sectionEmoji } = initialData
   
-  // Safety check
-  if (!section) {
-    return (
-      <div className="text-center py-20">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
-          <h3 className="text-xl font-semibold text-red-800 mb-2">Section Data Missing</h3>
-          <p className="text-red-600">
-            Unable to load section information. Please try refreshing the page.
-          </p>
-        </div>
-      </div>
-    )
-  }
-  
+  // ✅ FIXED: ALL HOOKS BEFORE ANY CONDITIONAL RETURNS
+  const [mounted, setMounted] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -78,8 +66,15 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   const [selectedTool, setSelectedTool] = useState<AITool | null>(null)
   const [isModalLoading, setIsModalLoading] = useState(false)
 
-  // Check if we're on desktop for CRT mode
+  // HYDRATION FIX: Wait for mount before any browser operations
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // HYDRATION FIX: Check desktop size only after mount
+  useEffect(() => {
+    if (!mounted) return
+
     const checkIsDesktop = () => {
       setIsDesktop(window.innerWidth >= 1024)
     }
@@ -88,7 +83,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     window.addEventListener('resize', checkIsDesktop)
     
     return () => window.removeEventListener('resize', checkIsDesktop)
-  }, [])
+  }, [mounted])
   
   // Memoized filtered tools for better performance
   const filteredTools = useMemo(() => {
@@ -105,26 +100,32 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
 
   // Track analytics with useCallback
   const trackEvent = useCallback(async (eventName: string, params: Record<string, any>) => {
+    if (!mounted) return // HYDRATION FIX: Don't track before mount
+    
     try {
       const { logEvent } = await loadAnalytics()
       logEvent(eventName, params)
     } catch {
       // Analytics not critical - fail silently
     }
-  }, [])
+  }, [mounted])
 
   // Track page view on mount
   useEffect(() => {
+    if (!mounted) return
+    
     setIsVisible(true)
     trackEvent('field_guide_section_view', {
       section_name: section.section_name,
       section_slug: section.slug,
       tools_count: tools.length
     })
-  }, [section.section_name, section.slug, tools.length, trackEvent])
+  }, [mounted, section.section_name, section.slug, tools.length, trackEvent])
 
   // Track search with debouncing effect
   useEffect(() => {
+    if (!mounted) return // HYDRATION FIX: Don't track before mount
+    
     if (searchQuery.trim()) {
       trackEvent('field_guide_tool_search', {
         section_name: section.section_name,
@@ -132,10 +133,12 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
         results_count: filteredTools.length
       })
     }
-  }, [searchQuery, section.section_name, filteredTools.length, trackEvent])
+  }, [mounted, searchQuery, section.section_name, filteredTools.length, trackEvent])
 
   // Simplified modal handlers - single tool only
   const handleOpenModal = useCallback((tool: AITool) => {
+    if (!mounted) return // HYDRATION FIX: Prevent modal before mount
+    
     setIsModalLoading(true)
     setSelectedTool(tool)
     setIsModalOpen(true)
@@ -150,9 +153,11 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       tool_id: tool.id,
       section_name: section.section_name
     })
-  }, [trackEvent, section.section_name])
+  }, [mounted, trackEvent, section.section_name])
 
   const handleCloseModal = useCallback(() => {
+    if (!mounted) return
+    
     setIsModalOpen(false)
     setIsModalLoading(false)
     setSelectedTool(null)
@@ -161,9 +166,11 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       section_name: section.section_name,
       tool_name: selectedTool?.name
     })
-  }, [trackEvent, section.section_name, selectedTool])
+  }, [mounted, trackEvent, section.section_name, selectedTool])
 
   const handleToolClick = useCallback((tool: AITool, action: 'modal' | 'website') => {
+    if (!mounted) return
+    
     trackEvent('tool_interaction', {
       tool_name: tool.name,
       tool_id: tool.id,
@@ -171,32 +178,75 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       section_name: section.section_name,
       has_free_tier: tool.free_tier
     })
-  }, [trackEvent, section.section_name])
+  }, [mounted, trackEvent, section.section_name])
 
   const handleChannelChange = useCallback((channel: string) => {
+    if (!mounted) return
+    
     setCurrentChannel(channel)
     trackEvent('crt_channel_change', {
       section_name: section.section_name,
       channel: channel,
       from_channel: currentChannel
     })
-  }, [trackEvent, section.section_name, currentChannel])
+  }, [mounted, trackEvent, section.section_name, currentChannel])
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery('')
   }, [])
 
   const handleNavigateBack = useCallback(() => {
+    if (!mounted) return
+    
     trackEvent('navigate_back', { from_section: section.section_name })
-  }, [trackEvent, section.section_name])
+  }, [mounted, trackEvent, section.section_name])
 
   const handleCrtToggle = useCallback(() => {
+    if (!mounted) return
+    
     setCrtMode(!crtMode)
     trackEvent('crt_mode_toggle', {
       section_name: section.section_name,
       new_mode: !crtMode ? 'crt' : 'modern'
     })
-  }, [crtMode, trackEvent, section.section_name])
+  }, [mounted, crtMode, trackEvent, section.section_name])
+
+  // ✅ FIXED: Safety check AFTER all hooks
+  if (!section) {
+    return (
+      <div className="text-center py-20">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
+          <h3 className="text-xl font-semibold text-red-800 mb-2">Section Data Missing</h3>
+          <p className="text-red-600">
+            Unable to load section information. Please try refreshing the page.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // HYDRATION FIX: Don't render interactive elements until mounted
+  if (!mounted) {
+    return (
+      <div className="bg-white px-6 md:px-12 py-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6">
+              <span className="text-4xl md:text-5xl" aria-hidden="true">🛠️</span>
+              Loading Tools...
+            </h2>
+          </div>
+          <div className="animate-pulse">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-gray-200 h-64 rounded-3xl"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

@@ -1,9 +1,9 @@
-// src/components/GoogleAnalytics.tsx
+// src/components/GoogleAnalytics.tsx - Hydration-safe
 'use client'
 
 import Script from 'next/script'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { pageview, GA_TRACKING_ID } from '../lib/gtag'
 
 interface GoogleAnalyticsProps {
@@ -13,23 +13,34 @@ interface GoogleAnalyticsProps {
 export default function GoogleAnalytics({ hasConsent }: GoogleAnalyticsProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [mounted, setMounted] = useState(false)
+
+  // Hydration safety
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
-    // Only track pageviews if consent is given and GA has loaded
-    if (hasConsent && pathname) {
-      const url = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '')
-      pageview(url)
-    }
-  }, [pathname, searchParams, hasConsent])
+    // Only track pageviews if consent is given, mounted, and GA has loaded
+    if (!mounted || !hasConsent || !pathname) return
 
-  // Don't load analytics in production without consent
+    const url = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '')
+    pageview(url)
+  }, [pathname, searchParams, hasConsent, mounted])
+
+  // Don't render anything until mounted to prevent hydration mismatch
+  if (!mounted) return null
+
+  // Don't load analytics without consent
   if (!hasConsent) {
     return null
   }
 
   // Don't load if no tracking ID
   if (!GA_TRACKING_ID) {
-    console.warn('Google Analytics tracking ID not found')
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Google Analytics tracking ID not found')
+    }
     return null
   }
 

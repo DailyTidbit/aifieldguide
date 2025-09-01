@@ -1,15 +1,15 @@
-// components/CardCarousel.tsx
-'use client'; // This component will handle client-side interactivity
+// components/CardCarousel.tsx - Hydration-safe
+'use client';
 
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react'; // Import arrow icons
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CardContent {
   title: string;
   description: string;
   linkText?: string;
   linkHref?: string;
-  imageSrc?: string; // Optional image for the card
+  imageSrc?: string;
   imageAlt?: string;
 }
 
@@ -19,17 +19,46 @@ interface CardCarouselProps {
 
 const CardCarousel: React.FC<CardCarouselProps> = ({ cards }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  // Hydration safety
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const nextCard = () => {
+    if (!mounted) return;
     setCurrentIndex((prevIndex) => (prevIndex + 1) % cards.length);
   };
 
   const prevCard = () => {
+    if (!mounted) return;
     setCurrentIndex((prevIndex) => (prevIndex - 1 + cards.length) % cards.length);
   };
 
   if (cards.length === 0) {
-    return null; // Or a placeholder if no cards are provided
+    return null;
+  }
+
+  // Show loading state during hydration
+  if (!mounted) {
+    return (
+      <div className="relative w-full overflow-hidden rounded-lg shadow-lg bg-white p-6 sm:p-8 border border-gray-200">
+        <div className="flex items-center gap-6 md:gap-8">
+          <div className="flex-shrink-0 w-full md:w-1/3 max-w-xs">
+            <div className="w-full h-48 bg-gray-200 rounded-md animate-pulse"></div>
+          </div>
+          <div className="flex-grow">
+            <div className="h-8 bg-gray-200 rounded mb-4 animate-pulse"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -94,7 +123,7 @@ const CardCarousel: React.FC<CardCarouselProps> = ({ cards }) => {
         </>
       )}
 
-      {/* Pagination Dots (Optional) */}
+      {/* Pagination Dots */}
       {cards.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
           {cards.map((_, index) => (

@@ -1,14 +1,62 @@
+// app/components/CTASection.tsx - Hydration safety fixed
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { trackCTAClick } from '../lib/gtag'
+
+// Lazy import analytics to avoid SSR issues
+const loadAnalytics = () => import('../lib/gtag')
 
 interface CTASectionProps {
   variant?: 'default' | 'transparent'
 }
 
-// Client Component for the CTA Section
 export default function CTASection({ variant = 'default' }: CTASectionProps) {
+  const [mounted, setMounted] = useState(false)
+
+  // HYDRATION FIX: Wait for component to mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // HYDRATION FIX: Analytics tracking only after mount
+  const trackCTAClick = async (ctaName: string, section: string, url: string) => {
+    if (!mounted) return
+
+    try {
+      const { logEvent } = await loadAnalytics()
+      logEvent('cta_click', {
+        cta_name: ctaName,
+        cta_section: section,
+        cta_url: url
+      })
+    } catch {
+      // Analytics not critical - fail silently
+    }
+  }
+
+  // HYDRATION FIX: Return loading state until mounted to prevent mismatch
+  if (!mounted) {
+    return (
+      <section className={`py-8 sm:py-12 ${variant === 'transparent' ? '' : 'bg-white'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-br from-green-200 to-blue-200 p-8 lg:p-10 rounded-3xl shadow-lg">
+            <div className="text-center max-w-4xl mx-auto mb-10">
+              <p className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">
+                Loading...
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto animate-pulse">
+              <div className="bg-gray-300 rounded-xl h-32"></div>
+              <div className="bg-gray-300 rounded-xl h-32"></div>
+              <div className="bg-gray-300 rounded-xl h-32"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className={`py-8 sm:py-12 ${variant === 'transparent' ? '' : 'bg-white'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -54,7 +102,7 @@ export default function CTASection({ variant = 'default' }: CTASectionProps) {
                 className="cursor-pointer block rounded-xl bg-[#59B1E3] text-white px-6 py-5 shadow-lg transition-all duration-300 hover:bg-blue-600 hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#59B1E3] group min-h-[120px]"
               >
                 <div className="flex flex-col items-center justify-center gap-2 font-semibold">
-                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🐚</div>
+                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">📚</div>
                   <div className="text-lg font-bold">Tidbit Library</div>
                   <div className="text-sm opacity-90 flex items-center gap-2">
                     Explore all past tips

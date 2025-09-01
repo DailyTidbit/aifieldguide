@@ -1,22 +1,10 @@
-// src/app/api/partners/settings/profile/route.ts - Fixed Auth & Error Handling
+// src/app/api/partners/settings/profile/route.ts - Optimized cookie auth
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerSupabaseClient } from '@/app/lib/supabaseServer'
 
 export async function GET() {
   try {
-    const jar = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(n: string) { return jar.get(n)?.value },
-          set(n: string, v: string, o: CookieOptions) { jar.set({ name: n, value: v, ...o }) },
-          remove(n: string, o: CookieOptions) { jar.set({ name: n, value: '', ...o }) },
-        },
-      }
-    )
+    const supabase = await createServerSupabaseClient()
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -64,7 +52,7 @@ export async function GET() {
         .maybeSingle()
     ])
 
-    // Handle database errors
+    // Handle database errors (ignore "not found" errors - PGRST116)
     if (companyResult.error && companyResult.error.code !== 'PGRST116') {
       console.error('Company profile error:', companyResult.error)
       return NextResponse.json({ error: 'Failed to fetch company profile' }, { status: 500 })
@@ -97,18 +85,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No data provided' }, { status: 400 })
     }
 
-    const jar = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(n: string) { return jar.get(n)?.value },
-          set(n: string, v: string, o: CookieOptions) { jar.set({ name: n, value: v, ...o }) },
-          remove(n: string, o: CookieOptions) { jar.set({ name: n, value: '', ...o }) },
-        },
-      }
-    )
+    const supabase = await createServerSupabaseClient()
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -142,6 +119,14 @@ export async function POST(req: Request) {
       // Validate company data
       if (company.support_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(company.support_email)) {
         return NextResponse.json({ error: 'Invalid support email format' }, { status: 400 })
+      }
+      
+      if (company.billing_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(company.billing_email)) {
+        return NextResponse.json({ error: 'Invalid billing email format' }, { status: 400 })
+      }
+      
+      if (company.marketing_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(company.marketing_email)) {
+        return NextResponse.json({ error: 'Invalid marketing email format' }, { status: 400 })
       }
 
       const { error: companyError } = await supabase

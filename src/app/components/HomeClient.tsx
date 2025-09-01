@@ -1,4 +1,4 @@
-// app/components/HomeClient.tsx
+// app/components/HomeClient.tsx - Hydration-safe
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -22,15 +22,25 @@ export default function HomeClient({ children }: HomeClientProps) {
   const pageStartTime = useRef<number>(Date.now())
   const scrollDepthTracked = useRef<Set<number>>(new Set())
   const [interactions, setInteractions] = useState(0)
+  const [mounted, setMounted] = useState(false)
 
-  // Track pageview on mount
+  // Hydration safety
   useEffect(() => {
-    pageview('/')
-    trackSectionView('homepage_hero')
+    setMounted(true)
   }, [])
 
-  // Scroll depth tracking
+  // Track pageview on mount - only after mounted
   useEffect(() => {
+    if (!mounted) return
+    
+    pageview('/')
+    trackSectionView('homepage_hero')
+  }, [mounted])
+
+  // Scroll depth tracking - only after mounted
+  useEffect(() => {
+    if (!mounted) return
+
     const milestones = [25, 50, 75, 90]
     const fired = scrollDepthTracked.current
     let ticking = false
@@ -62,10 +72,12 @@ export default function HomeClient({ children }: HomeClientProps) {
 
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [mounted])
 
-  // Time on page tracking - only log if >= 1 minute
+  // Time on page tracking - only log if >= 1 minute and only after mounted
   useEffect(() => {
+    if (!mounted) return
+
     const trackTimeOnPage = () => {
       const timeOnPage = Date.now() - pageStartTime.current
       const minutes = Math.floor(timeOnPage / 60000)
@@ -81,10 +93,12 @@ export default function HomeClient({ children }: HomeClientProps) {
 
     const interval = setInterval(trackTimeOnPage, 60000) // Every minute
     return () => clearInterval(interval)
-  }, [])
+  }, [mounted])
 
-  // Page engagement score tracking on visibility change
+  // Page engagement score tracking on visibility change - only after mounted
   useEffect(() => {
+    if (!mounted) return
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         const timeOnPage = Date.now() - pageStartTime.current
@@ -110,7 +124,12 @@ export default function HomeClient({ children }: HomeClientProps) {
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [interactions])
+  }, [interactions, mounted])
+
+  // Don't render interactive elements until mounted
+  if (!mounted) {
+    return <>{children}</>
+  }
 
   return (
     <>

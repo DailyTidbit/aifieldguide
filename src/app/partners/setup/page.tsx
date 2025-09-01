@@ -1,14 +1,17 @@
-// src/app/partners/setup/page.tsx - Fixed for Magic Link Flow
+// src/app/partners/setup/page.tsx - FULLY HYDRATION SAFE VERSION
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabaseClient } from '@/app/lib/supabaseClient'
+import { useSupabaseBrowser } from '../../lib/supabaseClient'
 import { Eye, EyeOff, Lock, CheckCircle2, AlertCircle, Loader2, Shield, Building2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function PartnerPasswordSetupPage() {
   const router = useRouter()
+  
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [step, setStep] = useState<'loading' | 'setup' | 'success' | 'error'>('loading')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -19,7 +22,16 @@ export default function PartnerPasswordSetupPage() {
   const [user, setUser] = useState<any>(null)
   const [companyInfo, setCompanyInfo] = useState<{ name: string; isFirstUser: boolean } | null>(null)
 
+  // Use the safe Supabase hook
+  const { client: supabase, isReady } = useSupabaseBrowser()
+
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || !isReady || !supabase) return
+    
     // Check if this is from a magic link
     const urlParams = new URLSearchParams(window.location.search)
     const accessToken = urlParams.get('access_token')
@@ -27,7 +39,7 @@ export default function PartnerPasswordSetupPage() {
     
     if (accessToken && refreshToken) {
       // Set the session from magic link tokens
-      supabaseClient.auth.setSession({
+      supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken
       }).then(() => {
@@ -36,11 +48,13 @@ export default function PartnerPasswordSetupPage() {
     } else {
       checkUserStatus()
     }
-  }, [])
+  }, [mounted, isReady, supabase])
 
   const checkUserStatus = async () => {
+    if (!mounted || !isReady || !supabase) return
+
     try {
-      const { data: { user }, error } = await supabaseClient.auth.getUser()
+      const { data: { user }, error } = await supabase.auth.getUser()
       
       if (error || !user) {
         setStep('error')
@@ -58,7 +72,7 @@ export default function PartnerPasswordSetupPage() {
       }
 
       // Check if user is associated with a company
-      const { data: membership } = await supabaseClient
+      const { data: membership } = await supabase
         .from('company_users')
         .select(`
           company_id, 
@@ -76,7 +90,7 @@ export default function PartnerPasswordSetupPage() {
       }
 
       // Get company info and check if this is the first user
-      const { count } = await supabaseClient
+      const { count } = await supabase
         .from('company_users')
         .select('id', { count: 'exact', head: true })
         .eq('company_id', membership.company_id)
@@ -98,6 +112,8 @@ export default function PartnerPasswordSetupPage() {
 
   const handlePasswordSetup = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!mounted || !supabase) return
+
     setError(null)
 
     // Validation
@@ -115,7 +131,7 @@ export default function PartnerPasswordSetupPage() {
 
     try {
       // Update user password and mark as having password
-      const { error: updateError } = await supabaseClient.auth.updateUser({
+      const { error: updateError } = await supabase.auth.updateUser({
         password: password,
         data: { 
           has_password: true,
@@ -154,7 +170,8 @@ export default function PartnerPasswordSetupPage() {
 
   const { strength, label } = passwordStrength(password)
 
-  if (step === 'loading') {
+  // Show loading during hydration
+  if (!mounted || step === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -177,7 +194,8 @@ export default function PartnerPasswordSetupPage() {
           <div className="space-y-3">
             <button
               onClick={checkUserStatus}
-              className="w-full bg-brand-green text-white py-3 rounded-lg font-medium hover:bg-brand-green/90 transition-colors"
+              disabled={!mounted || !isReady || !supabase}
+              className="w-full bg-brand-green text-white py-3 rounded-lg font-medium hover:bg-brand-green/90 disabled:opacity-50 transition-colors"
             >
               Try Again
             </button>
@@ -406,7 +424,7 @@ export default function PartnerPasswordSetupPage() {
 
             <button
               type="submit"
-              disabled={loading || password.length < 8 || password !== confirmPassword}
+              disabled={loading || password.length < 8 || password !== confirmPassword || !mounted || !isReady || !supabase}
               className="w-full flex items-center justify-center gap-2 bg-brand-green text-white py-3 rounded-lg font-semibold hover:bg-brand-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
@@ -415,9 +433,7 @@ export default function PartnerPasswordSetupPage() {
                   Setting up account...
                 </>
               ) : (
-                <>
-                  Complete Setup
-                </>
+                'Complete Setup'
               )}
             </button>
           </form>

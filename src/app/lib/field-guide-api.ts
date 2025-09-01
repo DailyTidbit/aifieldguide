@@ -1,34 +1,116 @@
-// src/app/lib/field-guide-api.ts
-import { supabase } from './supabaseClient'
+// src/app/lib/field-guide-api.ts - HYDRATION SAFE VERSION
+'use client'
+
+import { getSupabaseBrowserClientSafe, getSupabaseBrowserClient } from './supabaseClient'
 import { FieldGuideSection, AITool } from './field-guide-types'
 
+// ✅ Add hydration safety to the Field Guide API
 export class FieldGuideAPI {
-  static async getAllSections(): Promise<FieldGuideSection[]> {
-    const { data, error } = await supabase
-      .from('field_guide_sections')
-      .select('*')
-      .order('section_number', { ascending: true })
+  private static isInitialized = false
+  private static mounted = false
 
-    if (error) throw error
-    return data || []
+  // ✅ Safe Supabase client getter
+  private static getClient() {
+    try {
+      return getSupabaseBrowserClientSafe()
+    } catch (error) {
+      console.warn('Supabase client not available:', error)
+      return null
+    }
+  }
+
+  // ✅ Initialize only in browser
+  private static async ensureInitialized(): Promise<boolean> {
+    if (typeof window === 'undefined') {
+      return false // Server-side, don't initialize
+    }
+
+    if (!this.mounted) {
+      // Wait for component to be mounted
+      return false
+    }
+
+    if (!this.isInitialized) {
+      try {
+        const client = this.getClient()
+        if (!client) {
+          return false
+        }
+
+        // Verify Supabase client is ready
+        const { data, error } = await client.auth.getSession()
+        this.isInitialized = true
+      } catch (error) {
+        console.warn('Field Guide API initialization failed:', error)
+        return false
+      }
+    }
+
+    return this.isInitialized
+  }
+
+  // ✅ Call this from components after mount
+  static setMounted(mounted: boolean = true) {
+    this.mounted = mounted
+  }
+
+  static async getAllSections(): Promise<FieldGuideSection[]> {
+    if (!(await this.ensureInitialized())) {
+      return [] // Return empty array for server-side or if not ready
+    }
+
+    const client = this.getClient()
+    if (!client) {
+      return []
+    }
+
+    try {
+      const { data, error } = await client
+        .from('field_guide_sections')
+        .select('*')
+        .order('section_number', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error fetching sections:', error)
+      return []
+    }
   }
 
   static async getSectionBySlug(slug: string): Promise<FieldGuideSection | null> {
-    const { data, error } = await supabase
-      .from('field_guide_sections')
-      .select('*')
-      .eq('slug', slug)
-      .single()
+    if (!(await this.ensureInitialized()) || !slug) {
+      return null
+    }
 
-    if (error) return null
-    return data
+    const client = this.getClient()
+    if (!client) {
+      return null
+    }
+
+    try {
+      const { data, error } = await client
+        .from('field_guide_sections')
+        .select('*')
+        .eq('slug', slug)
+        .single()
+
+      if (error) return null
+      return data
+    } catch (error) {
+      console.error('Error fetching section by slug:', error)
+      return null
+    }
   }
 
-  // Map section names to the tool categories in your database
-  // This handles the final category names and provides backward compatibility
+  // Enhanced category mapping with better error handling
   static getCategoryForSection(sectionName: string): string {
+    if (!sectionName || typeof sectionName !== 'string') {
+      return 'Unknown'
+    }
+
     const mapping: Record<string, string> = {
-      // FINAL preferred names (after migration)
+      // FINAL preferred names
       'AI Assistants': 'AI Assistants',
       'Image Generation': 'Image Generation',
       'Video Generation': 'Video Generation',
@@ -44,78 +126,272 @@ export class FieldGuideAPI {
       'Coding Assistants': 'Coding Assistants',
       'Automation Tools': 'Automation Tools',
       
-      // OLD names (backward compatibility during migration)
-      'Language Models': 'Language Models', // Will be updated to 'AI Assistants'
-      'Music': 'Music', // Will be updated to 'Music Creation'
-      'Music & Audio Tools': 'Music', // Maps to current ai_tools category
-      'AI Photo & Image Editors': 'AI Photo & Image Editors', // Will be updated
-      'Image Editing': 'AI Photo & Image Editors', // Current section name
-      'Video Editing & Avatars': 'Video Editing & AI Avatars', // Current section name
-      'Video Editing & AI Avatars': 'Video Editing & AI Avatars', // Current ai_tools category
-      'Voice Synthesis': 'Voice Synthesis', // Will be updated to 'Speech & Voice'
-      'AI Agents & Automation': 'AI Agents & Automation', // Will be updated to 'Automation Tools'
-      'Educational & Learning Tools': 'Education & Learning' // Current section name
+      // OLD names (backward compatibility)
+      'Language Models': 'Language Models',
+      'Music': 'Music',
+      'Music & Audio Tools': 'Music',
+      'AI Photo & Image Editors': 'AI Photo & Image Editors',
+      'Image Editing': 'AI Photo & Image Editors',
+      'Video Editing & Avatars': 'Video Editing & AI Avatars',
+      'Video Editing & AI Avatars': 'Video Editing & AI Avatars',
+      'Voice Synthesis': 'Voice Synthesis',
+      'AI Agents & Automation': 'AI Agents & Automation',
+      'Educational & Learning Tools': 'Education & Learning'
     }
     return mapping[sectionName] || sectionName
   }
 
   static async getToolsForSection(sectionName: string): Promise<AITool[]> {
+    if (!(await this.ensureInitialized()) || !sectionName) {
+      return []
+    }
+
+    const client = this.getClient()
+    if (!client) {
+      return []
+    }
+
     const category = this.getCategoryForSection(sectionName)
     
-    const { data, error } = await supabase
-      .from('ai_tools')
-      .select('*') // This now includes detailed_description automatically
-      .eq('category', category)
-      .order('name', { ascending: true })
+    try {
+      const { data, error } = await client
+        .from('ai_tools')
+        .select('*')
+        .eq('category', category)
+        .order('name', { ascending: true })
 
-    if (error) throw error
-    return data || []
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error fetching tools for section:', error)
+      return []
+    }
   }
 
   static async getAllToolsCount(): Promise<number> {
-    const { count, error } = await supabase
-      .from('ai_tools')
-      .select('*', { count: 'exact', head: true })
+    if (!(await this.ensureInitialized())) {
+      return 0
+    }
 
-    if (error) return 0
-    return count || 0
+    const client = this.getClient()
+    if (!client) {
+      return 0
+    }
+
+    try {
+      const { count, error } = await client
+        .from('ai_tools')
+        .select('*', { count: 'exact', head: true })
+
+      if (error) return 0
+      return count || 0
+    } catch (error) {
+      console.error('Error getting tools count:', error)
+      return 0
+    }
   }
 
-  // Get single tool by ID (now includes detailed_description)
   static async getToolById(toolId: string): Promise<AITool | null> {
-    const { data, error } = await supabase
-      .from('ai_tools')
-      .select('*')
-      .eq('id', toolId)
-      .single()
-
-    if (error) {
-      console.log('Tool not found:', toolId)
+    if (!(await this.ensureInitialized()) || !toolId) {
       return null
     }
-    return data
+
+    const client = this.getClient()
+    if (!client) {
+      return null
+    }
+
+    try {
+      const { data, error } = await client
+        .from('ai_tools')
+        .select('*')
+        .eq('id', toolId)
+        .single()
+
+      if (error) {
+        console.log('Tool not found:', toolId)
+        return null
+      }
+      return data
+    } catch (error) {
+      console.error('Error fetching tool by ID:', error)
+      return null
+    }
   }
 
-  // Get tools by category directly (for flexibility)
   static async getToolsByCategory(category: string): Promise<AITool[]> {
-    const { data, error } = await supabase
-      .from('ai_tools')
-      .select('*') // This now includes detailed_description automatically
-      .eq('category', category)
-      .order('name', { ascending: true })
+    if (!(await this.ensureInitialized()) || !category) {
+      return []
+    }
 
-    if (error) throw error
-    return data || []
+    const client = this.getClient()
+    if (!client) {
+      return []
+    }
+
+    try {
+      const { data, error } = await client
+        .from('ai_tools')
+        .select('*')
+        .eq('category', category)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error fetching tools by category:', error)
+      return []
+    }
   }
 
-  // Get all tools (useful for search functionality)
   static async getAllTools(): Promise<AITool[]> {
-    const { data, error } = await supabase
-      .from('ai_tools')
-      .select('*') // This now includes detailed_description automatically
-      .order('name', { ascending: true })
+    if (!(await this.ensureInitialized())) {
+      return []
+    }
 
-    if (error) throw error
-    return data || []
+    const client = this.getClient()
+    if (!client) {
+      return []
+    }
+
+    try {
+      const { data, error } = await client
+        .from('ai_tools')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error fetching all tools:', error)
+      return []
+    }
   }
+
+  // ✅ Utility method to check if API is ready
+  static isReady(): boolean {
+    return typeof window !== 'undefined' && this.mounted && this.isInitialized
+  }
+
+  // ✅ Enhanced method to check client availability
+  static isClientAvailable(): boolean {
+    return typeof window !== 'undefined' && this.getClient() !== null
+  }
+}
+
+// ✅ React hook for hydration-safe Field Guide API usage
+import { useState, useEffect } from 'react'
+
+export function useFieldGuideAPI() {
+  const [mounted, setMounted] = useState(false)
+  const [clientReady, setClientReady] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    FieldGuideAPI.setMounted(true)
+    
+    // Check if Supabase client is available
+    const checkClient = () => {
+      const ready = FieldGuideAPI.isClientAvailable()
+      setClientReady(ready)
+    }
+    
+    checkClient()
+    
+    // Recheck periodically in case client becomes available later
+    const interval = setInterval(checkClient, 1000)
+    
+    return () => {
+      FieldGuideAPI.setMounted(false)
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Return API only when mounted and ready
+  if (!mounted || !clientReady) {
+    return {
+      getAllSections: async () => [],
+      getSectionBySlug: async () => null,
+      getToolsForSection: async () => [],
+      getAllToolsCount: async () => 0,
+      getToolById: async () => null,
+      getToolsByCategory: async () => [],
+      getAllTools: async () => [],
+      isReady: () => false,
+      mounted,
+      clientReady
+    }
+  }
+
+  return {
+    ...FieldGuideAPI,
+    mounted,
+    clientReady
+  }
+}
+
+// ✅ Alternative hook using your existing Supabase hooks
+import { useSupabaseBrowser } from './supabaseClient'
+
+export function useFieldGuideAPIWithClient() {
+  const { client, isReady, mounted } = useSupabaseBrowser()
+  const [apiReady, setApiReady] = useState(false)
+
+  useEffect(() => {
+    if (mounted && isReady) {
+      FieldGuideAPI.setMounted(true)
+      setApiReady(true)
+    }
+
+    return () => {
+      if (mounted) {
+        FieldGuideAPI.setMounted(false)
+        setApiReady(false)
+      }
+    }
+  }, [mounted, isReady])
+
+  // Return safe API functions
+  const safeAPI = {
+    getAllSections: async () => {
+      if (!apiReady || !client) return []
+      return FieldGuideAPI.getAllSections()
+    },
+    
+    getSectionBySlug: async (slug: string) => {
+      if (!apiReady || !client || !slug) return null
+      return FieldGuideAPI.getSectionBySlug(slug)
+    },
+    
+    getToolsForSection: async (sectionName: string) => {
+      if (!apiReady || !client || !sectionName) return []
+      return FieldGuideAPI.getToolsForSection(sectionName)
+    },
+    
+    getAllToolsCount: async () => {
+      if (!apiReady || !client) return 0
+      return FieldGuideAPI.getAllToolsCount()
+    },
+    
+    getToolById: async (toolId: string) => {
+      if (!apiReady || !client || !toolId) return null
+      return FieldGuideAPI.getToolById(toolId)
+    },
+    
+    getToolsByCategory: async (category: string) => {
+      if (!apiReady || !client || !category) return []
+      return FieldGuideAPI.getToolsByCategory(category)
+    },
+    
+    getAllTools: async () => {
+      if (!apiReady || !client) return []
+      return FieldGuideAPI.getAllTools()
+    },
+    
+    isReady: () => apiReady && !!client,
+    mounted,
+    clientReady: !!client
+  }
+
+  return safeAPI
 }

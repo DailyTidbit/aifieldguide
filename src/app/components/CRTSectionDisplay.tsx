@@ -1,4 +1,4 @@
-// app/components/CRTSectionDisplay.tsx - FIXED MOBILE NAVIGATION
+// app/components/CRTSectionDisplay.tsx - Hydration-safe with FIXED HOOKS
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
@@ -43,15 +43,7 @@ export default function CRTSectionDisplay({
   currentChannel = 'summary',
   onChannelChange 
 }: CRTSectionDisplayProps) {
-  // Safety check - if no section data, don't render
-  if (!section) {
-    return (
-      <div className="max-w-6xl mx-auto text-center py-20">
-        <div className="text-gray-600">Loading section data...</div>
-      </div>
-    )
-  }
-
+  // ✅ FIXED: All hooks BEFORE any conditional returns
   const [activeChannel, setActiveChannel] = useState<string>(currentChannel)
   const [isBooting, setIsBooting] = useState(true)
   const [tvOn, setTvOn] = useState(false)
@@ -59,14 +51,22 @@ export default function CRTSectionDisplay({
   const [volumeClickCount, setVolumeClickCount] = useState(0)
   const [showEasterEgg, setShowEasterEgg] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [mounted, setMounted] = useState(false)
+
+  // Hydration safety
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Sync with parent component's currentChannel
   useEffect(() => {
     setActiveChannel(currentChannel)
   }, [currentChannel])
 
-  // Update time every second when easter egg is shown
+  // Update time every second when easter egg is shown - only after mounted
   useEffect(() => {
+    if (!mounted) return
+
     let interval: NodeJS.Timeout
     if (showEasterEgg) {
       interval = setInterval(() => {
@@ -76,11 +76,11 @@ export default function CRTSectionDisplay({
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [showEasterEgg])
+  }, [showEasterEgg, mounted])
 
-  // CRT boot sequence (only when in CRT mode)
+  // CRT boot sequence - only when in CRT mode and mounted
   useEffect(() => {
-    if (!crtMode) return
+    if (!crtMode || !mounted) return
     
     const bootTimer = setTimeout(() => {
       setTvOn(true)
@@ -90,7 +90,7 @@ export default function CRTSectionDisplay({
       return () => clearTimeout(bootCompleteTimer)
     }, 300)
     return () => clearTimeout(bootTimer)
-  }, [crtMode])
+  }, [crtMode, mounted])
 
   // Reset CRT states when switching modes
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function CRTSectionDisplay({
 
   // Easter egg volume functionality
   const handleVolumeClick = useCallback((direction: 'up' | 'down') => {
-    if (!tvOn) return
+    if (!tvOn || !mounted) return
     
     setVolumeClickCount(prev => {
       const newCount = prev + 1
@@ -119,53 +119,11 @@ export default function CRTSectionDisplay({
       }
       return newCount
     })
-  }, [tvOn])
-
-  const channels: Channel[] = [
-    {
-      id: 'how-they-work',
-      label: 'How They Work',
-      icon: '⚙️',
-      content: section?.how_they_work || 'Technical details coming soon...'
-    },
-    {
-      id: 'what-you-can-do',
-      label: 'What You Can Do',
-      icon: '🎯',
-      content: section?.what_you_can_do || 'Use cases and applications...'
-    },
-    {
-      id: 'better-results',
-      label: 'Better Results',
-      icon: '⚡',
-      content: section?.better_results || 'Tips for optimization...'
-    },
-    {
-      id: 'strengths',
-      label: 'Strengths',
-      icon: '💪',
-      content: section?.strengths || 'Key advantages...'
-    },
-    {
-      id: 'limitations',
-      label: 'Limitations',
-      icon: '🔍',
-      content: section?.limitations || 'Important considerations...'
-    },
-    {
-      id: 'pro-tips',
-      label: 'Pro Tips',
-      icon: '💡',
-      content: section?.pro_tips || 'Expert tips and insider knowledge...'
-    }
-  ]
-
-  const summaryContent = section?.summary || section?.intro || `Welcome to ${section?.section_name || 'this section'}`
-  const activeChannelData = activeChannel === 'summary' 
-    ? { id: 'summary', label: 'Overview', icon: '📺', content: summaryContent }
-    : channels.find(ch => ch.id === activeChannel) || { id: 'summary', label: 'Overview', icon: '📺', content: summaryContent }
+  }, [tvOn, mounted])
 
   const handleChannelChange = useCallback((channelId: string) => {
+    if (!mounted) return
+
     // For modern mode, channel changes work immediately
     if (!crtMode) {
       if (channelId === activeChannel) {
@@ -176,21 +134,18 @@ export default function CRTSectionDisplay({
         onChannelChange?.(channelId)
       }
       
-      // 📱 Mobile: Scroll to top of content when channel changes
-      if (window.innerWidth < 768) { // Mobile breakpoint
-        // Find the content section and scroll to it smoothly
+      // Mobile: Scroll to top of content when channel changes
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
         const contentElement = document.querySelector('[data-content-section]')
         if (contentElement) {
-          // Scroll to show the header section by going a bit higher
           const elementTop = contentElement.getBoundingClientRect().top + window.pageYOffset
-          const offset = 180 // Scroll 180px higher to show the navigation and header
+          const offset = 180
           
           window.scrollTo({ 
             top: elementTop - offset, 
             behavior: 'smooth' 
           })
         } else {
-          // Fallback: scroll to top of page
           window.scrollTo({ 
             top: 0, 
             behavior: 'smooth' 
@@ -201,7 +156,7 @@ export default function CRTSectionDisplay({
       return
     }
 
-    // CRT mode logic (existing)
+    // CRT mode logic
     if (!tvOn || isBooting) return
     
     if (channelId === 'rewind') {
@@ -237,12 +192,83 @@ export default function CRTSectionDisplay({
     // Brief static effect when changing channels
     setScanlines(false)
     setTimeout(() => setScanlines(true), 100)
-  }, [activeChannel, tvOn, isBooting, onChannelChange, channels, crtMode])
+  }, [activeChannel, tvOn, isBooting, onChannelChange, crtMode, mounted])
+
+  // ✅ FIXED: Safety check AFTER all hooks
+  if (!section) {
+    return (
+      <div className="max-w-6xl mx-auto text-center py-20">
+        <div className="text-gray-600">Loading section data...</div>
+      </div>
+    )
+  }
+
+  const channels: Channel[] = [
+    {
+      id: 'how-they-work',
+      label: 'How They Work',
+      icon: '⚙️',
+      content: section?.how_they_work || 'Technical details coming soon...'
+    },
+    {
+      id: 'what-you-can-do',
+      label: 'What You Can Do',
+      icon: '🎯',
+      content: section?.what_you_can_do || 'Use cases and applications...'
+    },
+    {
+      id: 'better-results',
+      label: 'Better Results',
+      icon: '⚡',
+      content: section?.better_results || 'Tips for optimization...'
+    },
+    {
+      id: 'strengths',
+      label: 'Strengths',
+      icon: '💪',
+      content: section?.strengths || 'Key advantages...'
+    },
+    {
+      id: 'limitations',
+      label: 'Limitations',
+      icon: '📝',
+      content: section?.limitations || 'Important considerations...'
+    },
+    {
+      id: 'pro-tips',
+      label: 'Pro Tips',
+      icon: '💡',
+      content: section?.pro_tips || 'Expert tips and insider knowledge...'
+    }
+  ]
+
+  const summaryContent = section?.summary || section?.intro || `Welcome to ${section?.section_name || 'this section'}`
+  const activeChannelData = activeChannel === 'summary' 
+    ? { id: 'summary', label: 'Overview', icon: '📺', content: summaryContent }
+    : channels.find(ch => ch.id === activeChannel) || { id: 'summary', label: 'Overview', icon: '📺', content: summaryContent }
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto mb-8">
+          <div className="bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden animate-pulse">
+            <div className="h-32 bg-gray-200"></div>
+            <div className="p-8 space-y-4">
+              <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
 
-      {/* Mobile Navigation - ALWAYS show on mobile, positioned below main nav */}
+      {/* Mobile Navigation - ALWAYS show on mobile */}
       <div className="md:hidden sticky top-16 left-0 right-0 z-30 bg-gradient-to-br from-green-50 to-green-100 shadow-lg -mx-6 px-6 py-4 mb-8" style={{ marginTop: '0px' }}>
         <div className="flex overflow-x-auto gap-3 scrollbar-hide">
           {/* Summary tab first */}
@@ -288,7 +314,7 @@ export default function CRTSectionDisplay({
         </div>
       </div>
 
-      {/* Desktop Channel Selection - Only show when NOT mobile and NOT in CRT mode */}
+      {/* Desktop Channel Selection */}
       {!crtMode && (
         <div className="hidden md:block mb-12 max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -358,7 +384,7 @@ function ModernTextDisplay({
   section, 
   sectionColor 
 }: {
-  activeChannelData: any
+  activeChannelData: Channel & { id: string; label: string; icon: string; content: string }
   section: FieldGuideSection
   sectionColor: string
 }) {
@@ -409,7 +435,7 @@ function ModernTextDisplay({
   )
 }
 
-// CRT TV Display Component (extracted from original)
+// CRT TV Display Component (existing - no hydration issues here)
 function CRTTVDisplay({ 
   activeChannelData, 
   section, 
@@ -428,7 +454,25 @@ function CRTTVDisplay({
   activeChannel,
   setActiveChannel,
   channels
-}: any) {
+}: {
+  activeChannelData: Channel & { id: string; label: string; icon: string; content: string }
+  section: FieldGuideSection
+  sectionColor: string
+  tvOn: boolean
+  setTvOn: (on: boolean) => void
+  isBooting: boolean
+  setIsBooting: (booting: boolean) => void
+  scanlines: boolean
+  setScanlines: (scanlines: boolean) => void
+  showEasterEgg: boolean
+  currentTime: Date
+  volumeClickCount: number
+  handleVolumeClick: (direction: 'up' | 'down') => void
+  handleChannelChange: (channelId: string) => void
+  activeChannel: string
+  setActiveChannel: (channel: string) => void
+  channels: Channel[]
+}) {
   return (
     <div className="flex justify-center mb-8">
       <div className="relative">

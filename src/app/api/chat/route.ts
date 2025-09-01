@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+// src/app/api/chat/route.ts - Updated with cookie-based auth
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/app/lib/supabaseServer'
 
 // Message type definition
 interface ChatMessage {
@@ -86,13 +88,6 @@ async function callAnthropic(messages: ChatMessage[], apiKey: string): Promise<s
       messages: filteredMessages,
     };
 
-    console.log('Anthropic request body:', JSON.stringify(requestBody, null, 2));
-    console.log('API key format check:', {
-      hasKey: !!apiKey,
-      keyLength: apiKey?.length,
-      keyPrefix: apiKey?.substring(0, 8) + '...',
-    });
-
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -103,11 +98,7 @@ async function callAnthropic(messages: ChatMessage[], apiKey: string): Promise<s
       body: JSON.stringify(requestBody),
     });
 
-    console.log('Anthropic response status:', response.status);
-    console.log('Anthropic response headers:', Object.fromEntries(response.headers.entries()));
-
     if (!response.ok) {
-      // Get the error details from the response
       const errorText = await response.text();
       console.error('Anthropic API error details:', errorText);
       
@@ -126,8 +117,6 @@ async function callAnthropic(messages: ChatMessage[], apiKey: string): Promise<s
     }
 
     const data = await response.json();
-    console.log('Anthropic response data:', data);
-    
     const content = data.content?.[0]?.text;
     
     if (!content) {
@@ -318,13 +307,35 @@ const PROVIDER_FUNCTIONS = {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check auth using cookie-based session
+    const supabase = await createServerSupabaseClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Check if user has company access (optional - depending on your requirements)
+    const { data: membership } = await supabase
+      .from('company_users')
+      .select('company_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    // You can require company membership or allow all authenticated users
+    // Uncomment the next lines if company membership is required:
+    // if (!membership?.company_id) {
+    //   return NextResponse.json(
+    //     { error: 'Company membership required' },
+    //     { status: 403 }
+    //   )
+    // }
+
     const body = await request.json();
     const { messages, provider = 'openai' }: { messages: ChatMessage[]; provider?: string } = body;
-
-    console.log('=== API Request Debug ===');
-    console.log('Provider:', provider);
-    console.log('Messages count:', messages?.length);
-    console.log('Messages:', JSON.stringify(messages, null, 2));
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -344,13 +355,6 @@ export async function POST(request: NextRequest) {
     // Get API key for the provider
     const apiKeyEnvVar = API_KEY_ENV_VARS[provider as keyof typeof API_KEY_ENV_VARS];
     const apiKey = process.env[apiKeyEnvVar];
-    
-    console.log('API Key check:', {
-      envVar: apiKeyEnvVar,
-      hasKey: !!apiKey,
-      keyLength: apiKey?.length,
-      keyStart: apiKey?.substring(0, 8) + '...'
-    });
     
     if (!apiKey) {
       console.error(`Missing API key for ${provider}: ${apiKeyEnvVar}`);
@@ -388,17 +392,9 @@ Format your response in a way that's easy to scan and follow.`
 
     // Call the appropriate provider function
     const providerFunction = PROVIDER_FUNCTIONS[provider as keyof typeof PROVIDER_FUNCTIONS];
-    
-    console.log(`Making request to ${provider}:`, {
-      provider,
-      messageCount: messages.length,
-      totalMessageCount: allMessages.length
-    });
 
     try {
       const assistantResponse = await providerFunction(allMessages, apiKey);
-      
-      console.log(`${provider} response received successfully`);
 
       return NextResponse.json({
         assistant: assistantResponse,
@@ -412,12 +408,6 @@ Format your response in a way that's easy to scan and follow.`
       let userErrorMessage = `${provider} is currently unavailable`;
       
       if (providerError instanceof Error) {
-        console.error('Full error details:', {
-          message: providerError.message,
-          stack: providerError.stack,
-          name: providerError.name
-        });
-        
         if (providerError.message.includes('401')) {
           userErrorMessage = `Authentication failed with ${provider}. Check API key.`;
         } else if (providerError.message.includes('400')) {

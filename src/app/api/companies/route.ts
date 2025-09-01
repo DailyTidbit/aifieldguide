@@ -1,7 +1,59 @@
-// src/app/api/companies/route.ts - Secure Companies Management
+// src/app/api/companies/route.ts - Updated for SSR Cookie Auth
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/app/lib/supabaseServer'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
-import { requireAdmin, logAdminAction, checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
+import { checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
+
+// Helper function to check admin status using cookie-based auth
+async function requireAdmin(request: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient()
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return { error: 'Authentication required', status: 401 }
+    }
+
+    // Get user profile to check admin status
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || profile?.role !== 'admin') {
+      return { error: 'Admin access required', status: 403 }
+    }
+
+    return { admin: { id: user.id, user_id: user.id } }
+  } catch (error) {
+    console.error('Admin auth error:', error)
+    return { error: 'Authentication failed', status: 500 }
+  }
+}
+
+// Helper function to log admin actions
+async function logAdminAction(actionData: {
+  admin_user_id: string
+  action: string
+  target_type: string
+  target_id: string
+  details: any
+  ip_address: string
+  user_agent?: string
+}) {
+  try {
+    await supabaseAdmin
+      .from('admin_logs')
+      .insert({
+        ...actionData,
+        created_at: new Date().toISOString()
+      })
+  } catch (error) {
+    console.error('Failed to log admin action:', error)
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {

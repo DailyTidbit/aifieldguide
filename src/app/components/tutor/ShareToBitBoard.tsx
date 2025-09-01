@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Users, MessageCircle, Loader2, ExternalLink, CheckCircle2, X, Lock, Globe, Eye, EyeOff, Wand2, RotateCcw, Edit3 } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
+import { Sparkles, Users, Lock, Globe, X, RotateCcw, Edit3, Loader2, Eye, EyeOff } from 'lucide-react';
+import { useSupabaseBrowser } from '../../lib/supabaseClient'; // ✅ CORRECT IMPORT
 import { API_PROVIDERS } from './AIProviderSelector';
 import type { Message } from './TutorChatArea';
 import type { ErrorType } from './TutorErrorDisplay';
@@ -40,6 +40,9 @@ export function ShareToBitBoard({
   onSuccess,
   onError
 }: ShareToBitBoardProps) {
+  // ✅ HYDRATION SAFE: Use the custom hook
+  const { client: supabase, isReady: supabaseReady, mounted } = useSupabaseBrowser();
+  
   const [showModal, setShowModal] = useState(false);
   const [postContent, setPostContent] = useState("");
   const [userCommentary, setUserCommentary] = useState("");
@@ -49,12 +52,17 @@ export function ShareToBitBoard({
   const [isEditing, setIsEditing] = useState(false);
   const [originalConversation, setOriginalConversation] = useState("");
 
-  // Format original conversation for reference
+  // Hydration-safe calculations
+  const isAuthenticated = mounted ? !!user : false;
+  const hasMessages = mounted ? messages.length >= 2 : false;
+  const canShow = mounted ? show && hasMessages : false;
+
+  // Format original conversation (hydration safe)
   const formatOriginalConversation = () => {
-    if (messages.length < 2) return "";
+    if (!mounted || messages.length < 2) return "";
     
     return messages
-      .map((msg, index) => {
+      .map((msg) => {
         const aiProvider = API_PROVIDERS.find(p => p.id === msg.provider)?.name || 'AI';
         const role = msg.role === 'user' ? 'You' : aiProvider;
         return `**${role}:** ${msg.content}`;
@@ -62,35 +70,35 @@ export function ShareToBitBoard({
       .join('\n\n');
   };
 
-  // Auto-generate AI summary when modal opens
+  // Auto-generate AI summary when modal opens (hydration safe)
   useEffect(() => {
-    if (showModal && messages.length >= 2 && !postContent && !generatingAISummary) {
+    if (mounted && showModal && messages.length >= 2 && !postContent && !generatingAISummary) {
       generateAISummaryAuto();
       setOriginalConversation(formatOriginalConversation());
     }
-  }, [showModal, messages.length]);
+  }, [mounted, showModal, messages.length, postContent, generatingAISummary]);
 
   // Auto-generate AI summary of entire conversation
   const generateAISummaryAuto = async () => {
-    if (messages.length < 2) return;
+    if (!mounted || messages.length < 2) return;
 
     setGeneratingAISummary(true);
 
     try {
       // Prepare conversation for AI analysis
       const conversationText = messages
-        .map((msg, index) => {
+        .map((msg) => {
           const provider = API_PROVIDERS.find(p => p.id === msg.provider)?.name || 'AI';
           const role = msg.role === 'user' ? 'User' : provider;
           return `${role}: ${msg.content}`;
         })
         .join('\n\n');
 
-      // Count interactions
+      // Count interactions (hydration safe)
       const userMessages = messages.filter(m => m.role === 'user');
       const aiMessages = messages.filter(m => m.role === 'assistant');
 
-      const prompt = `You are creating a detailed, valuable social media post about someone's AI conversation experience that includes the actual useful content they discovered.
+      const prompt = `You are creating a detailed, valuable social media post about someone's AI conversation experience.
 
 CONVERSATION ANALYSIS:
 ${conversationText}
@@ -98,37 +106,16 @@ ${conversationText}
 CONTEXT:
 - This was from Daily Tidbit #${tidbitNumber}: "${tidbitTitle}"
 - They had ${userMessages.length} questions/requests and ${aiMessages.length} AI responses
-- User started by asking about: "${userMessages[0]?.content.slice(0, 150)}..."
-- Final result/response included: "${aiMessages[aiMessages.length - 1]?.content.slice(0, 200)}..."
 
 TASK: Create a detailed social media post (500-800 characters) that follows this structure:
 
 **Opening Hook:** "Just used AI to accomplish [SPECIFIC_GOAL] with Daily Tidbit #${tidbitNumber}! Here's what happened:"
 
-**The Journey:** Show the conversation progression:
-- "📸 I asked AI to [FIRST_REQUEST]"
-- "📸 AI gave me [SPECIFIC_RESULT_WITH_DETAILS]" 
-- "📸 Then I asked for [FOLLOW_UP]"
-- "📸 Final result: [DETAILED_OUTCOME]"
+**The Journey:** Show the conversation progression with specific details
 
-**Include the Valuable Content:** 
-- If they got a list (like towns, tips, recipes, etc.) - include the FULL list or key items
-- If they got a recipe - include the actual recipe steps
-- If they got code - include the key code snippets
-- If they got advice - include the specific actionable advice
-- If they got analysis - include the key insights
+**Include Valuable Content:** Include the actual valuable content from the conversation
 
 **Closing:** End with takeaway: "💡 Key learning: [WHAT_THEY_DISCOVERED]"
-
-REQUIREMENTS:
-1. Write in first person ("I", "my")
-2. Include the ACTUAL valuable content from the conversation (full lists, recipes, code, specific advice, etc.)
-3. Use bullet points and emojis for readability
-4. Show clear conversation progression
-5. Make it genuinely useful to someone reading the post
-6. Be specific and detailed - this should provide real value
-7. 500-800 characters (much longer than typical social posts)
-8. Include Daily Tidbit #${tidbitNumber} reference
 
 RESPOND ONLY with the social media post text - no quotes, no extra text, just the post content.`;
 
@@ -138,7 +125,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: prompt }],
-          provider: 'openai' // Use GPT-4 for creative post generation
+          provider: 'openai'
         })
       });
 
@@ -147,14 +134,12 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
       const data = await response.json();
       
       if (data.assistant) {
-        // Clean up the response and set it as post content
-        const aiSummary = data.assistant.trim().replace(/^["']|["']$/g, ''); // Remove quotes if present
+        const aiSummary = data.assistant.trim().replace(/^["']|["']$/g, '');
         setPostContent(aiSummary);
       }
 
     } catch (error) {
       console.error('Error generating AI summary:', error);
-      // Fallback to original conversation format
       setPostContent(formatOriginalConversation());
       onError('chat', 'Failed to generate AI summary. Showing original conversation instead.');
     } finally {
@@ -164,13 +149,14 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
 
   // Regenerate AI summary
   const regenerateAISummary = async () => {
+    if (!mounted) return;
     setPostContent("");
     await generateAISummaryAuto();
   };
 
-  // 🎯 FIXED: Track progress when post is created
+  // ✅ HYDRATION SAFE: Track progress when post is created
   const markPostCreated = async (tidbitNumber: number, postId: string) => {
-    if (!user) return;
+    if (!mounted || !user || !supabase) return;
 
     try {
       console.log(`🎯 Tracking TidbitTutor post for Tidbit ${tidbitNumber}, Post ID: ${postId}`);
@@ -181,7 +167,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
           user_id: user.id,
           tidbit_number: tidbitNumber,
           posted_at: new Date().toISOString(),
-          bitboard_post_id: postId  // Track the actual post ID
+          bitboard_post_id: postId
         }, {
           onConflict: 'user_id,tidbit_number'
         });
@@ -196,9 +182,9 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
     }
   };
 
-  // Post to BitBoard
+  // ✅ HYDRATION SAFE: Post to BitBoard
   const handlePostToBitBoard = async () => {
-    if (loadingState === 'posting') return;
+    if (!mounted || !supabase || !supabaseReady || loadingState === 'posting') return;
 
     if (!user) {
       onError('auth', 'Please sign in to post to BitBoard!');
@@ -227,7 +213,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
 
       console.log('Posting to BitBoard with data:', postData);
 
-      // 🔥 KEY: Get the post data back with .select().single()
+      // ✅ HYDRATION SAFE: Use the mounted supabase client
       const { data: newPost, error: supabaseError } = await supabase
         .from('posts')
         .insert(postData)
@@ -241,7 +227,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
 
       console.log('📝 TidbitTutor post created successfully:', newPost);
 
-      // 🎯 FIXED: Track progress with the actual post ID
+      // Track progress with the actual post ID
       await markPostCreated(tidbitNumber, newPost.id);
 
       // Success handling
@@ -253,15 +239,18 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
       
       onSuccess(successMessage);
 
-      if (isPrivate) {
-        const viewProfile = confirm(`${successMessage}\n\nWant to see it in your private collection?`);
-        if (viewProfile) {
-          window.open('/profile', '_blank');
-        }
-      } else {
-        const viewBitBoard = confirm(`${successMessage}\n\nWant to see it on BitBoard?`);
-        if (viewBitBoard) {
-          window.open('/bitboard', '_blank');
+      // Only open new windows if mounted and user confirms
+      if (mounted && typeof window !== 'undefined') {
+        if (isPrivate) {
+          const viewProfile = confirm(`${successMessage}\n\nWant to see it in your private collection?`);
+          if (viewProfile) {
+            window.open('/profile', '_blank');
+          }
+        } else {
+          const viewBitBoard = confirm(`${successMessage}\n\nWant to see it on BitBoard?`);
+          if (viewBitBoard) {
+            window.open('/bitboard', '_blank');
+          }
         }
       }
 
@@ -293,9 +282,14 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
     }
   };
 
-  if (!show) return null;
+  // Hydration safety guard - don't render anything until mounted
+  if (!mounted) {
+    return null;
+  }
 
-  if (!user) {
+  if (!canShow) return null;
+
+  if (!isAuthenticated) {
     return (
       <div className="mt-4 p-4 bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-lg border border-[#60A875]/20">
         <div className="flex items-center gap-2 mb-3">
@@ -308,7 +302,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Sign in to share your results!</span>
           <button className="text-sm text-[#59B1E3] hover:text-blue-700 transition-colors flex items-center gap-1">
-            Sign In <ExternalLink className="w-3 h-3" />
+            Sign In
           </button>
         </div>
       </div>
@@ -329,7 +323,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
         
         <button
           onClick={() => setShowModal(true)}
-          disabled={loadingState === 'posting'}
+          disabled={loadingState === 'posting' || !supabaseReady}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Users className="w-4 h-4" />
@@ -339,7 +333,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
         </button>
       </div>
 
-      {/* Modal */}
+      {/* Modal - Only render when showModal is true */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -406,6 +400,15 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
                   </button>
                 </div>
               </div>
+
+              {/* Show Supabase not ready warning */}
+              {!supabaseReady && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800">
+                    🔄 Initializing database connection...
+                  </p>
+                </div>
+              )}
 
               {/* AI Generated Summary Loading */}
               {generatingAISummary && (
@@ -513,7 +516,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
                   </button>
                   <button
                     onClick={handlePostToBitBoard}
-                    disabled={loadingState === 'posting' || !postContent.trim()}
+                    disabled={loadingState === 'posting' || !postContent.trim() || !supabaseReady}
                     className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl transition-colors font-semibold disabled:opacity-50 text-white ${
                       isPrivate 
                         ? 'bg-orange-500 hover:bg-orange-600' 

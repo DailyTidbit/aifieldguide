@@ -1,4 +1,4 @@
-// src/app/components/PartnerProfileModal.tsx - Fixed Types
+// src/app/components/PartnerProfileModal.tsx - Fixed Import + Hydration Safe
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -19,9 +19,9 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { supabaseClient } from '@/app/lib/supabaseClient'
+import { useSupabaseBrowser } from '../lib/supabaseClient'
 import PartnerProfileSetupWizard from './PartnerProfileSetupWizard'
-import type { PartnerInfo, PartnerProfile, CompanyProfile, MemberProfile, TeamMember } from './types/partner'
+import type { PartnerInfo, PartnerProfile, CompanyProfile, MemberProfile, TeamMember } from '../types/partner'
 
 interface PartnerProfileModalProps {
   isOpen: boolean
@@ -31,25 +31,38 @@ interface PartnerProfileModalProps {
 }
 
 export default function PartnerProfileModal({ isOpen, onClose, userId, partnerInfo }: PartnerProfileModalProps) {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [profile, setProfile] = useState<PartnerProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [showSetupWizard, setShowSetupWizard] = useState(false)
 
+  // Use the safer Supabase hook
+  const { client: supabase, isReady, mounted: supabaseMounted } = useSupabaseBrowser()
+
   useEffect(() => {
-    if (isOpen) {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (isOpen && mounted && isReady && supabase) {
       fetchPartnerProfile()
     }
-  }, [isOpen, partnerInfo.companyId, userId])
+  }, [isOpen, mounted, isReady, partnerInfo.companyId, userId, supabase])
 
   const fetchPartnerProfile = async () => {
+    if (!mounted || !isReady || !supabase) return // HYDRATION FIX: Guard against running during hydration
+    
     try {
       setLoading(true)
       setError(null)
 
+      // Supabase is guaranteed to be non-null here due to guards above
+
       // Fetch company profile
-      const { data: companyProfile, error: companyError } = await supabaseClient
+      const { data: companyProfile, error: companyError } = await supabase
         .from('company_profiles')
         .select('*')
         .eq('company_id', partnerInfo.companyId)
@@ -60,7 +73,7 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
       }
 
       // Fetch member profile
-      const { data: memberProfile, error: memberError } = await supabaseClient
+      const { data: memberProfile, error: memberError } = await supabase
         .from('company_member_profiles')
         .select('*')
         .eq('user_id', userId)
@@ -74,7 +87,7 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
       // Fetch team members (if admin)
       let teamMembers: TeamMember[] = []
       if (partnerInfo.role === 'company_admin') {
-        const { data: teamData } = await supabaseClient
+        const { data: teamData } = await supabase
           .from('company_users')
           .select(`
             user_id,
@@ -95,7 +108,7 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
       }
 
       // Fetch stats
-      const { count: listingCount } = await supabaseClient
+      const { count: listingCount } = await supabase
         .from('tool_listings')
         .select('*', { count: 'exact', head: true })
         .eq('company_id', partnerInfo.companyId)
@@ -131,12 +144,15 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
   }
 
   const handleSetupComplete = () => {
+    if (!mounted) return // HYDRATION FIX: Guard callback
+    
     setShowSetupWizard(false)
     setNeedsSetup(false)
     fetchPartnerProfile() // Refresh data
   }
 
-  if (!isOpen) return null
+  // Early return during SSR or when not open - HYDRATION FIX
+  if (!isOpen || !mounted) return null
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
@@ -144,8 +160,8 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
         {/* Header */}
         <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b border-gray-200 z-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#59B1E3]/10 rounded-lg">
-              <Building2 className="w-6 h-6 text-[#59B1E3]" />
+            <div className="p-2 bg-brand-blue/10 rounded-lg">
+              <Building2 className="w-6 h-6 text-brand-blue" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Partner Profile</h2>
@@ -162,12 +178,12 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
 
         {/* Content */}
         <div className="p-6">
-          {loading ? (
+          {loading && mounted ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[#59B1E3]" />
+              <Loader2 className="w-8 h-8 animate-spin text-brand-blue" />
               <span className="ml-3 text-gray-600">Loading profile...</span>
             </div>
-          ) : error ? (
+          ) : error && mounted ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -175,13 +191,13 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
                 <p className="text-gray-600 mb-4">{error}</p>
                 <button
                   onClick={fetchPartnerProfile}
-                  className="px-4 py-2 bg-[#59B1E3] text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  className="px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
                   Try Again
                 </button>
               </div>
             </div>
-          ) : needsSetup ? (
+          ) : needsSetup && mounted ? (
             <div className="text-center py-12">
               <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-6" />
               <h3 className="text-xl font-semibold text-gray-900 mb-4">Complete Your Partner Profile</h3>
@@ -190,14 +206,14 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
               </p>
               <button
                 onClick={() => setShowSetupWizard(true)}
-                className="inline-flex items-center gap-2 bg-[#59B1E3] text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                className="inline-flex items-center gap-2 bg-brand-blue text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium"
               >
                 <Building2 className="w-4 h-4" />
                 Set Up Profile
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-          ) : profile ? (
+          ) : profile && mounted ? (
             <PartnerProfileContent 
               profile={profile} 
               partnerInfo={partnerInfo}
@@ -207,8 +223,8 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
         </div>
       </div>
 
-      {/* Setup Wizard */}
-      {showSetupWizard && (
+      {/* Setup Wizard - Only render when mounted */}
+      {showSetupWizard && mounted && (
         <PartnerProfileSetupWizard
           isOpen={showSetupWizard}
           onClose={() => setShowSetupWizard(false)}
@@ -235,7 +251,7 @@ function PartnerProfileContent({
   return (
     <div className="space-y-8">
       {/* Profile Header */}
-      <div className="bg-gradient-to-r from-[#59B1E3]/5 to-[#60A875]/5 rounded-2xl p-6">
+      <div className="bg-gradient-to-r from-brand-blue/5 to-brand-green/5 rounded-2xl p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             {/* Company Logo */}
@@ -249,7 +265,7 @@ function PartnerProfileContent({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#59B1E3] to-[#60A875] flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-brand-blue to-brand-green flex items-center justify-center">
                   <Building2 className="w-8 h-8 text-white" />
                 </div>
               )}
@@ -290,11 +306,11 @@ function PartnerProfileContent({
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-[#59B1E3]">{profile.stats.totalListings}</div>
+          <div className="text-2xl font-bold text-brand-blue">{profile.stats.totalListings}</div>
           <div className="text-sm text-gray-600">Tool Listings</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-[#60A875]">{profile.stats.monthlyViews.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-brand-green">{profile.stats.monthlyViews.toLocaleString()}</div>
           <div className="text-sm text-gray-600">Monthly Views</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
@@ -311,7 +327,7 @@ function PartnerProfileContent({
         {/* Company Information */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-[#59B1E3]" />
+            <Building2 className="w-5 h-5 text-brand-blue" />
             Company Information
           </h4>
           
@@ -358,7 +374,7 @@ function PartnerProfileContent({
         {/* Personal Information */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-[#60A875]" />
+            <User className="w-5 h-5 text-brand-green" />
             Your Information
           </h4>
           
@@ -407,7 +423,7 @@ function PartnerProfileContent({
       {partnerInfo.role === 'company_admin' && profile.teamMembers.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-[#59B1E3]" />
+            <Users className="w-5 h-5 text-brand-blue" />
             Team Members ({profile.teamMembers.length})
           </h4>
           
@@ -442,7 +458,7 @@ function PartnerProfileContent({
             href="/partners/dashboard"
             className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-all"
           >
-            <Building2 className="w-4 h-4 text-[#59B1E3]" />
+            <Building2 className="w-4 h-4 text-brand-blue" />
             <span className="text-sm font-medium">Dashboard</span>
           </Link>
           
@@ -450,7 +466,7 @@ function PartnerProfileContent({
             href="/partners/settings"
             className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-all"
           >
-            <Edit3 className="w-4 h-4 text-[#60A875]" />
+            <Edit3 className="w-4 h-4 text-brand-green" />
             <span className="text-sm font-medium">Settings</span>
           </Link>
           

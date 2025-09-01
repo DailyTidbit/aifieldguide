@@ -1,5 +1,6 @@
-// src/app/api/partners/request-access/route.ts
+// src/app/api/partners/request-access/route.ts - Updated for SSR Cookie Auth
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/app/lib/supabaseServer'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
 import { accessRequestSchema, validateInput } from '@/app/lib/validationSchemas'
 import { checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
@@ -139,13 +140,31 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // Admin-only endpoint to list access requests
+  // Admin-only endpoint to list access requests - Updated to use cookie auth
   try {
-    const authHeader = request.headers.get('Authorization')
-    if (authHeader !== `Bearer ${process.env.ADMIN_API_KEY}`) {
+    const supabase = await createServerSupabaseClient()
+    
+    // Get user from cookie-based auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, message: 'Authentication required' },
         { status: 401 }
+      )
+    }
+
+    // Check if user is admin
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || profile?.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, message: 'Admin access required' },
+        { status: 403 }
       )
     }
 

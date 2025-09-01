@@ -1,7 +1,8 @@
-// src/app/api/partners/moderation/page.tsx - Admin Moderation Interface
+// src/app/api/partners/moderation/page.tsx - Updated for hydration safety and cookie auth
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '../../../hooks/useAuth'
 import { 
   CheckCircle, 
   XCircle, 
@@ -47,22 +48,30 @@ export default function PartnerModerationPage() {
   const [selectedTab, setSelectedTab] = useState<'pending' | 'approved' | 'rejected'>('pending')
   const [newCompanyName, setNewCompanyName] = useState('')
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [mounted, setMounted] = useState(false)
+
+  const { user, loading: authLoading, authState } = useAuth()
+
+  // Hydration safety
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
-    loadData()
-  }, [selectedTab])
+    if (mounted && !authLoading) {
+      loadData()
+    }
+  }, [selectedTab, mounted, authLoading])
 
   const loadData = async () => {
+    if (!mounted || authLoading || authState !== 'has-company-access') return
+
     try {
       setLoading(true)
       setError(null)
 
-      // Load requests
-      const requestsRes = await fetch(`/api/partners/send-invite?status=${selectedTab}`, {
-        headers: {
-          'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-key'
-        }
-      })
+      // Load requests - now uses cookie-based auth automatically
+      const requestsRes = await fetch(`/api/partners/request-access?status=${selectedTab}`)
 
       if (!requestsRes.ok) {
         throw new Error('Failed to load requests')
@@ -73,11 +82,7 @@ export default function PartnerModerationPage() {
 
       // Load companies for assignment
       if (selectedTab === 'pending') {
-        const companiesRes = await fetch('/api/companies', {
-          headers: {
-            'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-key'
-          }
-        })
+        const companiesRes = await fetch('/api/companies')
 
         if (companiesRes.ok) {
           const companiesData = await companiesRes.json()
@@ -93,7 +98,7 @@ export default function PartnerModerationPage() {
   }
 
   const handleApprove = async (request: PartnerRequest) => {
-    if (!selectedCompanyId && !newCompanyName) {
+    if (!mounted || !selectedCompanyId && !newCompanyName) {
       alert('Please select an existing company or enter a new company name')
       return
     }
@@ -109,8 +114,7 @@ export default function PartnerModerationPage() {
         const companyRes = await fetch('/api/companies', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-key'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             name: newCompanyName,
@@ -126,17 +130,16 @@ export default function PartnerModerationPage() {
         companyId = companyData.company.id
       }
 
-      // Send invitation
+      // Send invitation - now uses cookie-based auth
       const inviteRes = await fetch('/api/partners/send-invite', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-key'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           email: request.email,
           companyId: companyId,
-          role: 'company_admin', // First user is always admin
+          role: 'company_admin',
           requestId: request.id
         })
       })
@@ -161,6 +164,8 @@ export default function PartnerModerationPage() {
   }
 
   const handleReject = async (request: PartnerRequest, reason: string) => {
+    if (!mounted) return
+
     try {
       setProcessing(request.id)
       setError(null)
@@ -168,8 +173,7 @@ export default function PartnerModerationPage() {
       const res = await fetch('/api/partners/reject', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-admin-key'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           requestId: request.id,
@@ -188,6 +192,27 @@ export default function PartnerModerationPage() {
     } finally {
       setProcessing(null)
     }
+  }
+
+  // Show loading during hydration
+  if (!mounted || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-2 border-brand-green border-t-transparent rounded-full"></div>
+      </div>
+    )
+  }
+
+  // Auth check after mounted
+  if (authState !== 'has-company-access' || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600">Admin access is required to view this page.</p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

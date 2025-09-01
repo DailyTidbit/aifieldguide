@@ -1,4 +1,4 @@
-// src/app/lib/adminAuth.ts - TypeScript errors fixed with type assertions
+// src/app/lib/adminAuth.ts - HYDRATION SAFE VERSION + TYPE FIXES
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
@@ -29,26 +29,23 @@ export interface AuditLogEntry {
   user_agent?: string
 }
 
-// Server-side partner authentication using Bearer token
+// ✅ Server-side partner authentication - NO HYDRATION ISSUES (server-only)
 export async function requirePartner(request: NextRequest): Promise<{ partner: PartnerUser } | { error: string; status: number }> {
   try {
-    // Check for Authorization header
     const authHeader = request.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return { error: 'Missing or invalid authorization header', status: 401 }
     }
 
     const token = authHeader.substring(7)
-
-    // Verify the token with Supabase
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
     
     if (error || !user) {
       return { error: 'Invalid or expired token', status: 401 }
     }
 
-    // Check if user is a partner in company_users table - TYPE ASSERTION FIX
-    const { data: partnerUser, error: partnerError } = await (supabaseAdmin as any)
+    // ✅ FIXED: Proper TypeScript types for Supabase queries
+    const { data: partnerUser, error: partnerError } = await supabaseAdmin
       .from('company_users')
       .select(`
         *,
@@ -65,19 +62,20 @@ export async function requirePartner(request: NextRequest): Promise<{ partner: P
       return { error: 'User is not an authorized partner', status: 403 }
     }
 
-    // Check if their company is active
+    // Check company status
     if (partnerUser.companies && partnerUser.companies.status !== 'active') {
       return { error: 'Partner company is not active', status: 403 }
     }
 
-    // Update last access time - TYPE ASSERTION FIX
-    await (supabaseAdmin as any)
+    // ✅ FIXED: Proper error handling for update query
+    const { error: updateError } = await supabaseAdmin
       .from('company_users')
       .update({ updated_at: new Date().toISOString() })
       .eq('user_id', user.id)
-      .then(({ error }: any) => {
-        if (error) console.warn('Failed to update last access:', error)
-      })
+
+    if (updateError) {
+      console.warn('Failed to update last access:', updateError)
+    }
 
     return { partner: partnerUser as PartnerUser }
 
@@ -87,7 +85,7 @@ export async function requirePartner(request: NextRequest): Promise<{ partner: P
   }
 }
 
-// Alternative cookie-based partner auth for pages
+// ✅ HYDRATION SAFE: Cookie-based partner auth (server-only)
 export async function getPartnerUser(): Promise<PartnerUser | null> {
   try {
     const jar = await cookies()
@@ -112,8 +110,8 @@ export async function getPartnerUser(): Promise<PartnerUser | null> {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return null
 
-    // Check if user is a partner - TYPE ASSERTION FIX
-    const { data: partnerUser, error: partnerError } = await (supabase as any)
+    // ✅ FIXED: Proper TypeScript types
+    const { data: partnerUser, error: partnerError } = await supabase
       .from('company_users')
       .select(`
         *,
@@ -136,15 +134,15 @@ export async function getPartnerUser(): Promise<PartnerUser | null> {
   }
 }
 
-// Check if user has partner access (simplified - everyone with company_users record has full access)
+// ✅ NO HYDRATION ISSUES (pure function)
 export function hasPartnerAccess(partner: PartnerUser): boolean {
   return true // All partners have full access
 }
 
-// Audit logging function - TYPE ASSERTION FIX for partner_security_logs table
+// ✅ FIXED: Proper audit logging with better error handling
 export async function logPartnerAction(entry: AuditLogEntry): Promise<void> {
   try {
-    await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from('partner_security_logs')
       .insert({
         user_id: entry.user_id,
@@ -156,14 +154,39 @@ export async function logPartnerAction(entry: AuditLogEntry): Promise<void> {
         user_agent: entry.user_agent || null,
         created_at: new Date().toISOString()
       })
+
+    if (error) {
+      console.error('Audit log insert error:', error)
+    }
   } catch (error) {
     console.error('Audit log error:', error)
-    // Don't throw - audit log failure shouldn't break the operation
+    // Don't throw - audit log failure shouldn't break operations
   }
 }
 
-// Rate limiting helper with in-memory fallback
+// ✅ HYDRATION SAFE: Rate limiting with proper memory management
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+
+// Cleanup function to prevent memory leaks
+const cleanupRateLimit = () => {
+  const now = Date.now()
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (value.resetTime < now) {
+      rateLimitStore.delete(key)
+    }
+  }
+}
+
+// ✅ Run cleanup periodically (only in server environment)
+if (typeof process !== 'undefined' && process.env) {
+  const cleanupInterval = setInterval(cleanupRateLimit, 5 * 60 * 1000) // Every 5 minutes
+  
+  // Cleanup on process termination
+  process.on('exit', () => {
+    clearInterval(cleanupInterval)
+    rateLimitStore.clear()
+  })
+}
 
 export async function checkRateLimit(
   identifier: string,
@@ -176,21 +199,17 @@ export async function checkRateLimit(
     const windowMs = windowMinutes * 60 * 1000
     const key = `${identifier}:${endpoint}`
     
-    // Clean expired entries
-    for (const [k, v] of rateLimitStore.entries()) {
-      if (v.resetTime < now) {
-        rateLimitStore.delete(k)
-      }
+    // Clean expired entries periodically
+    if (rateLimitStore.size > 1000) { // Prevent memory bloat
+      cleanupRateLimit()
     }
     
-    // Get or create entry
     let entry = rateLimitStore.get(key)
     if (!entry || entry.resetTime < now) {
       entry = { count: 0, resetTime: now + windowMs }
       rateLimitStore.set(key, entry)
     }
     
-    // Check limit
     if (entry.count >= limit) {
       return {
         allowed: false,
@@ -199,7 +218,6 @@ export async function checkRateLimit(
       }
     }
     
-    // Increment and store
     entry.count++
     rateLimitStore.set(key, entry)
     
@@ -211,7 +229,6 @@ export async function checkRateLimit(
     
   } catch (error) {
     console.error('Rate limit check error:', error)
-    // Default to allowing on error
     return {
       allowed: true,
       remaining: 0,
@@ -220,7 +237,7 @@ export async function checkRateLimit(
   }
 }
 
-// Get client IP address from NextRequest
+// ✅ NO HYDRATION ISSUES (server-side NextRequest processing)
 export function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for')
   const realIp = request.headers.get('x-real-ip')
@@ -232,18 +249,20 @@ export function getClientIP(request: NextRequest): string {
   return '127.0.0.1'
 }
 
-// Helper to validate partner email addresses (from environment)
+// ✅ NO HYDRATION ISSUES (pure validation function)
 export function isValidPartnerDomain(email: string): boolean {
+  if (!email || typeof email !== 'string') return false
+  
   const domain = email.split('@')[1]?.toLowerCase()
+  if (!domain) return false
+  
   const allowedDomains = process.env.PARTNER_DOMAINS?.split(',').map(d => d.trim().toLowerCase()) || []
   
-  // If no domains specified, allow all
   if (allowedDomains.length === 0) return true
-  
   return allowedDomains.includes(domain)
 }
 
-// Helper to create partner user (for bootstrapping)
+// ✅ FIXED: Better error handling and TypeScript types
 export async function createPartnerUser(
   email: string,
   companyId: string,
@@ -251,40 +270,55 @@ export async function createPartnerUser(
   invitedBy?: string
 ): Promise<{ success: boolean; message: string; partnerId?: string }> {
   try {
-    // Check if company exists and is active
-    const { data: company } = await supabaseAdmin
+    if (!email || !companyId) {
+      return { success: false, message: 'Email and company ID are required' }
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return { success: false, message: 'Invalid email format' }
+    }
+
+    const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
       .select('id, name, status')
       .eq('id', companyId)
       .eq('status', 'active')
       .single()
 
-    if (!company) {
+    if (companyError || !company) {
       return { success: false, message: 'Company not found or inactive' }
     }
 
-    // Check if user exists in auth
-    const { data: userList } = await supabaseAdmin.auth.admin.listUsers()
-    const user = userList?.users.find(u => u.email?.toLowerCase() === email.toLowerCase())
+    const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    if (listError) {
+      return { success: false, message: 'Failed to verify user existence' }
+    }
 
+    const user = userList?.users.find(u => u.email?.toLowerCase() === email.toLowerCase())
     if (!user) {
       return { success: false, message: 'User does not exist in auth system' }
     }
 
-    // Check if already a partner - TYPE ASSERTION FIX
-    const { data: existingPartner } = await (supabaseAdmin as any)
+    // Check for existing partner relationship
+    const { data: existingPartner, error: existingError } = await supabaseAdmin
       .from('company_users')
       .select('user_id')
       .eq('user_id', user.id)
       .eq('company_id', companyId)
       .single()
 
+    if (existingError && existingError.code !== 'PGRST116') { // PGRST116 is "not found"
+      return { success: false, message: 'Error checking existing partnership' }
+    }
+
     if (existingPartner) {
       return { success: false, message: 'User is already a partner of this company' }
     }
 
-    // Create partner record - TYPE ASSERTION FIX
-    const { data: newPartner, error } = await (supabaseAdmin as any)
+    // Create partner record
+    const { data: newPartner, error: insertError } = await supabaseAdmin
       .from('company_users')
       .insert({
         user_id: user.id,
@@ -297,15 +331,15 @@ export async function createPartnerUser(
       .select()
       .single()
 
-    if (error || !newPartner) {
-      console.error('Error creating partner user:', error)
+    if (insertError) {
+      console.error('Error creating partner user:', insertError)
       return { success: false, message: 'Failed to create partner record' }
     }
 
     return { 
       success: true, 
       message: `Partner user created successfully with role: ${role}`,
-      partnerId: newPartner.user_id
+      partnerId: user.id
     }
 
   } catch (error) {
@@ -314,7 +348,7 @@ export async function createPartnerUser(
   }
 }
 
-// Environment validation
+// ✅ NO HYDRATION ISSUES (server-side environment validation)
 export function validatePartnerEnvironment(): { valid: boolean; missing: string[] } {
   const required = [
     'NEXT_PUBLIC_SUPABASE_URL',
@@ -329,10 +363,30 @@ export function validatePartnerEnvironment(): { valid: boolean; missing: string[
     missing
   }
 }
+
+// ✅ Simple admin functions (no hydration issues)
 export function requireAdmin() {
-  return true;
+  return true
 }
 
 export function logAdminAction(action: string, details?: any) {
-  console.log(`Admin action: ${action}`, details);
+  console.log(`Admin action: ${action}`, details)
+}
+
+// ✅ Utility function to check if we're in server environment
+export function isServerEnvironment(): boolean {
+  return typeof window === 'undefined'
+}
+
+// ✅ Helper for safe server-only operations
+export function runOnServer<T>(serverOperation: () => T, fallback?: T): T | undefined {
+  if (isServerEnvironment()) {
+    try {
+      return serverOperation()
+    } catch (error) {
+      console.error('Server operation failed:', error)
+      return fallback
+    }
+  }
+  return fallback
 }

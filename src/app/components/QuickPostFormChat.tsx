@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useState, useEffect } from 'react'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { Users, Send, ArrowRight, Sparkles, Check, X } from 'lucide-react'
 
 interface QuickPostFromChatProps {
@@ -23,21 +23,31 @@ export default function QuickPostFromChat({
   onSuccess,
   onCancel
 }: QuickPostFromChatProps) {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [posting, setPosting] = useState(false)
   const [customContent, setCustomContent] = useState(
     `Just used AI to transform my writing with Daily Tidbit #${tidbitNumber}! "${tidbitTitle}"`
   )
   const [showCustomization, setShowCustomization] = useState(false)
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const handleQuickPost = async () => {
-    if (!user) {
-      alert("Please sign in to post to BitBoard!")
+    if (!mounted || !user) {
+      if (!user) {
+        alert("Please sign in to post to BitBoard!")
+      }
       return
     }
 
     setPosting(true)
 
     try {
+      const supabase = getSupabaseBrowserClient()
+      
       const { error } = await supabase.from('posts').insert({
         user_id: user.id,
         content: customContent,
@@ -69,8 +79,23 @@ export default function QuickPostFromChat({
   }
 
   const handleCustomPost = async () => {
+    if (!mounted) return
+    
     setShowCustomization(false)
     await handleQuickPost()
+  }
+
+  // Hydration safety - show loading during hydration
+  if (!mounted) {
+    return (
+      <div className="bg-gradient-to-r from-[#59B1E3]/10 to-[#60A875]/10 rounded-xl p-6 border border-[#59B1E3]/20">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 rounded w-1/2 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+          <div className="h-10 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
   }
 
   if (!user) {

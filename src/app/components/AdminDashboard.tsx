@@ -18,7 +18,7 @@ interface Tidbit {
   updated_at: string
 }
 
-// Mock data for demonstration - replace with actual Supabase calls
+// Mock data for demonstration
 const mockTidbits: Tidbit[] = [
   {
     id: 1,
@@ -62,30 +62,43 @@ const mockTidbits: Tidbit[] = [
 ]
 
 export default function AdminDashboard() {
-  const [tidbits, setTidbits] = useState<Tidbit[]>(mockTidbits)
+  const [tidbits, setTidbits] = useState<Tidbit[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft' | 'archived'>('all')
   const [difficultyFilter, setDifficultyFilter] = useState<'all' | '1' | '2' | '3' | '4' | '5'>('all')
   const [selectedTidbit, setSelectedTidbit] = useState<Tidbit | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  // Filter tidbits based on search and filters
-  const filteredTidbits = tidbits.filter(tidbit => {
+  // Hydration safety
+  useEffect(() => {
+    setMounted(true)
+    // Load data only after mounted
+    setTidbits(mockTidbits)
+  }, [])
+
+  // Filter tidbits based on search and filters - only after mounted
+  const filteredTidbits = mounted ? tidbits.filter(tidbit => {
     const matchesSearch = tidbit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tidbit.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === 'all' || tidbit.status === statusFilter
     const matchesDifficulty = difficultyFilter === 'all' || tidbit.difficulty_level.toString() === difficultyFilter
     
     return matchesSearch && matchesStatus && matchesDifficulty
-  })
+  }) : []
 
-  // Stats for dashboard overview
-  const stats = {
+  // Stats for dashboard overview - only calculate after mounted
+  const stats = mounted ? {
     total: tidbits.length,
     published: tidbits.filter(t => t.status === 'published').length,
     drafts: tidbits.filter(t => t.status === 'draft').length,
-    avgDifficulty: (tidbits.reduce((sum, t) => sum + t.difficulty_level, 0) / tidbits.length).toFixed(1)
+    avgDifficulty: tidbits.length > 0 ? (tidbits.reduce((sum, t) => sum + t.difficulty_level, 0) / tidbits.length).toFixed(1) : '0'
+  } : {
+    total: 0,
+    published: 0,
+    drafts: 0,
+    avgDifficulty: '0'
   }
 
   const getDifficultyColor = (level: number): string => {
@@ -106,6 +119,50 @@ export default function AdminDashboard() {
       archived: 'bg-gray-100 text-gray-800'
     }
     return colors[status] || colors['draft']
+  }
+
+  const handleDelete = (tidbitId: number) => {
+    if (!mounted) return
+    
+    if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this tidbit?')) {
+      setTidbits(tidbits.filter(t => t.id !== tidbitId))
+    }
+  }
+
+  // Show loading state during hydration
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <div className="h-9 bg-gray-200 rounded w-64 mb-2 animate-pulse"></div>
+            <div className="h-6 bg-gray-200 rounded w-96 animate-pulse"></div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-6 bg-gray-200 rounded w-16"></div>
+                  <div className="h-8 bg-gray-200 rounded w-12"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="animate-pulse space-y-4">
+              <div className="h-12 bg-gray-200 rounded"></div>
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -288,7 +345,11 @@ export default function AdminDashboard() {
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => window.open(`/day/${tidbit.day_number}`, '_blank')}
+                          onClick={() => {
+                            if (typeof window !== 'undefined') {
+                              window.open(`/day/${tidbit.day_number}`, '_blank')
+                            }
+                          }}
                           className="p-1 text-gray-400 hover:text-[#59B1E3] transition-colors"
                           title="View"
                         >
@@ -305,11 +366,7 @@ export default function AdminDashboard() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm('Are you sure you want to delete this tidbit?')) {
-                              setTidbits(tidbits.filter(t => t.id !== tidbit.id))
-                            }
-                          }}
+                          onClick={() => handleDelete(tidbit.id)}
                           className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                           title="Delete"
                         >
@@ -336,7 +393,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Modals would go here - keeping component focused on the main dashboard for now */}
+      {/* Modals */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">

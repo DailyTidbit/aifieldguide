@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { useSupabaseBrowser } from '../../lib/supabaseClient' // ✅ CORRECT IMPORT
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   Check, 
@@ -20,6 +20,12 @@ interface TidbitOption {
 }
 
 export default function PostFormBitboard() {
+  // ✅ HYDRATION SAFE: Essential mounted state
+  const [mounted, setMounted] = useState(false)
+  
+  // ✅ HYDRATION SAFE: Use the custom hook
+  const { client: supabase, isReady: supabaseReady } = useSupabaseBrowser()
+  
   const [content, setContent] = useState('')
   const [tidbit, setTidbit] = useState(1)
   const [availableTidbits, setAvailableTidbits] = useState<TidbitOption[]>([])
@@ -33,11 +39,26 @@ export default function PostFormBitboard() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // Hydration safety - must be first useEffect
   useEffect(() => {
-    initializeForm()
+    setMounted(true)
   }, [])
 
+  // Initialize form after mounted and supabase ready
+  useEffect(() => {
+    if (mounted && supabaseReady && supabase) {
+      initializeForm()
+    }
+  }, [mounted, supabaseReady, supabase])
+
+  // Hydration-safe calculations
+  const isAuthenticated = mounted ? !!user : false
+  const canSubmit = mounted ? !!content.trim() && !!user : false
+  const showForm = mounted && supabaseReady
+
   const initializeForm = async () => {
+    if (!mounted || !supabase) return
+
     try {
       setLoading(true)
       setError(null)
@@ -54,15 +75,17 @@ export default function PostFormBitboard() {
       // Load available tidbits dynamically
       await loadAvailableTidbits()
 
-      // Pre-fill from URL parameters (for walkthrough integration)
-      const tidbitParam = searchParams.get('tidbit')
-      const contentParam = searchParams.get('content')
+      // Pre-fill from URL parameters (for walkthrough integration) - hydration safe
+      if (mounted && typeof window !== 'undefined') {
+        const tidbitParam = searchParams.get('tidbit')
+        const contentParam = searchParams.get('content')
 
-      if (tidbitParam) {
-        setTidbit(Number(tidbitParam))
-      }
-      if (contentParam) {
-        setContent(decodeURIComponent(contentParam))
+        if (tidbitParam) {
+          setTidbit(Number(tidbitParam))
+        }
+        if (contentParam) {
+          setContent(decodeURIComponent(contentParam))
+        }
       }
 
     } catch (err) {
@@ -74,6 +97,8 @@ export default function PostFormBitboard() {
   }
 
   const loadAvailableTidbits = async () => {
+    if (!mounted || !supabase) return
+
     try {
       // Try to load from Supabase tidbits table first
       const { data, error } = await supabase
@@ -107,7 +132,7 @@ export default function PostFormBitboard() {
   }
 
   const handleSubmit = async () => {
-    if (!user || !content.trim()) {
+    if (!mounted || !supabase || !user || !content.trim()) {
       setError('Please fill in all required fields')
       return
     }
@@ -148,14 +173,16 @@ export default function PostFormBitboard() {
 
       setSubmitted(true)
 
-      // Redirect after success
-      setTimeout(() => {
-        if (isPrivate) {
-          router.push('/profile')
-        } else {
-          router.push(`/bitboard`)
-        }
-      }, 2000)
+      // Redirect after success - hydration safe
+      if (mounted && typeof window !== 'undefined') {
+        setTimeout(() => {
+          if (isPrivate) {
+            router.push('/profile')
+          } else {
+            router.push('/bitboard')
+          }
+        }, 2000)
+      }
 
     } catch (err: any) {
       console.error('Error submitting post:', err)
@@ -165,8 +192,13 @@ export default function PostFormBitboard() {
     }
   }
 
+  // Don't render anything until mounted
+  if (!mounted) {
+    return null
+  }
+
   // Loading state
-  if (loading) {
+  if (loading || !supabaseReady) {
     return (
       <div className="max-w-lg mx-auto p-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -259,6 +291,14 @@ export default function PostFormBitboard() {
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+        )}
+
+        {/* Supabase not ready warning */}
+        {!supabaseReady && (
+          <div className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-yellow-600 animate-spin" />
+            <span className="text-yellow-700 text-sm">Connecting to database...</span>
           </div>
         )}
 
@@ -360,7 +400,7 @@ export default function PostFormBitboard() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting || !content.trim()}
+            disabled={submitting || !canSubmit || !supabaseReady}
             className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
               isPrivate 
                 ? 'bg-orange-500 hover:bg-orange-600 text-white' 

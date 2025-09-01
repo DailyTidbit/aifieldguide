@@ -1,8 +1,8 @@
-// src/app/hooks/useAuthForm.ts - Updated with optimized Supabase import
+// src/app/hooks/useAuthForm.ts - Fixed hydration safety issues
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
-import { getSupabaseBrowserClient } from '../lib/supabase-browser'
+import { useCallback, useMemo, useState, useEffect } from 'react'
+import { getSupabaseBrowserClientSafe, getSupabaseBrowserClient } from '../lib/supabaseClient'
 
 export type AuthMode = 'login' | 'signup'
 
@@ -19,10 +19,48 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false) // HYDRATION FIX
+  const [clientReady, setClientReady] = useState(false) // HYDRATION FIX
+
+  // HYDRATION FIX: Wait for component to mount and check client availability
+  useEffect(() => {
+    setMounted(true)
+    
+    // Check if Supabase client is available
+    const checkClient = () => {
+      try {
+        const client = getSupabaseBrowserClient()
+        setClientReady(!!client)
+      } catch (error) {
+        console.warn('Supabase client not ready:', error)
+        setClientReady(false)
+      }
+    }
+    
+    checkClient()
+    
+    // Recheck periodically in case client becomes available later
+    const interval = setInterval(checkClient, 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   const redirectTo = useMemo(() => opts.redirectTo ?? null, [opts.redirectTo])
   const isVendorFlow = useMemo(() => opts.isVendorFlow ?? false, [opts.isVendorFlow])
-  const supabase = getSupabaseBrowserClient()
+
+  // ✅ HYDRATION SAFE: Get Supabase client safely
+  const getClient = useCallback(() => {
+    if (!mounted || !clientReady) {
+      return null
+    }
+    
+    try {
+      return getSupabaseBrowserClientSafe()
+    } catch (error) {
+      console.warn('Failed to get Supabase client:', error)
+      return null
+    }
+  }, [mounted, clientReady])
 
   // Detect company from email domain
   const getCompanyFromEmail = useCallback((email: string) => {
@@ -36,14 +74,34 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     }
   }, [])
 
-  const company = useMemo(() => getCompanyFromEmail(email), [email, getCompanyFromEmail])
+  // HYDRATION FIX: Only calculate company after mounted
+  const company = useMemo(() => {
+    if (!mounted) return null
+    return getCompanyFromEmail(email)
+  }, [email, getCompanyFromEmail, mounted])
 
   const clearAlerts = useCallback(() => {
     setMessage(null)
     setError(null)
   }, [])
 
+  // ✅ HYDRATION SAFE: Check if auth operations are available
+  const isAuthReady = useMemo(() => {
+    return mounted && clientReady
+  }, [mounted, clientReady])
+
   const handleEmailAuth = useCallback(async () => {
+    if (!isAuthReady) {
+      setError('Authentication system is not ready. Please try again in a moment.')
+      return
+    }
+    
+    const supabase = getClient()
+    if (!supabase) {
+      setError('Authentication service unavailable. Please try again.')
+      return
+    }
+    
     clearAlerts()
     if (!email || !password) { 
       setError('Please enter your email and password.') 
@@ -68,7 +126,8 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
           email, 
           password,
           options: {
-            emailRedirectTo: redirectTo || (typeof window !== 'undefined' ? window.location.origin : undefined),
+            // HYDRATION FIX: Guard window access
+            emailRedirectTo: redirectTo || (mounted && typeof window !== 'undefined' ? window.location.origin : undefined),
             data: {
               email: email,
               vendor_flow: isVendorFlow
@@ -86,9 +145,20 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, confirmPassword, email, mode, password, redirectTo, isVendorFlow, supabase])
+  }, [clearAlerts, confirmPassword, email, mode, password, redirectTo, isVendorFlow, getClient, isAuthReady, mounted])
 
   const handleMagicLinkAuth = useCallback(async () => {
+    if (!isAuthReady) {
+      setError('Authentication system is not ready. Please try again in a moment.')
+      return
+    }
+    
+    const supabase = getClient()
+    if (!supabase) {
+      setError('Authentication service unavailable. Please try again.')
+      return
+    }
+    
     clearAlerts()
     if (!email) { 
       setError('Please enter your email address.') 
@@ -100,7 +170,8 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: redirectTo || (typeof window !== 'undefined' ? window.location.href : undefined),
+          // HYDRATION FIX: Guard window access
+          emailRedirectTo: redirectTo || (mounted && typeof window !== 'undefined' ? window.location.href : undefined),
           data: {
             vendor_flow: isVendorFlow,
             company_domain: company?.domain
@@ -115,16 +186,28 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, email, redirectTo, isVendorFlow, company, supabase])
+  }, [clearAlerts, email, redirectTo, isVendorFlow, company, getClient, isAuthReady, mounted])
 
   const handleOAuth = useCallback(async (provider: 'google' | 'apple') => {
+    if (!isAuthReady) {
+      setError('Authentication system is not ready. Please try again in a moment.')
+      return
+    }
+    
+    const supabase = getClient()
+    if (!supabase) {
+      setError('Authentication service unavailable. Please try again.')
+      return
+    }
+    
     clearAlerts()
     try {
       setLoading(true)
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: redirectTo ?? (typeof window !== 'undefined' ? window.location.href : undefined),
+          // HYDRATION FIX: Guard window access
+          redirectTo: redirectTo ?? (mounted && typeof window !== 'undefined' ? window.location.href : undefined),
           skipBrowserRedirect: false,
           queryParams: {
             vendor_flow: isVendorFlow ? 'true' : 'false'
@@ -136,9 +219,20 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       setError(e?.message ?? 'OAuth sign-in failed.')
       setLoading(false)
     }
-  }, [clearAlerts, redirectTo, isVendorFlow, supabase])
+  }, [clearAlerts, redirectTo, isVendorFlow, getClient, isAuthReady, mounted])
 
   const handleReset = useCallback(async () => {
+    if (!isAuthReady) {
+      setError('Authentication system is not ready. Please try again in a moment.')
+      return
+    }
+    
+    const supabase = getClient()
+    if (!supabase) {
+      setError('Authentication service unavailable. Please try again.')
+      return
+    }
+    
     clearAlerts()
     if (!email) { 
       setError('Enter your email first.') 
@@ -146,7 +240,8 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     }
     try {
       setLoading(true)
-      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      // HYDRATION FIX: Guard window access
+      const origin = mounted && typeof window !== 'undefined' ? window.location.origin : ''
       const { error } = await supabase.auth.resetPasswordForEmail(email, { 
         redirectTo: `${origin}/auth/reset` 
       })
@@ -157,7 +252,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, email, supabase])
+  }, [clearAlerts, email, getClient, isAuthReady, mounted])
 
   const validateEmailDomain = useCallback((email: string, allowedDomains: string[] = []) => {
     if (!allowedDomains.length) return { isValid: true, message: '' }
@@ -186,7 +281,20 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     }
   }, [])
 
+  // ✅ Enhanced status information for better UX
+  const status = useMemo(() => {
+    if (!mounted) return 'initializing'
+    if (!clientReady) return 'connecting'
+    return 'ready'
+  }, [mounted, clientReady])
+
+  // ✅ Helper to check if operations should be disabled
+  const isDisabled = useMemo(() => {
+    return loading || !isAuthReady
+  }, [loading, isAuthReady])
+
   return {
+    // Basic form state
     mode, 
     setMode,
     email, 
@@ -199,6 +307,15 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     message, 
     error,
     company,
+    
+    // Hydration safety state
+    mounted,
+    clientReady,
+    isAuthReady,
+    status,
+    isDisabled,
+    
+    // Auth methods
     handleEmailAuth,
     handleMagicLinkAuth,
     handleOAuth,

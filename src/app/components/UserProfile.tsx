@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { supabaseClient } from '../lib/supabaseClient' // Fixed import
-import PostModal from './PostModal'  // Import the working PostModal
-import TidbitProgressTracker from './TidbitProgressTracker' // Import the new tracker
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import PostModal from './PostModal'
+import TidbitProgressTracker from './TidbitProgressTracker'
 import { 
   User, 
   Edit3, 
@@ -89,7 +89,7 @@ const RETRO_BADGES: Badge[] = [
   { id: 'command-champ', name: 'Command Line Champ', emoji: '⌨️', tagline: 'You speak fluent prompts now', tier: 'hacker', threshold: 125, theme: 'from-emerald-500 to-green-500', type: 'tidbits' },
   { id: 'syntax-sorcerer', name: 'Syntax Sorcerer', emoji: '✨', tagline: "You're remixing everything", tier: 'hacker', threshold: 150, theme: 'from-purple-500 to-indigo-500', type: 'tidbits' },
   { id: 'terminal-traveler', name: 'Terminal Traveler', emoji: '🧳', tagline: "You're in deep — and loving it", tier: 'hacker', threshold: 200, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
-  { id: 'root-access', name: 'Root Access', emoji: '🔐', tagline: 'You run this machine now', tier: 'hacker', threshold: 250, theme: 'from-red-500 to-orange-500', type: 'tidbits' },
+  { id: 'root-access', name: 'Root Access', emoji: '🔑', tagline: 'You run this machine now', tier: 'hacker', threshold: 250, theme: 'from-red-500 to-orange-500', type: 'tidbits' },
   
   // Bit Voyager (251-500 tidbits)
   { id: 'bitstream-surfer', name: 'Bitstream Surfer', emoji: '🏄', tagline: 'You make it look easy', tier: 'voyager', threshold: 300, theme: 'from-teal-500 to-cyan-500', type: 'tidbits' },
@@ -97,7 +97,7 @@ const RETRO_BADGES: Badge[] = [
   { id: 'warp-drive', name: 'Warp Drive Activated', emoji: '🚀', tagline: 'Halfway to four digits. Woah.', tier: 'voyager', threshold: 500, theme: 'from-indigo-500 to-violet-500', type: 'tidbits' },
   
   // Neural Explorer (501-750 tidbits)
-  { id: 'prompt-poet', name: 'Prompt Poet', emoji: '✏️', tagline: 'Your style? Unmistakable.', tier: 'neural', threshold: 600, theme: 'from-amber-500 to-orange-500', type: 'tidbits' },
+  { id: 'prompt-poet', name: 'Prompt Poet', emoji: '✍️', tagline: 'Your style? Unmistakable.', tier: 'neural', threshold: 600, theme: 'from-amber-500 to-orange-500', type: 'tidbits' },
   { id: 'language-modeler', name: 'Language Modeler', emoji: '📚', tagline: 'You could teach a model a thing or two', tier: 'neural', threshold: 700, theme: 'from-green-500 to-emerald-500', type: 'tidbits' },
   { id: 'synapse-syncer', name: 'Synapse Syncer', emoji: '🧬', tagline: "You're wired for this now", tier: 'neural', threshold: 750, theme: 'from-purple-500 to-pink-500', type: 'tidbits' },
   
@@ -118,6 +118,9 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   userId: string
   isOwnProfile?: boolean
 }) {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
+
   const [profile, setProfile] = useState<Profile | null>(null)
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -138,6 +141,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   })
   
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Enhanced badge calculation including tidbit completion
   const calculateEarnedBadges = (stats: ProfileStats) => {
@@ -173,11 +180,14 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   // Fetch profile data
   const fetchProfile = async () => {
+    if (!mounted) return // Hydration guard
+    
     try {
       setLoading(true)
       setError(null)
 
-      const { data: profileData, error: profileError } = await supabaseClient
+      const supabase = getSupabaseBrowserClient()
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -205,15 +215,19 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   // Enhanced fetch stats with tidbit completion tracking
   const fetchStats = async () => {
+    if (!mounted) return // Hydration guard
+    
     try {
+      const supabase = getSupabaseBrowserClient()
+      
       // Get posts count
-      const { count: postsCount } = await supabaseClient
+      const { count: postsCount } = await supabase
         .from('posts')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
       // Get likes received (on user's posts)
-      const { data: userPosts } = await supabaseClient
+      const { data: userPosts } = await supabase
         .from('posts')
         .select('id')
         .eq('user_id', userId)
@@ -224,14 +238,14 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         const postIds = userPosts.map(post => post.id)
         
         // Likes received
-        const { count: likesCount } = await supabaseClient
+        const { count: likesCount } = await supabase
           .from('likes')
           .select('*', { count: 'exact', head: true })
           .in('post_id', postIds)
         likesReceived = likesCount || 0
 
         // Comments received
-        const { count: commentsCount } = await supabaseClient
+        const { count: commentsCount } = await supabase
           .from('comments')
           .select('*', { count: 'exact', head: true })
           .in('post_id', postIds)
@@ -239,19 +253,19 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       }
 
       // Get likes given by user
-      const { count: likesGiven } = await supabaseClient
+      const { count: likesGiven } = await supabase
         .from('likes')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
       // Get comments given by user
-      const { count: commentsGiven } = await supabaseClient
+      const { count: commentsGiven } = await supabase
         .from('comments')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
       // NEW: Get completed tidbits count
-      const { count: completedTidbits } = await supabaseClient
+      const { count: completedTidbits } = await supabase
         .from('user_tidbit_progress')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
@@ -260,7 +274,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .not('posted_at', 'is', null)
 
       // Calculate days since joining
-      const { data: profileData } = await supabaseClient
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('created_at')
         .eq('id', userId)
@@ -292,6 +306,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   // Enhanced website field handling
   const handleWebsiteChange = (value: string) => {
+    if (!mounted) return
     setFormData(prev => ({ ...prev, website: value }))
   }
 
@@ -305,6 +320,8 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   // Handle avatar upload
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!mounted) return // Hydration guard
+    
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -326,8 +343,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       const fileExt = file.name.split('.').pop()?.toLowerCase()
       const fileName = `${userId}.${fileExt}`
 
+      const supabase = getSupabaseBrowserClient()
+      
       // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, { 
           upsert: true,
@@ -337,12 +356,12 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       if (uploadError) throw uploadError
 
       // Get public URL
-      const { data: urlData } = supabaseClient.storage
+      const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName)
 
       // Update profile
-      const { error: updateError } = await supabaseClient
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: urlData.publicUrl })
         .eq('id', userId)
@@ -361,13 +380,17 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   // Save profile changes
   const handleSave = async () => {
+    if (!mounted) return // Hydration guard
+    
     try {
       setSaving(true)
       setError(null)
 
+      const supabase = getSupabaseBrowserClient()
+      
       // Validate username uniqueness if changed
       if (formData.username && formData.username !== profile?.username) {
-        const { data: existingUser } = await supabaseClient
+        const { data: existingUser } = await supabase
           .from('profiles')
           .select('id')
           .eq('username', formData.username)
@@ -379,7 +402,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         }
       }
 
-      const { error } = await supabaseClient
+      const { error } = await supabase
         .from('profiles')
         .update({
           username: formData.username || null,
@@ -404,24 +427,50 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   // Handle post click
   const handlePostClick = (post: any) => {
+    if (!mounted) return
     setSelectedPost(post)
   }
 
   // Handle modal close
   const handleModalClose = () => {
+    if (!mounted) return
     setSelectedPost(null)
     fetchProfile()
   }
 
   // Handle logout
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut()
+    if (!mounted) return
+    const supabase = getSupabaseBrowserClient()
+    await supabase.auth.signOut()
     window.location.reload()
   }
 
   useEffect(() => {
-    fetchProfile()
-  }, [userId])
+    if (mounted) {
+      fetchProfile()
+    }
+  }, [userId, mounted])
+
+  // Hydration safety - show loading during hydration
+  if (!mounted) {
+    return (
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="relative h-32 sm:h-48 bg-gradient-to-r from-[#60A875] to-[#59B1E3] animate-pulse"></div>
+          <div className="relative px-4 sm:px-6 pb-6">
+            <div className="flex items-end gap-4 sm:gap-6 -mt-12 sm:-mt-16">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 rounded-full animate-pulse border-4 border-white"></div>
+              <div className="flex-1 space-y-3 pb-4">
+                <div className="h-4 sm:h-6 bg-gray-200 rounded w-32 sm:w-48 animate-pulse"></div>
+                <div className="h-3 sm:h-4 bg-gray-200 rounded w-24 sm:w-32 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -815,6 +864,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
   filter?: 'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented' | 'received'
   onPostClick?: (post: any) => void
 }) {
+  const [mounted, setMounted] = useState(false)
   const [posts, setPosts] = useState<any[]>([])
   const [likedPosts, setLikedPosts] = useState<any[]>([])
   const [commentedPosts, setCommentedPosts] = useState<any[]>([])
@@ -822,22 +872,33 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
   const [currentUser, setCurrentUser] = useState<any>(null)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
     const getCurrentUser = async () => {
-      const { data: { user } } = await supabaseClient.auth.getUser()
+      if (!mounted) return
+      
+      const supabase = getSupabaseBrowserClient()
+      const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
     }
     getCurrentUser()
-  }, [])
+  }, [mounted])
 
   const isOwnProfile = currentUser?.id === userId
 
   useEffect(() => {
     const fetchUserPosts = async () => {
+      if (!mounted) return
+      
       try {
         setLoading(true)
         
+        const supabase = getSupabaseBrowserClient()
+        
         // Get created posts
-        const { data: createdPosts, error: postsError } = await supabaseClient
+        const { data: createdPosts, error: postsError } = await supabase
           .from('posts')
           .select('*')
           .eq('user_id', userId)
@@ -848,7 +909,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
         // Get like counts for each post
         const postsWithLikes = await Promise.all(
           (createdPosts || []).map(async (post) => {
-            const { count, error: countError } = await supabaseClient
+            const { count, error: countError } = await supabase
               .from('likes')
               .select('*', { count: 'exact', head: true })
               .eq('post_id', post.id)
@@ -863,7 +924,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
         // Get comment counts for each post
         const postsWithComments = await Promise.all(
           postsWithLikes.map(async (post) => {
-            const { count, error: countError } = await supabaseClient
+            const { count, error: countError } = await supabase
               .from('comments')
               .select('*', { count: 'exact', head: true })
               .eq('post_id', post.id)
@@ -878,7 +939,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
         setPosts(postsWithComments)
 
         // Fetch posts the user has liked
-        const { data: userLikes, error: likesError } = await supabaseClient
+        const { data: userLikes, error: likesError } = await supabase
           .from('likes')
           .select(`
             post_id,
@@ -892,7 +953,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
         }
 
         // Fetch posts the user has commented on
-        const { data: userComments, error: commentsError } = await supabaseClient
+        const { data: userComments, error: commentsError } = await supabase
           .from('comments')
           .select(`
             post_id,
@@ -915,7 +976,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
     }
 
     fetchUserPosts()
-  }, [userId])
+  }, [userId, mounted])
 
   // Filter posts based on selected filter
   const getFilteredPosts = () => {
@@ -955,6 +1016,22 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
       case 'all':
       default: return 'Recent Posts'
     }
+  }
+
+  // Hydration safety
+  if (!mounted) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Loading...</h3>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="aspect-square bg-gray-200 rounded-lg animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { supabase } from "../lib/supabaseClient";
+import { getSupabaseBrowserClient } from "../lib/supabaseClient";
 import { Calendar, Loader2, Lock } from "lucide-react";
 
 // Import our modular components (unchanged)
@@ -61,6 +61,9 @@ export default function TidbitTutor({
   dayNumber,
   embedded = false,
 }: TidbitTutorProps) {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false);
+
   // Core state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -88,9 +91,14 @@ export default function TidbitTutor({
 
   // New: redirect target for OAuth to return to this screen
   const redirectTo = useMemo(
-    () => (typeof window !== "undefined" ? window.location.href : null),
-    []
+    () => (mounted && typeof window !== "undefined" ? window.location.href : null),
+    [mounted]
   );
+
+  // Hydration fix
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Derived values
   const getCurrentProvider = () =>
@@ -107,11 +115,12 @@ export default function TidbitTutor({
   // Load tidbit from Supabase
   useEffect(() => {
     const loadTidbitData = async () => {
-      if (!autoLoadFromSupabase) return;
+      if (!autoLoadFromSupabase || !mounted) return;
 
       setLoadingState("loading_tidbit");
 
       try {
+        const supabase = getSupabaseBrowserClient();
         let query = supabase.from("tidbits").select("*").eq("status", "published");
 
         if (dayNumber) {
@@ -155,10 +164,12 @@ export default function TidbitTutor({
     };
 
     loadTidbitData();
-  }, [autoLoadFromSupabase, dayNumber, tidbitNumber]);
+  }, [autoLoadFromSupabase, dayNumber, tidbitNumber, mounted]);
 
   // Set initial prefill/provider from tidbit
   useEffect(() => {
+    if (!mounted) return;
+    
     if (tidbitData && messages.length === 0) {
       if (tidbitData.tutor_prefill && shouldShowStarterText) {
         setInput(tidbitData.tutor_prefill);
@@ -168,10 +179,12 @@ export default function TidbitTutor({
         if (valid) setSelectedProvider(valid.id);
       }
     }
-  }, [tidbitData, messages.length, shouldShowStarterText]);
+  }, [tidbitData, messages.length, shouldShowStarterText, mounted]);
 
   // Starter text behavior on provider change
   useEffect(() => {
+    if (!mounted) return;
+    
     const hasUsedThisProvider = hasUsedProvider.has(selectedProvider);
     if (tidbitData?.tutor_prefill) {
       if (!hasUsedThisProvider && !input.trim()) {
@@ -182,12 +195,15 @@ export default function TidbitTutor({
         setShouldShowStarterText(false);
       }
     }
-  }, [selectedProvider, tidbitData?.tutor_prefill, hasUsedProvider, input]);
+  }, [selectedProvider, tidbitData?.tutor_prefill, hasUsedProvider, input, mounted]);
 
   // Auth: check user
   useEffect(() => {
     const checkUser = async () => {
+      if (!mounted) return;
+      
       try {
+        const supabase = getSupabaseBrowserClient();
         const { data, error } = await supabase.auth.getUser();
         if (error) return;
         setUser(data.user ?? null);
@@ -198,19 +214,22 @@ export default function TidbitTutor({
     checkUser();
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN") {
-        setUser(session?.user ?? null);
-        setShowAuthModal(false);
-      } else if (event === "SIGNED_OUT") {
-        setUser(null);
-      }
-    });
+    if (mounted) {
+      const supabase = getSupabaseBrowserClient();
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_IN") {
+          setUser(session?.user ?? null);
+          setShowAuthModal(false);
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+        }
+      });
 
-    return () => subscription.unsubscribe();
-  }, []);
+      return () => subscription.unsubscribe();
+    }
+  }, [mounted]);
 
   // Auto-clear error/success
   useEffect(() => {
@@ -242,6 +261,8 @@ export default function TidbitTutor({
 
   // Chat
   async function sendMessage() {
+    if (!mounted) return; // Hydration guard
+    
     // Block send when not logged in - show modal instead
     if (!user) {
       setShowAuthModal(true);
@@ -343,7 +364,7 @@ export default function TidbitTutor({
 
   // Copy
   const copyMessage = async (content: string, index: number) => {
-    if (loadingState === "copying") return;
+    if (!mounted || loadingState === "copying") return;
 
     setLoadingState("copying");
     clearError();
@@ -382,7 +403,7 @@ export default function TidbitTutor({
 
   // Share a specific exchange
   const shareSpecificConversation = async (userMsgIndex: number) => {
-    if (loadingState === "posting") return;
+    if (!mounted || loadingState === "posting") return;
 
     if (!user) {
       setShowAuthModal(true);
@@ -401,6 +422,7 @@ export default function TidbitTutor({
     clearError();
 
     try {
+      const supabase = getSupabaseBrowserClient();
       const { error: supabaseError } = await supabase.from("posts").insert({
         user_id: user.id,
         content: `Used AI with Daily Tidbit #${currentTidbitNumber}! "${currentTidbitTitle}"`,
@@ -435,21 +457,43 @@ export default function TidbitTutor({
 
   // Provider change
   const handleProviderChange = (providerId: string) => {
+    if (!mounted) return;
     setSelectedProvider(providerId);
   };
 
   // Clear starter text
   const handleClearPrefill = () => {
+    if (!mounted) return;
     setInput("");
     setShouldShowStarterText(false);
   };
 
   // Input area click handler
   const handleInputAreaClick = () => {
+    if (!mounted) return;
     if (!user) {
       setShowAuthModal(true);
     }
   };
+
+  // Hydration safety - show loading during hydration
+  if (!mounted) {
+    return (
+      <div className={embedded ? "w-full relative" : "relative max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"}>
+        <div className="animate-pulse">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+              <div className="h-6 bg-gray-200 rounded w-32"></div>
+            </div>
+            <div className="w-20 h-8 bg-gray-200 rounded"></div>
+          </div>
+          <div className="h-20 bg-gray-200 rounded-lg mb-4"></div>
+          <div className="h-12 bg-gray-200 rounded-lg"></div>
+        </div>
+      </div>
+    );
+  }
 
   const currentProvider = getCurrentProvider();
   const gated = !user;
@@ -660,7 +704,7 @@ function FullScreenGate({
           <span className="text-lg font-bold">🔒</span>
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Run today’s tip with Tidbit Tutor
+          Run today's tip with Tidbit Tutor
         </h2>
         <p className="text-gray-700 mb-6">
           Create a free account or log in to use it.
@@ -682,7 +726,7 @@ function FullScreenGate({
         </div>
 
         <ul className="mt-5 text-sm text-left text-gray-600 space-y-1 mx-auto max-w-sm">
-          <li>✅ Try today’s Tidbit inside our own Assistant</li>
+          <li>✅ Try today's Tidbit inside our own Assistant</li>
           <li>✅ Test drive several leading AI models</li>
           <li>✅ Post your creations to the BitBoard</li>
           <li>✅ Create a profile and track your activity</li>

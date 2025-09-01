@@ -1,4 +1,4 @@
-// app/TidbitLibrary/TidbitLibraryClient.tsx
+// app/TidbitLibrary/TidbitLibraryClient.tsx - Fixed image loading and Tailwind v4 compatibility
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -38,12 +38,13 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
   const [perPage] = useState<number>(initialData.perPage || 24)
   const [hasMore, setHasMore] = useState<boolean>(initialData.hasMore)
 
-  // ui state (no in-page search anymore)
+  // ui state
   const [sort, setSort] = useState<Sort>('newest')
   const [filters, setFilters] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const [showCTA, setShowCTA] = useState<boolean>(false)
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set())
 
   const filterCategories = useMemo(
     () => [
@@ -76,9 +77,12 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
     console.log(`GA Event: ${name}`, data || {})
   }
 
+  const handleImageError = useCallback((itemId: number) => {
+    setImageErrors(prev => new Set([...prev, itemId]))
+  }, [])
+
   const buildUrl = useCallback((nextPage: number) => {
     const u = new URL('/api/tidbits', window.location.origin)
-    // Note: removed q – library is browse-only now
     u.searchParams.set('sort', sort)
     u.searchParams.set('page', String(nextPage))
     u.searchParams.set('perPage', String(perPage))
@@ -124,6 +128,8 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
     fetchPage(1, true)
     track('filter_apply', { sort, filters })
     setShowCTA(false)
+    // Reset image errors when filters change
+    setImageErrors(new Set())
   }, [sort, filters, fetchPage])
 
   // infinite scroll + CTA
@@ -155,61 +161,60 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
 
   return (
     <main className="max-w-7xl mx-auto px-4 pb-24">
-      {/* Controls (no library search; add Advanced Search link instead) */}
+      {/* Controls */}
       <section className="p-4">
-  <div className="max-w-[1100px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-    {/* Left: Sort + Filters */}
-    <div className="grid grid-cols-2 gap-3 md:flex md:gap-3 md:shrink-0">
-      {/* Sort */}
-      <div className="relative w-full md:w-44">
-        <label className="sr-only" htmlFor="sort">Sort</label>
-        <select
-          id="sort"
-          className="w-full appearance-none pr-9 pl-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#60A875]/20"
-          value={sort}
-          onChange={(e) => { setSort(e.target.value as Sort); track('sort_change', { sort: e.target.value }) }}
-        >
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="alphabetical">A → Z</option>
-          <option value="reverse-alphabetical">Z → A</option>
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-      </div>
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          {/* Left: Sort + Filters */}
+          <div className="grid grid-cols-2 gap-3 md:flex md:gap-3 md:shrink-0">
+            {/* Sort */}
+            <div className="relative w-full md:w-44">
+              <label className="sr-only" htmlFor="sort">Sort</label>
+              <select
+                id="sort"
+                className="w-full appearance-none pr-9 pl-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-green/20"
+                value={sort}
+                onChange={(e) => { setSort(e.target.value as Sort); track('sort_change', { sort: e.target.value }) }}
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="alphabetical">A → Z</option>
+                <option value="reverse-alphabetical">Z → A</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            </div>
 
-      {/* Filters */}
-      <button
-        ref={filterButtonRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={filtersOpen}
-        aria-controls="filters-dialog"
-        onClick={() => setFiltersOpen(true)}
-        className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#60A875]/20"
-      >
-        <Filter className="w-4 h-4" />
-        Filters
-        {filters.length > 0 && (
-          <span className="ml-1 inline-flex items-center justify-center text-xs px-1.5 py-0.5 rounded-full bg-[#60A875] text-white">
-            {filters.length}
-          </span>
-        )}
-      </button>
-    </div>
+            {/* Filters */}
+            <button
+              ref={filterButtonRef}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              aria-controls="filters-dialog"
+              onClick={() => setFiltersOpen(true)}
+              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-green/20"
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {filters.length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center text-xs px-1.5 py-0.5 rounded-full bg-brand-green text-white">
+                  {filters.length}
+                </span>
+              )}
+            </button>
+          </div>
 
-    {/* Right: Advanced Search */}
-    <div>
-      <a
-        href="/search"
-        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#60A875]/20"
-      >
-        <Search className="w-4 h-4" />
-        <span>Advanced search</span>
-      </a>
-    </div>
-  </div>
-</section>
-
+          {/* Right: Advanced Search */}
+          <div>
+            <a
+              href="/search"
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-green/20"
+            >
+              <Search className="w-4 h-4" />
+              <span>Advanced search</span>
+            </a>
+          </div>
+        </div>
+      </section>
 
       {/* Grid */}
       <section aria-live="polite">
@@ -224,19 +229,33 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
                 <a
                   href={`/day/${item.day_number}`}
                   onClick={() => track('card_click', { id: item.id })}
-                  className="block focus:outline-none focus:ring-2 focus:ring-[#60A875]/30"
+                  className="block focus:outline-none focus:ring-2 focus:ring-brand-green/30"
                 >
-                  <div className="aspect-square bg-white flex items-center justify-center overflow-hidden p-2">
-                    {item.image_url ? (
+                  <div className="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden p-2">
+                    {item.image_url && !imageErrors.has(item.id) ? (
                       <img
                         src={item.image_url}
                         alt={item.title}
-                        className="max-w-full max-h-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.06]"
+                        className="max-w-full max-h-full object-contain transition-transform duration-500 ease-out group-hover:scale-105"
                         loading="lazy"
+                        onError={() => handleImageError(item.id)}
+                        onLoad={() => {
+                          // Remove from error set if it loads successfully after an error
+                          setImageErrors(prev => {
+                            const newSet = new Set(prev)
+                            newSet.delete(item.id)
+                            return newSet
+                          })
+                        }}
                       />
                     ) : (
-                      <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">
-                        No image
+                      <div className="h-full w-full flex flex-col items-center justify-center text-gray-400 text-center p-4">
+                        <div className="w-12 h-12 mb-2 rounded-xl bg-gray-200 flex items-center justify-center">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <span className="text-xs">Day {item.day_number}</span>
                       </div>
                     )}
                   </div>
@@ -261,7 +280,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
 
       {/* CTA Section */}
       {showCTA && (
-        <div className="mt-16 animate-fade-in-up">
+        <div className="mt-16 animate-fade-in">
           <CTASection variant="transparent" />
         </div>
       )}
@@ -274,7 +293,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
         <div role="dialog" aria-modal="true" aria-label="Filter categories" id="filters-dialog" className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/30" onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} />
           <div className="absolute inset-x-0 bottom-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[min(92vw,720px)]">
-            <div ref={dialogRef} className="bg-white rounded-t-2xl md:rounded-2xl shadow-xl border border-black/5 h-[88vh] md:h-auto md:max-h-[80vh] flex flex-col sheet-in-animation">
+            <div ref={dialogRef} className="bg-white rounded-t-2xl md:rounded-2xl shadow-xl border border-black/5 h-[88vh] md:h-auto md:max-h-[80vh] flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b">
                 <h3 className="font-semibold text-gray-900">Filters</h3>
                 <button onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} className="p-2 rounded-lg hover:bg-gray-100" aria-label="Close filters">
@@ -282,7 +301,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
                 </button>
               </div>
 
-              <div className="px-4 py-4 grow overflow-y-auto [-webkit-overflow-scrolling:touch]">
+              <div className="px-4 py-4 grow overflow-y-auto">
                 <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <legend className="sr-only">Filter categories</legend>
                   {filterCategories.map(cat => {
@@ -290,9 +309,9 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
                     return (
                       <label
                         key={cat.key}
-                        className={`flex items-center gap-3 rounded-xl border px-3 py-2 cursor-pointer transition ${active ? 'border-[#60A875] bg-[#60A875]/10' : 'border-gray-200 hover:border-gray-300'}`}
+                        className={`flex items-center gap-3 rounded-xl border px-3 py-2 cursor-pointer transition ${active ? 'border-brand-green bg-brand-green/10' : 'border-gray-200 hover:border-gray-300'}`}
                       >
-                        <input type="checkbox" className="accent-[#60A875] h-4 w-4" checked={active} onChange={() => toggleFilter(cat.key)} />
+                        <input type="checkbox" className="accent-brand-green h-4 w-4" checked={active} onChange={() => toggleFilter(cat.key)} />
                         <span className="text-lg" aria-hidden>{cat.emoji}</span>
                         <span className="text-sm text-gray-900">{cat.label}</span>
                       </label>
@@ -302,8 +321,8 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
               </div>
 
               <div className="flex items-center justify-between px-4 py-3 border-t">
-                <button onClick={clearFilters} className="text-sm text-[#60A875] hover:underline">Clear all</button>
-                <button onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} className="px-3 py-2 rounded-xl bg-[#60A875] text-white hover:bg-green-600">
+                <button onClick={clearFilters} className="text-sm text-brand-green hover:underline">Clear all</button>
+                <button onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} className="px-3 py-2 rounded-xl bg-brand-green text-white hover:bg-green-600">
                   Done
                 </button>
               </div>

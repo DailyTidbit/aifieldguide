@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { getSupabaseBrowserClientSafe } from '../lib/supabaseClient'
 import { 
   X, 
   Heart, 
@@ -65,6 +65,19 @@ interface PostModalProps {
 }
 
 export default function PostModal({ post, onClose }: PostModalProps) {
+  // ✅ HYDRATION SAFETY: Primary mounted state
+  const [mounted, setMounted] = useState(false)
+  
+  // ✅ SUPABASE SAFETY: Get client instance safely
+  const getSupabaseClient = () => {
+    try {
+      return getSupabaseBrowserClientSafe()
+    } catch (error) {
+      console.error('Failed to get Supabase client:', error)
+      return null
+    }
+  }
+  
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isLiked, setIsLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(post.likes_count ?? 0)
@@ -83,45 +96,71 @@ export default function PostModal({ post, onClose }: PostModalProps) {
   const [copySuccess, setCopySuccess] = useState(false)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Check if current user owns this post
-  const isOwnPost = currentUser?.id === post.user_id
+  // ✅ HYDRATION SAFETY: Mount detection
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  // Enhanced media type detection
-  const isAudioLink = typeof post.media_url === 'string' &&
+  // ✅ HYDRATION SAFE: Enhanced media type detection with guards
+  const isAudioLink = mounted && typeof post.media_url === 'string' &&
     (post.media_url.includes('suno.ai') || post.media_url.includes('udio.com'))
 
-  const hasValidImage = typeof post.media_url === 'string' &&
+  const hasValidImage = mounted && typeof post.media_url === 'string' &&
     isValidMediaUrl(post.media_url) && !isAudioLink && !imageError
 
   const hasTextContent = Boolean(post.content)
 
+  // ✅ HYDRATION SAFE: Check if current user owns this post
+  const isOwnPost = mounted && currentUser?.id === post.user_id
+
   // Fetch current user and check if they liked this post
   useEffect(() => {
+    if (!mounted) return
+
     const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setCurrentUser(user)
+      try {
+        const supabase = getSupabaseClient()
+        if (!supabase) {
+          console.error('Supabase client not available')
+          return
+        }
 
-      if (user) {
-        // Check if user liked this post
-        const { data: likeData } = await supabase
-          .from('likes')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('post_id', post.id)
-          .single()
+        const { data: { user } } = await supabase.auth.getUser()
+        setCurrentUser(user)
 
-        setIsLiked(!!likeData)
+        if (user) {
+          // Check if user liked this post
+          const { data: likeData } = await supabase
+            .from('likes')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('post_id', post.id)
+            .single()
+
+          setIsLiked(!!likeData)
+        }
+      } catch (error) {
+        console.error('Error getting current user:', error)
       }
     }
 
     getCurrentUser()
-  }, [post.id])
+  }, [post.id, mounted])
 
   // Enhanced fetch comments function
   useEffect(() => {
+    if (!mounted) return
+
     const fetchComments = async () => {
       try {
         setLoadingComments(true)
+        
+        const supabase = getSupabaseClient()
+        if (!supabase) {
+          console.error('Supabase client not available')
+          setLoadingComments(false)
+          return
+        }
         
         // First, fetch comments
         const { data: commentsData, error: commentsError } = await supabase
@@ -172,12 +211,18 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
 
     fetchComments()
-  }, [post.id])
+  }, [post.id, mounted])
 
-  // Handle like/unlike
+  // ✅ HYDRATION SAFE: Enhanced like handler with guards
   const handleLike = async () => {
-    if (!currentUser) {
+    if (!mounted || !currentUser) {
       alert('Please log in to like posts.')
+      return
+    }
+
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.error('Supabase client not available')
       return
     }
 
@@ -211,7 +256,14 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
   // Enhanced comment submission function
   const handleSubmitComment = async () => {
-    if (!currentUser || !newComment.trim() || !commentsEnabled) return
+    if (!mounted || !currentUser || !newComment.trim() || !commentsEnabled) return
+
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.error('Supabase client not available')
+      alert('Unable to submit comment. Please try again.')
+      return
+    }
 
     try {
       setIsSubmittingComment(true)
@@ -261,9 +313,16 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // Handle post deletion
+  // ✅ HYDRATION SAFE: Enhanced post deletion with guards
   const handleDeletePost = async () => {
-    if (!currentUser || !isOwnPost) return
+    if (!mounted || !currentUser || !isOwnPost) return
+
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.error('Supabase client not available')
+      alert('Unable to delete post. Please try again.')
+      return
+    }
 
     try {
       setDeleting(true)
@@ -279,8 +338,10 @@ export default function PostModal({ post, onClose }: PostModalProps) {
       // Close modal and refresh the feed
       onClose()
       
-      // Refresh the page to update the feed
-      window.location.reload()
+      // ✅ HYDRATION SAFE: Enhanced page refresh with error handling
+      if (typeof window !== 'undefined') {
+        window.location.reload()
+      }
     } catch (error) {
       console.error('Error deleting post:', error)
       alert('Failed to delete post. Please try again.')
@@ -292,9 +353,16 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
   // Handle comment deletion
   const handleDeleteComment = async (commentId: string, commentUserId: string) => {
-    if (!currentUser || (currentUser.id !== commentUserId && !isOwnPost)) return
+    if (!mounted || !currentUser || (currentUser.id !== commentUserId && !isOwnPost)) return
 
     if (!confirm('Are you sure you want to delete this comment?')) return
+
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.error('Supabase client not available')
+      alert('Unable to delete comment. Please try again.')
+      return
+    }
 
     try {
       const { error } = await supabase
@@ -313,7 +381,14 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
   // Enhanced post management functions
   const toggleCommentsEnabled = async () => {
-    if (!isOwnPost) return
+    if (!mounted || !isOwnPost) return
+
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.error('Supabase client not available')
+      alert('Unable to update comments setting. Please try again.')
+      return
+    }
 
     try {
       const newState = !commentsEnabled
@@ -333,7 +408,14 @@ export default function PostModal({ post, onClose }: PostModalProps) {
   }
 
   const togglePinned = async () => {
-    if (!isOwnPost) return
+    if (!mounted || !isOwnPost) return
+
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.error('Supabase client not available')
+      alert('Unable to update pin status. Please try again.')
+      return
+    }
 
     try {
       const newState = !isPinned
@@ -352,8 +434,10 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // Enhanced share functionality
+  // ✅ HYDRATION SAFE: Enhanced share functionality with browser guards
   const handleShare = async () => {
+    if (!mounted || typeof window === 'undefined') return
+
     try {
       const shareData = {
         title: `AI Creation - Day ${post.tidbit}`,
@@ -372,13 +456,31 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
+  // ✅ HYDRATION SAFE: Enhanced clipboard functionality
   const copyToClipboard = async () => {
+    if (!mounted || typeof window === 'undefined' || !navigator.clipboard) {
+      return
+    }
+
     try {
       await navigator.clipboard.writeText(window.location.href)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (error) {
       console.error('Error copying to clipboard:', error)
+      // Fallback for browsers without clipboard API
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = window.location.href
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        setCopySuccess(true)
+        setTimeout(() => setCopySuccess(false), 2000)
+      } catch (fallbackError) {
+        console.error('Fallback copy failed:', fallbackError)
+      }
     }
   }
 
@@ -389,8 +491,20 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // Enhanced media section rendering with better visual design
+  // ✅ HYDRATION SAFE: Enhanced media section rendering with guards
   const renderMediaSection = () => {
+    if (!mounted) {
+      // Return loading placeholder that matches final dimensions
+      return (
+        <div className="relative w-full bg-gray-900 flex items-center justify-center min-h-[300px]">
+          <div className="flex flex-col items-center gap-3 text-gray-400">
+            <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm">Loading media...</span>
+          </div>
+        </div>
+      )
+    }
+
     if (hasValidImage) {
       return (
         <div className="relative w-full bg-black flex items-center justify-center">
@@ -479,12 +593,28 @@ export default function PostModal({ post, onClose }: PostModalProps) {
             <span className="text-lg font-semibold">Day {post.tidbit} Creation</span>
           </div>
           
-          {isPinned && (
+          {mounted && isPinned && (
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white/90">
               <Pin className="w-4 h-4" />
               <span className="text-sm font-medium">Pinned Post</span>
             </div>
           )}
+        </div>
+      </div>
+    )
+  }
+
+  // ✅ HYDRATION SAFETY: Early return for unmounted state
+  if (!mounted) {
+    return (
+      <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex flex-col items-center gap-3 text-gray-400">
+              <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm">Loading post...</span>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -503,7 +633,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* FIXED: User avatar with proper aspect ratio */}
               {post.user_avatar ? (
-                <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-gray-100">
+                <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-gray-100 flex-shrink-0">
                   <Image
                     src={post.user_avatar}
                     alt={post.username || 'User'}
@@ -513,7 +643,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                   />
                 </div>
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
                   <span className="text-white font-bold">
                     {(post.username || post.user_full_name || 'A').charAt(0).toUpperCase()}
                   </span>
@@ -767,7 +897,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                     <div className="space-y-3">
                       {Array.from({ length: 3 }).map((_, i) => (
                         <div key={i} className="flex gap-3 animate-pulse">
-                          <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                          <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0"></div>
                           <div className="flex-1">
                             <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
                             <div className="h-4 bg-gray-200 rounded w-full"></div>

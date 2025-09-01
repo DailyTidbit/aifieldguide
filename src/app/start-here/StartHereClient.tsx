@@ -41,7 +41,7 @@ class ErrorBoundary extends Component<
       resetErrorBoundary: () => void;
     }>;
   },
-  { hasError: boolean; error: Error | null }
+  { hasError: boolean; error?: Error }
 > {
   constructor(props: {
     children: ReactNode;
@@ -51,7 +51,7 @@ class ErrorBoundary extends Component<
     }>;
   }) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: undefined };
   }
 
   static getDerivedStateFromError(error: Error) {
@@ -59,11 +59,13 @@ class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    if (typeof window !== 'undefined') {
+      console.error('ErrorBoundary caught an error:', error, errorInfo);
+    }
   }
 
   resetErrorBoundary = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: undefined });
   };
 
   render() {
@@ -94,15 +96,15 @@ function CarouselErrorFallback({
       role="alert"
     >
       <div className="text-4xl mb-4">🔧</div>
-      <h3 className="text-xl font-semibold text-gray-800 mb-2">
+      <h3 className="heading-subsection text-gray-800 mb-2">
         Something went wrong
       </h3>
-      <p className="text-gray-600 mb-4">
+      <p className="body-large text-gray-600 mb-4">
         We're having trouble loading this section.
       </p>
       <button
         onClick={resetErrorBoundary}
-        className="bg-brand-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
+        className="bg-brand-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
         aria-label="Try loading the carousel again"
       >
         Try Again
@@ -120,6 +122,7 @@ function CarouselSkeleton() {
           <div key={i} className="bg-gray-200 h-64 rounded-xl"></div>
         ))}
       </div>
+      <span className="sr-only">Loading interactive content...</span>
     </div>
   );
 }
@@ -164,6 +167,8 @@ const valuePropsCards: ValuePropCardProps[] = [
 ];
 
 export default function StartHereClient() {
+  // CRITICAL: Hydration safety state
+  const [mounted, setMounted] = useState(false);
   const [carouselInView, setCarouselInView] = useState(false);
   const [interactions, setInteractions] = useState(0);
 
@@ -171,17 +176,26 @@ export default function StartHereClient() {
   const interactionsRef = useRef(0);
   const maxScrollRef = useRef(0);
   const firedThresholdsRef = useRef<Set<number>>(new Set());
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef<number>(0);
 
   // Tooltip ref for Next/Image wrapper
   const tooltipRef = useRef<HTMLDivElement | null>(null);
 
+  // Initialize mounted state
+  useEffect(() => {
+    setMounted(true);
+    startTimeRef.current = Date.now();
+  }, []);
+
   const bumpInteraction = () => {
+    if (!mounted) return;
     interactionsRef.current += 1;
     setInteractions((v) => v + 1);
   };
 
+  // Hydration-safe intersection observer setup
   useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
 
     // Intersection Observer for lazy loading carousel
     const observer = new IntersectionObserver(
@@ -210,7 +224,9 @@ export default function StartHereClient() {
           if (entry.isIntersecting) {
             const sectionName = sections.find((s) => s.id === entry.target.id)
               ?.name;
-            if (sectionName) trackSectionView(sectionName);
+            if (sectionName && trackSectionView) {
+              trackSectionView(sectionName);
+            }
           }
         });
       },
@@ -226,10 +242,12 @@ export default function StartHereClient() {
       observer.disconnect();
       sectionObserver.disconnect();
     };
-  }, []);
+  }, [mounted]);
 
-  // Scroll tracking (throttled via rAF)
+  // Hydration-safe scroll tracking (throttled via rAF)
   useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+
     const handleScroll = () => {
       const docHeight =
         document.documentElement.scrollHeight - window.innerHeight;
@@ -247,7 +265,9 @@ export default function StartHereClient() {
           !firedThresholdsRef.current.has(threshold)
         ) {
           firedThresholdsRef.current.add(threshold);
-          trackUserEngagement('scroll_depth', threshold, { page: 'start-here' });
+          if (trackUserEngagement) {
+            trackUserEngagement('scroll_depth', threshold, { page: 'start-here' });
+          }
         }
       }
     };
@@ -265,57 +285,64 @@ export default function StartHereClient() {
 
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [mounted]);
 
-  // Engagement timer
+  // Hydration-safe engagement timer
   useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+
     const timer = setTimeout(() => {
       const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
-      const deviceType = getDeviceType();
-      const engagementScore = calculateEngagementScore(
-        timeSpent * 1000,
-        maxScrollRef.current / 100,
-        interactionsRef.current
-      );
+      
+      if (getDeviceType && calculateEngagementScore && trackReadingBehavior && trackDeviceEngagement && trackConversionFunnel && trackUserEngagement) {
+        const deviceType = getDeviceType();
+        const engagementScore = calculateEngagementScore(
+          timeSpent * 1000,
+          maxScrollRef.current / 100,
+          interactionsRef.current
+        );
 
-      if (timeSpent > 60 && maxScrollRef.current > 75) {
-        trackReadingBehavior('reader', timeSpent, maxScrollRef.current);
-      } else if (timeSpent < 30 && maxScrollRef.current > 80) {
-        trackReadingBehavior('skimmer', timeSpent, maxScrollRef.current);
-      } else if (timeSpent > 30 && maxScrollRef.current < 50) {
-        trackReadingBehavior('scanner', timeSpent, maxScrollRef.current);
-      }
+        if (timeSpent > 60 && maxScrollRef.current > 75) {
+          trackReadingBehavior('reader', timeSpent, maxScrollRef.current);
+        } else if (timeSpent < 30 && maxScrollRef.current > 80) {
+          trackReadingBehavior('skimmer', timeSpent, maxScrollRef.current);
+        } else if (timeSpent > 30 && maxScrollRef.current < 50) {
+          trackReadingBehavior('scanner', timeSpent, maxScrollRef.current);
+        }
 
-      trackDeviceEngagement(deviceType, engagementScore, {
-        time_spent: timeSpent,
-        scroll_depth: maxScrollRef.current,
-        interactions: interactionsRef.current,
-      });
+        trackDeviceEngagement(deviceType, engagementScore, {
+          time_spent: timeSpent,
+          scroll_depth: maxScrollRef.current,
+          interactions: interactionsRef.current,
+        });
 
-      if (engagementScore > 70) {
-        trackConversionFunnel('interested', engagementScore, {
-          high_engagement: true,
+        if (engagementScore > 70) {
+          trackConversionFunnel('interested', engagementScore, {
+            high_engagement: true,
+            device_type: deviceType,
+          });
+        } else if (engagementScore > 40) {
+          trackConversionFunnel('engaged', engagementScore, {
+            medium_engagement: true,
+            device_type: deviceType,
+          });
+        }
+
+        trackUserEngagement('time_on_page', timeSpent, {
+          page: 'start-here',
+          engaged_time: timeSpent,
+          engagement_score: engagementScore,
           device_type: deviceType,
         });
-      } else if (engagementScore > 40) {
-        trackConversionFunnel('engaged', engagementScore, {
-          medium_engagement: true,
-          device_type: deviceType,
-        });
       }
-
-      trackUserEngagement('time_on_page', timeSpent, {
-        page: 'start-here',
-        engaged_time: timeSpent,
-        engagement_score: engagementScore,
-        device_type: deviceType,
-      });
     }, 30000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [mounted]);
 
   const scrollToSection = (id: string) => {
+    if (!mounted || typeof window === 'undefined') return;
+    
     const element = document.getElementById(id);
     if (!element) return;
 
@@ -329,8 +356,11 @@ export default function StartHereClient() {
     const buttonText =
       id === 'how-daily-tidbit-works' ? 'Daily Tidbit?!' : "What's AI?";
 
-    trackCTAClick(buttonText, 'Hero Section', sectionNames[id] || id);
+    if (trackCTAClick) {
+      trackCTAClick(buttonText, 'Hero Section', sectionNames[id] || id);
+    }
 
+    // Accessibility announcement
     const announcement = document.createElement('div');
     announcement.setAttribute('aria-live', 'polite');
     announcement.setAttribute('aria-atomic', 'true');
@@ -339,8 +369,24 @@ export default function StartHereClient() {
       element.querySelector('h2, h3')?.textContent || 'section'
     }`;
     document.body.appendChild(announcement);
-    setTimeout(() => document.body.removeChild(announcement), 1000);
+    setTimeout(() => {
+      if (document.body.contains(announcement)) {
+        document.body.removeChild(announcement);
+      }
+    }, 1000);
   };
+
+  // Show loading state until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-green mx-auto mb-4"></div>
+          <p className="body-large text-gray-600">Loading Daily Tidbit...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -378,6 +424,7 @@ export default function StartHereClient() {
                     sizes="(min-width: 1024px) 500px, 100vw"
                     className="w-full h-auto object-contain hover:scale-105 transform transition-all duration-500 relative z-10 cursor-pointer"
                     onMouseMove={(e) => {
+                      if (!mounted) return;
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       const x = e.clientX - rect.left;
                       const y = e.clientY - rect.top;
@@ -389,9 +436,11 @@ export default function StartHereClient() {
                     }}
                     onClick={() => {
                       bumpInteraction();
-                      trackImageInteraction('hero-celebration', 'click', {
-                        location: 'hero_section',
-                      });
+                      if (trackImageInteraction) {
+                        trackImageInteraction('hero-celebration', 'click', {
+                          location: 'hero_section',
+                        });
+                      }
                     }}
                   />
 
@@ -407,22 +456,10 @@ export default function StartHereClient() {
                     aria-label="Welcome message for new users"
                   >
                     <div className="text-center">
-                      <h4
-                        className="text-sm font-bold text-[#60A875] mb-2 flex items-center justify-center gap-1"
-                        style={{
-                          fontFamily:
-                            "var(--font-playfair, 'Playfair Display'), serif",
-                        }}
-                      >
+                      <h4 className="body-bold text-brand-green mb-2 flex items-center justify-center gap-1 font-serif">
                         <span aria-hidden="true">✨</span> You Belong Here
                       </h4>
-                      <p
-                        className="text-xs text-gray-700 leading-relaxed"
-                        style={{
-                          fontFamily:
-                            "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                        }}
-                      >
+                      <p className="body-small text-gray-700 leading-relaxed">
                         Whether you're writing, dreaming, planning — or just
                         curious — you're in the right place to learn AI that
                         helps.
@@ -443,26 +480,15 @@ export default function StartHereClient() {
             <div className="lg:w-1/2 space-y-8 text-center lg:text-left">
               <h1
                 id="hero-heading"
-                className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight animate-fade-in-up"
-                style={{
-                  fontFamily:
-                    "var(--font-playfair, 'Playfair Display'), serif",
-                  fontWeight: 700,
-                }}
+                className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight animate-fade-in-up font-serif"
               >
-                <span className="text-[#59B1E3]" aria-label="AI with sparkle emoji">
+                <span className="text-brand-blue" aria-label="AI with sparkle emoji">
                   ✨ AI
                 </span>{' '}
-                <span className="text-[#60A875]">for Real People</span>
+                <span className="text-brand-green">for Real People</span>
               </h1>
 
-              <div
-                className="space-y-6 body-large text-xl md:text-2xl text-gray-800 leading-relaxed animate-fade-in-up delay-300"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                }}
-              >
+              <div className="space-y-6 body-large text-xl md:text-2xl text-gray-800 leading-relaxed animate-fade-in-up delay-300">
                 <p>
                   <strong>
                     Kick off your shoes, put up your feet — you're in the right
@@ -497,7 +523,7 @@ export default function StartHereClient() {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                   <button
                     onClick={() => scrollToSection('how-daily-tidbit-works')}
-                    className="bg-[#60A875] text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-green-600 hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                    className="bg-brand-green text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-green-600 hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
                     aria-label="Learn about Daily Tidbit - scroll to how it works section"
                     onMouseEnter={() => bumpInteraction()}
                   >
@@ -518,7 +544,7 @@ export default function StartHereClient() {
 
                   <button
                     onClick={() => scrollToSection('how-it-works')}
-                    className="bg-[#59B1E3] text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-blue-600 hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    className="bg-brand-blue text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-blue-600 hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     aria-label="Learn about AI basics - scroll to explanation section"
                     onMouseEnter={() => bumpInteraction()}
                   >
@@ -553,19 +579,12 @@ export default function StartHereClient() {
           <div className="text-center mb-16">
             <h2
               id="what-ai-heading"
-              className="heading-section text-4xl md:text-5xl text-[#60A875] mb-6 leading-tight font-bold drop-shadow-sm"
-              style={{ fontFamily: "var(--font-playfair, 'Playfair Display'), serif" }}
+              className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight body-bold drop-shadow-sm font-serif"
             >
               <span aria-hidden="true">💡</span> Real Tools. Real Use Cases.
             </h2>
 
-            <p
-              className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-medium"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-              }}
-            >
+            <p className="body-large text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed body-bold">
               One smart AI idea a day — creative, practical, and actually fun.
             </p>
           </div>
@@ -579,13 +598,7 @@ export default function StartHereClient() {
           </div>
 
           <div className="text-center mt-12">
-            <p
-              className="text-lg text-gray-600 italic"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-              }}
-            >
+            <p className="body-large text-lg text-gray-600 italic">
               And don't worry 'bout a thing — every little tip's gonna be
               alright. <span aria-hidden="true">🎶</span>
             </p>
@@ -612,7 +625,7 @@ export default function StartHereClient() {
         <div className="max-w-6xl mx-auto relative z-10">
           <h3
             id="how-ai-works-heading"
-            className="heading-section text-4xl md:text-5xl text-[#59B1E3] mb-6 text-center"
+            className="heading-section text-4xl md:text-5xl text-brand-blue mb-6 text-center"
           >
             <span aria-hidden="true">✨</span> How Does AI Actually Work?
           </h3>
@@ -637,21 +650,14 @@ export default function StartHereClient() {
           <div className="text-center mb-16">
             <h3
               id="daily-tidbit-process-heading"
-              className="heading-section text-4xl md:text-5xl mb-4 text-center"
-              style={{ fontFamily: "var(--font-playfair, 'Playfair Display'), serif" }}
+              className="heading-section text-4xl md:text-5xl mb-4 text-center font-serif"
             >
-              <span aria-hidden="true">🍍</span> The{' '}
-              <span style={{ color: '#60A875' }}>D</span>
-              <span style={{ color: '#59B1E3' }}>ai</span>
-              <span style={{ color: '#60A875' }}>ly Tidbit</span> Formula
+              <span aria-hidden="true">🚀</span> The{' '}
+              <span className="text-brand-green">D</span>
+              <span className="text-brand-blue">ai</span>
+              <span className="text-brand-green">ly Tidbit</span> Formula
             </h3>
-            <p
-              className="text-xl text-gray-600 font-medium"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-              }}
-            >
+            <p className="body-large text-xl text-gray-600 body-bold">
               Like a cheat code for real life — watch, try, repeat.
             </p>
           </div>
@@ -669,7 +675,9 @@ export default function StartHereClient() {
               role="listitem"
               onClick={() => {
                 bumpInteraction();
-                trackStepInteraction('watch', 1, 'click');
+                if (trackStepInteraction) {
+                  trackStepInteraction('watch', 1, 'click');
+                }
               }}
               aria-label="Step 1: Watch - See it in action"
             >
@@ -680,7 +688,7 @@ export default function StartHereClient() {
                 ></div>
 
                 <div
-                  className="w-12 h-12 bg-[#C7E6F7] text-[#59B1E3] rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
+                  className="w-12 h-12 bg-[#C7E6F7] text-brand-blue rounded-full flex items-center justify-center body-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
                   aria-label="Step 1"
                 >
                   1
@@ -690,33 +698,15 @@ export default function StartHereClient() {
                   <div className="text-4xl mb-4" aria-hidden="true">
                     🎬
                   </div>
-                  <h4
-                    className="text-2xl font-bold text-[#59B1E3] mb-2"
-                    style={{
-                      fontFamily:
-                        "var(--font-playfair, 'Playfair Display'), serif",
-                    }}
-                  >
+                  <h4 className="heading-subsection text-brand-blue mb-2 font-serif">
                     Watch
                   </h4>
-                  <p
-                    className="text-lg font-semibold text-gray-700 mb-4"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                    }}
-                  >
+                  <p className="body-large body-bold text-gray-700 mb-4">
                     See It in Action
                   </p>
                 </div>
 
-                <p
-                  className="text-gray-700 leading-relaxed"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                  }}
-                >
+                <p className="body-medium text-gray-700 leading-relaxed">
                   Start with a quick 60-second video that shows the AI tip in
                   the real world — no jargon, just results.
                 </p>
@@ -730,7 +720,9 @@ export default function StartHereClient() {
               role="listitem"
               onClick={() => {
                 bumpInteraction();
-                trackStepInteraction('try', 2, 'click');
+                if (trackStepInteraction) {
+                  trackStepInteraction('try', 2, 'click');
+                }
               }}
               aria-label="Step 2: Try - Use it yourself"
             >
@@ -741,7 +733,7 @@ export default function StartHereClient() {
                 ></div>
 
                 <div
-                  className="w-12 h-12 bg-[#C6E8D3] text-[#60A875] rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
+                  className="w-12 h-12 bg-[#C6E8D3] text-brand-green rounded-full flex items-center justify-center body-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
                   aria-label="Step 2"
                 >
                   2
@@ -751,33 +743,15 @@ export default function StartHereClient() {
                   <div className="text-4xl mb-4" aria-hidden="true">
                     💡
                   </div>
-                  <h4
-                    className="text-2xl font-bold text-[#60A875] mb-2"
-                    style={{
-                      fontFamily:
-                        "var(--font-playfair, 'Playfair Display'), serif",
-                    }}
-                  >
+                  <h4 className="heading-subsection text-brand-green mb-2 font-serif">
                     Try
                   </h4>
-                  <p
-                    className="text-lg font-semibold text-gray-700 mb-4"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                    }}
-                  >
+                  <p className="body-large body-bold text-gray-700 mb-4">
                     Use It Yourself
                   </p>
                 </div>
 
-                <p
-                  className="text-gray-700 leading-relaxed"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                  }}
-                >
+                <p className="body-medium text-gray-700 leading-relaxed">
                   Watch the walkthrough, then test the idea instantly using a
                   real AI tool — right in your browser.
                 </p>
@@ -791,7 +765,9 @@ export default function StartHereClient() {
               role="listitem"
               onClick={() => {
                 bumpInteraction();
-                trackStepInteraction('share', 3, 'click');
+                if (trackStepInteraction) {
+                  trackStepInteraction('share', 3, 'click');
+                }
               }}
               aria-label="Step 3: Share - Post what you made"
             >
@@ -802,7 +778,7 @@ export default function StartHereClient() {
                 ></div>
 
                 <div
-                  className="w-12 h-12 bg-[#FDE5B6] text-[#D97706] rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
+                  className="w-12 h-12 bg-[#FDE5B6] text-brand-orange rounded-full flex items-center justify-center body-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
                   aria-label="Step 3"
                 >
                   3
@@ -812,33 +788,15 @@ export default function StartHereClient() {
                   <div className="text-4xl mb-4" aria-hidden="true">
                     📢
                   </div>
-                  <h4
-                    className="text-2xl font-bold text-[#D97706] mb-2"
-                    style={{
-                      fontFamily:
-                        "var(--font-playfair, 'Playfair Display'), serif",
-                    }}
-                  >
+                  <h4 className="heading-subsection text-brand-orange mb-2 font-serif">
                     Share
                   </h4>
-                  <p
-                    className="text-lg font-semibold text-gray-700 mb-4"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                    }}
-                  >
+                  <p className="body-large body-bold text-gray-700 mb-4">
                     Post What You Made
                   </p>
                 </div>
 
-                <p
-                  className="text-gray-700 leading-relaxed"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-                  }}
-                >
+                <p className="body-medium text-gray-700 leading-relaxed">
                   Join the community on BitBoard. Show off your creation, get
                   inspired, and see what others are doing too.
                 </p>

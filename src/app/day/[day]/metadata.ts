@@ -1,7 +1,6 @@
 // app/day/[day]/metadata.ts
 import { Metadata } from 'next'
-import { supabase } from '../../lib/supabaseClient'
-import { createServerClient } from '../../lib/supabaseServer'
+import { createServerSupabaseClient } from '../../lib/supabaseServer'
 
 interface GenerateMetadataProps {
   params: Promise<{ day: string }>
@@ -12,8 +11,17 @@ export async function generateMetadata({ params }: GenerateMetadataProps): Promi
     const { day } = await params
     const dayNumber = Number(day)
     
+    // Validate day number
+    if (isNaN(dayNumber) || dayNumber < 1) {
+      return {
+        title: 'Daily Tidbit - AI for Real People',
+        description: 'Learn practical AI skills one day at a time.',
+        robots: { index: false, follow: false }
+      }
+    }
+    
     // Use server client for metadata generation
-    const supabase = createServerClient()
+    const supabase = await createServerSupabaseClient()
     
     // Fetch tidbit data
     const { data: tidbit, error } = await supabase
@@ -34,6 +42,7 @@ export async function generateMetadata({ params }: GenerateMetadataProps): Promi
       .single()
 
     if (error || !tidbit) {
+      console.error('Metadata fetch error:', error)
       return {
         title: `Day ${day} - Daily Tidbit`,
         description: 'Learn practical AI skills one day at a time.',
@@ -291,11 +300,10 @@ function getDifficultyLabel(level: number): string {
   return labels[level as keyof typeof labels] || "Beginner"
 }
 
-// Additional helper for analytics tracking in metadata
+// Analytics tracking helper for metadata (server-side safe)
 export async function trackMetadataView(dayNumber: number, userAgent?: string) {
   try {
-    // This would typically be called from middleware or a server component
-    const supabase = createServerClient()
+    const supabase = await createServerSupabaseClient()
     
     await supabase
       .from('user_analytics_events')

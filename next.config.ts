@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: EMERGENCY_IGNORE },
   typescript: { ignoreBuildErrors: EMERGENCY_IGNORE },
 
+  // ADD THIS: Disable styled-jsx to fix hydration mismatch
+  compiler: {
+    styledJsx: false,
+  },
+
   experimental: {
     optimizePackageImports: [
       "@supabase/ssr", // Changed from supabase-js
@@ -25,6 +30,7 @@ const nextConfig: NextConfig = {
       "react-icons", 
       "date-fns",
       "lodash",
+      "tailwindcss", // Add this for Tailwind v4
     ],
   },
 

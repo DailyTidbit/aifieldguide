@@ -3,10 +3,16 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabaseClient } from '../../lib/supabaseClient'
+import { useSupabaseBrowser } from '../../lib/supabaseClient' // ✅ CORRECT IMPORT
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
 
 function PasswordResetContent() {
+  // ✅ HYDRATION SAFE: Essential mounted state
+  const [mounted, setMounted] = useState(false)
+  
+  // ✅ HYDRATION SAFE: Use the custom hook
+  const { client: supabase, isReady: supabaseReady } = useSupabaseBrowser()
+  
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -17,11 +23,17 @@ function PasswordResetContent() {
 
   const router = useRouter()
   const sp = useSearchParams()
-  const supabase = supabaseClient
   const verifiedOnceRef = useRef(false)
 
-  // Establish/confirm session from the link
+  // Hydration safety - must be first useEffect
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Establish/confirm session from the link - only after mounted and supabase ready
+  useEffect(() => {
+    if (!mounted || !supabaseReady || !supabase) return
+
     let cancelled = false
     const run = async () => {
       try {
@@ -29,7 +41,9 @@ function PasswordResetContent() {
         const token_hash = sp.get('token_hash')
         const type = (sp.get('type') as 'recovery' | null) ?? null
         const code = sp.get('code')
-        const hasHash = typeof window !== 'undefined' && window.location.hash.includes('access_token')
+        
+        // ✅ HYDRATION SAFE: Check window exists before accessing
+        const hasHash = mounted && typeof window !== 'undefined' && window.location.hash.includes('access_token')
 
         if (!verifiedOnceRef.current && (token_hash || code || hasHash)) {
           verifiedOnceRef.current = true
@@ -40,7 +54,7 @@ function PasswordResetContent() {
           } else if (code) {
             const { error } = await supabase.auth.exchangeCodeForSession(code)
             if (error) throw error
-          } else if (hasHash) {
+          } else if (hasHash && typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.hash.substring(1))
             const access_token = params.get('access_token')
             const refresh_token = params.get('refresh_token')
@@ -50,8 +64,8 @@ function PasswordResetContent() {
             }
           }
 
-          // remove tokens so dev refresh doesn't re-verify
-          if (typeof window !== 'undefined') {
+          // ✅ HYDRATION SAFE: Remove tokens only if in browser
+          if (mounted && typeof window !== 'undefined') {
             const url = new URL(window.location.href)
             url.searchParams.delete('token_hash')
             url.searchParams.delete('type')
@@ -77,13 +91,16 @@ function PasswordResetContent() {
     }
     run()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sp])
+  }, [mounted, supabaseReady, supabase, sp])
 
-  // Submit: update → hard redirect
+  // Hydration-safe calculations
+  const canSubmit = mounted ? password.length >= 8 && password === confirmPassword : false
+  const showForm = mounted && supabaseReady && sessionReady
+
+  // ✅ HYDRATION SAFE: Submit with browser checks
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!password) return setError('Password is required')
+    if (!mounted || !supabase || !password) return setError('Password is required')
     if (password.length < 8) return setError('Password must be at least 8 characters long')
     if (password !== confirmPassword) return setError('Passwords do not match')
 
@@ -99,7 +116,10 @@ function PasswordResetContent() {
       })
       if (error) throw error
 
-      window.location.replace('/?reset=success')
+      // ✅ HYDRATION SAFE: Only redirect if in browser
+      if (mounted && typeof window !== 'undefined') {
+        window.location.replace('/?reset=success')
+      }
       return
     } catch (err: any) {
       setError(err?.message || 'Failed to update password. Please try again.')
@@ -108,7 +128,13 @@ function PasswordResetContent() {
     }
   }
 
-  if (initializing) {
+  // Don't render anything until mounted
+  if (!mounted) {
+    return null
+  }
+
+  // Show loading while initializing or waiting for Supabase
+  if (initializing || !supabaseReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8 text-center">
@@ -127,7 +153,10 @@ function PasswordResetContent() {
           <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
           <h2 className="mt-6 text-3xl font-extrabold">Invalid Reset Link</h2>
           <p className="mt-2 text-sm text-gray-600">{error || 'This link is invalid or has expired.'}</p>
-          <button onClick={() => router.push('/')} className="mt-4 text-indigo-600 hover:text-indigo-500 font-medium">
+          <button 
+            onClick={() => router.push('/')} 
+            className="mt-4 text-indigo-600 hover:text-indigo-500 font-medium"
+          >
             Go back to homepage
           </button>
         </div>
@@ -150,6 +179,18 @@ function PasswordResetContent() {
                 <AlertCircle className="h-5 w-5 text-red-400" />
                 <div className="ml-3">
                   <p className="text-sm text-red-600">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show Supabase not ready warning */}
+          {!supabaseReady && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+              <div className="flex">
+                <Loader2 className="h-5 w-5 text-yellow-400 animate-spin" />
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-600">Connecting to authentication service...</p>
                 </div>
               </div>
             </div>
@@ -197,7 +238,8 @@ function PasswordResetContent() {
               </div>
             </div>
 
-            {password && (
+            {/* Password validation indicators - only show when mounted */}
+            {mounted && password && (
               <div className="text-xs space-y-1">
                 <div className={`flex items-center gap-2 ${password.length >= 8 ? 'text-green-600' : 'text-red-500'}`}>
                   <div className={`w-2 h-2 rounded-full ${password.length >= 8 ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -216,7 +258,7 @@ function PasswordResetContent() {
           <div>
             <button
               type="submit"
-              disabled={loading || !password || password !== confirmPassword || password.length < 8}
+              disabled={loading || !canSubmit || !supabaseReady}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Update Password'}
@@ -224,7 +266,11 @@ function PasswordResetContent() {
           </div>
 
           <div className="text-center">
-            <button type="button" onClick={() => router.push('/')} className="text-sm text-gray-600 hover:text-gray-500">
+            <button 
+              type="button" 
+              onClick={() => router.push('/')} 
+              className="text-sm text-gray-600 hover:text-gray-500"
+            >
               Cancel and go back
             </button>
           </div>

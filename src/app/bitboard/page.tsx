@@ -2,7 +2,7 @@
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { getSupabaseBrowserClient } from '../lib/supabase-browser'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient' // ✅ UPDATED: Use consolidated client
 import AuthForm from '../components/AuthForm'
 import PostForm from '../components/PostForm'
 import UserProfile from '../components/UserProfile'
@@ -96,7 +96,7 @@ type ViewMode = 'masonry' | 'grid' | 'list'
 // Helper function to parse search dates more reliably
 const parseSearchDate = (dateString: string): Date => {
   // First try standard Date constructor
-  let date = new Date(dateString)
+  const date = new Date(dateString)
   
   if (!isNaN(date.getTime())) {
     return date
@@ -482,6 +482,7 @@ function BitBoardContent() {
   // HYDRATION FIX: Add mounted state to prevent hydration mismatches
   const [mounted, setMounted] = useState(false)
 
+  // ✅ UPDATED: Use hydration-safe client getter
   const supabase = getSupabaseBrowserClient()
 
   // HYDRATION FIX: Set mounted after component mounts
@@ -664,6 +665,13 @@ function BitBoardContent() {
 
   // OPTIMIZED: Single batched fetchPosts function (no N+1 queries)
   const fetchPosts = useCallback(async () => {
+    // ✅ UPDATED: Check if supabase client is available
+    if (!supabase) {
+      console.warn('Supabase client not available')
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
@@ -793,6 +801,8 @@ function BitBoardContent() {
 
   // OPTIMIZED: Simplified fetchUserAndLikes (likes now handled in fetchPosts)
   const fetchUserAndLikes = useCallback(async () => {
+    if (!supabase) return
+
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
 
@@ -826,7 +836,7 @@ function BitBoardContent() {
 
   // Like handling
   const handleLike = useCallback(async (postId: string) => {
-    if (!user) {
+    if (!user || !supabase) {
       alert('Please log in to like posts.')
       return
     }
@@ -865,12 +875,16 @@ function BitBoardContent() {
 
   // Initial setup
   useEffect(() => {
+    if (!mounted) return // Wait for hydration
+    
     fetchUserAndLikes()
     fetchPosts()
-  }, [fetchUserAndLikes, fetchPosts])
+  }, [fetchUserAndLikes, fetchPosts, mounted])
 
   // OPTIMIZED: Debounced real-time subscriptions
   useEffect(() => {
+    if (!mounted || !supabase) return
+
     let timer: NodeJS.Timeout | null = null
     const channel = supabase
       .channel('posts_changes')
@@ -888,7 +902,7 @@ function BitBoardContent() {
       if (timer) clearTimeout(timer)
       supabase.removeChannel(channel)
     }
-  }, [fetchPosts, supabase])
+  }, [fetchPosts, supabase, mounted])
 
   // HYDRATION FIX: Move handleRefresh callback after fetchPosts/fetchUserAndLikes are defined
   const handleRefresh = useCallback(async () => {
@@ -1220,17 +1234,9 @@ function BitBoardContent() {
           <ArrowUp className="w-5 h-5" />
         </button>
       )}
+      
 
-      {/* Mobile-specific styles */}
-      <style jsx>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      
     </div>
   )
 }

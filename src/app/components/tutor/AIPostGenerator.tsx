@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react';
-import { Sparkles, Wand2, RefreshCw, Loader2, Copy, Check, Edit3, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Wand2, RefreshCw, Loader2, Edit3, X, Check } from 'lucide-react';
 import type { Message } from './TutorChatArea';
 
 interface AIPostGeneratorProps {
@@ -27,30 +27,43 @@ export function AIPostGenerator({
   onUsePost,
   onCancel
 }: AIPostGeneratorProps) {
+  // Essential hydration safety
+  const [mounted, setMounted] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<'casual' | 'professional' | 'excited' | 'detailed'>('casual');
   const [customizing, setCustomizing] = useState(false);
   const [customContent, setCustomContent] = useState('');
 
+  // Hydration safety - must be first useEffect
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const styles = [
-    { id: 'casual', name: 'Casual', emoji: '😊', description: 'Friendly and conversational' },
-    { id: 'professional', name: 'Professional', emoji: '💼', description: 'Polished and business-like' },
-    { id: 'excited', name: 'Excited', emoji: '🎉', description: 'Enthusiastic and energetic' },
-    { id: 'detailed', name: 'Detailed', emoji: '📝', description: 'In-depth with specifics' }
-  ] as const;
+    { id: 'casual' as const, name: 'Casual', emoji: '😊', description: 'Friendly and conversational' },
+    { id: 'professional' as const, name: 'Professional', emoji: '💼', description: 'Polished and business-like' },
+    { id: 'excited' as const, name: 'Excited', emoji: '🎉', description: 'Enthusiastic and energetic' },
+    { id: 'detailed' as const, name: 'Detailed', emoji: '📝', description: 'In-depth with specifics' }
+  ];
+
+  // Hydration-safe calculations
+  const hasMessages = mounted ? messages.length > 0 : false;
+  const messageCount = mounted ? messages.length : 0;
 
   const generatePosts = async () => {
+    if (!mounted || !hasMessages) return;
+    
     setGenerating(true);
     setGeneratedPosts([]);
 
     try {
-      // Prepare conversation for AI analysis
+      // Prepare conversation for AI analysis (hydration safe)
       const conversationText = messages
-        .map((msg, index) => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`)
+        .map((msg) => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`)
         .join('\n\n');
 
-      // Get the best before/after pair from the conversation
+      // Get the best before/after pairs from the conversation (hydration safe)
       const beforeAfterPairs = [];
       for (let i = 0; i < messages.length - 1; i++) {
         if (messages[i].role === 'user' && messages[i + 1].role === 'assistant') {
@@ -68,7 +81,7 @@ export function AIPostGenerator({
 CONTEXT:
 - They used Daily Tidbit #${tidbitNumber}: "${tidbitTitle}"
 - They had a conversation with an AI writing assistant
-- The conversation had ${messages.length} messages
+- The conversation had ${messageCount} messages
 
 CONVERSATION:
 ${conversationText}
@@ -159,9 +172,11 @@ RESPOND ONLY with this JSON format:
     }
   };
 
-  const selectedPost = generatedPosts.find(post => post.style === selectedStyle);
+  const selectedPost = mounted ? generatedPosts.find(post => post.style === selectedStyle) : null;
 
   const handleUsePost = () => {
+    if (!mounted) return;
+    
     const post = customizing ? {
       content: customContent,
       beforeText: selectedPost?.beforeText || '',
@@ -172,6 +187,11 @@ RESPOND ONLY with this JSON format:
       onUsePost(post.content, post.beforeText, post.afterText);
     }
   };
+
+  // Don't render anything until mounted
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -205,7 +225,7 @@ RESPOND ONLY with this JSON format:
               <span className="font-semibold text-purple-800">Conversation Summary</span>
             </div>
             <div className="text-sm text-purple-700">
-              <span className="font-medium">{messages.length} messages</span> • 
+              <span className="font-medium">{messageCount} messages</span> • 
               <span className="font-medium"> Daily Tidbit #{tidbitNumber}</span> • 
               <span>"{tidbitTitle}"</span>
             </div>
@@ -243,8 +263,9 @@ RESPOND ONLY with this JSON format:
                   <div 
                     key={style.id}
                     className={`w-3 h-3 rounded-full transition-colors duration-500 ${
-                      index < (Date.now() / 1000) % 4 ? 'bg-purple-500' : 'bg-gray-300'
+                      generating ? 'bg-purple-500 animate-pulse' : 'bg-gray-300'
                     }`}
+                    style={{ animationDelay: `${index * 0.2}s` }}
                   />
                 ))}
               </div>

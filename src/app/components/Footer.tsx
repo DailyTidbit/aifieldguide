@@ -1,23 +1,34 @@
-// app/components/Footer.tsx
+// app/components/Footer.tsx - Minor hydration improvements
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { trackCTAClick } from '../lib/gtag'
 
 export default function Footer() {
   const [interactions, setInteractions] = useState(0)
+  const [mounted, setMounted] = useState(false)
+
+  // Hydration safety for date
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const bumpInteraction = () => setInteractions(p => p + 1)
-  const year = new Date().getFullYear()
+  const year = mounted ? new Date().getFullYear() : 2024 // Fallback year to prevent hydration mismatch
 
   const handleSocialClick = (platform: string, url: string) => {
-    trackCTAClick(`social_${platform}`, 'footer', url)
-    bumpInteraction()
+    if (mounted) {
+      trackCTAClick(`social_${platform}`, 'footer', url)
+      bumpInteraction()
+    }
   }
 
   const handleFooterLinkClick = (label: string, url: string) => {
-    trackCTAClick(label, 'footer', url)
-    bumpInteraction()
+    if (mounted) {
+      trackCTAClick(label, 'footer', url)
+      bumpInteraction()
+    }
   }
 
   return (

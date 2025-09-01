@@ -17,9 +17,9 @@ export default function RotatingWord() {
     'Masterpiece Theater 🎭', 'Mic Drop 🎤', 'Brain Blast 💥', 'Work of Weirdness', 'Thought Nugget', 'Chat Magic™', 'Jazzy Bit',
     'AI Art Attack 🎨', 'Happy Little Output', 'Fresh Bit of Bel-Air', 'Data Doodle', 'Nerd Flex', 'Y2K Hack', 'Hack to the Future',
     'Idea Rollerblade', 'Dial-Up Download', 'Bit of Funk', 'Groovy Move 🕺', 'AI-yo!', 'Byte-Sized Brilliance', 'Fax Machine Poetry',
-    'Clippy Certified 🖇️', 'Saved by the Prompt', 'Digital Daydream', 'Lisa Frank Magic 🐬🌈', 'AI-riffic Take', 'Zine-Worthy Tidbit',
+    'Clippy Certified 🖇️', 'Saved by the Prompt', 'Digital Daydream', 'Lisa Frank Magic 🦄🌈', 'AI-riffic Take', 'Zine-Worthy Tidbit',
     'Little Bit o\' Logic', 'Madlib Moment', 'Idea Scrunchie', 'Hotline Hack', 'VHS Idea Dump', 'Cassette Creation', 'Cyber Scribble',
-    'LaserDisc Legacy', 'Banana Phone Response 🍌📞', 'Promposal Draft', 'ChatGPT After Dark™', 'TRL-Worthy Tidbit 📺', 'Think Thing',
+    'LaserDisc Legacy', 'Banana Phone Response 🌙📞', 'Promposal Draft', 'ChatGPT After Dark™', 'TRL-Worthy Tidbit 📺', 'Think Thing',
     'Brainwave™', 'Sonic Boom 💥', 'Meme Draft', 'Groovy Gem', 'Polaroid Moment', 'Neon Nugget', 'Retro Rant', 'Mixtape Thought',
     'Pager Message', 'Napkin Idea', 'Disco Data', 'Commodore Creation 🖥️', 'Funky Fragment', 'AI High-Five ✋', 'Lava Lamp Logic',
     'Braincell Banger', 'Glitchy Genius', 'Sticker Sheet Thought', 'AOL Away Message', 'Prompt Punk', 'Vibe Vortex', 'LimeWire Download 🚨',
@@ -40,7 +40,7 @@ export default function RotatingWord() {
     'Pager Poetry', 'Freakin\' Tidbit™', 'Spice Girl Strategy', 'Recess Revelation', 'Free Trial Feeling', 'Airbrushed Insight',
     'Promposal Prototype', 'Spice Rack Epiphany', 'Zany Brainy Byte 🧠', 'Trapper Keeper Entry', 'Meemageddon', 'Brainstorm Boogie',
     'CD-ROM Rant', 'Channel 3 Discovery', 'Lunch Tray Logic', 'Skate Rink Story', 'AOL Keyword: Bitboard', 'Smells Like Smart Spirit',
-    'Cereal Box Essay', '56K Download Speed 🐌', 'Static Shock Thought', 'JNCO-Wide Idea', 'Psychic Hotline Prompt 🔮', 'Capri Sun Wisdom',
+    'Cereal Box Essay', '56K Download Speed 🌐', 'Static Shock Thought', 'JNCO-Wide Idea', 'Psychic Hotline Prompt 🔮', 'Capri Sun Wisdom',
     'Glitter Bomb Take', 'Happy Meal Theory', 'Fax Machine Feeling', 'Yassified Rant', 'Lite Brite Brainwave', 'Guess Jeans Draft',
     'Napster Memory', 'The Opposite of Mid', 'TBT Bit', 'Haunted Bitboard', 'TGIF Prompt', 'Brain Freeze Creation', 'Fuzzy TV Channel Spark',
     'Midnight AIM Message', 'Mind Yo-Yo', 'Late Fee Idea', 'Radio Shack Riff', 'Bratz Philosophy', 'Smash Mouth Strategy',
@@ -85,11 +85,22 @@ export default function RotatingWord() {
     'Brainstorm in a Bottle'
   ]
 
-  const [currentWordIndex, setCurrentWordIndex] = useState(() => 
-    Math.floor(Math.random() * words.length)
-  )
+  // CRITICAL: Hydration safety state
+  const [mounted, setMounted] = useState(false)
+  const [currentWordIndex, setCurrentWordIndex] = useState(0) // Start with deterministic index
 
+  // Initialize mounted state
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Only start rotation after component is mounted (hydration-safe)
+  useEffect(() => {
+    if (!mounted) return
+
+    // Set initial random word only on client-side
+    setCurrentWordIndex(Math.floor(Math.random() * words.length))
+
     const interval = setInterval(() => {
       setCurrentWordIndex(prev => {
         let newIndex
@@ -101,12 +112,24 @@ export default function RotatingWord() {
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [words.length])
+  }, [mounted, words.length])
+
+  // Show static fallback word until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <span className="text-brand-blue body-bold transition-all duration-300 font-serif">
+        Creation
+      </span>
+    )
+  }
 
   return (
     <span 
-      className="text-[#59B1E3] font-bold transition-all duration-300"
-      style={{fontFamily: "'Playfair Display', serif"}}
+      className="text-brand-blue body-bold transition-all duration-300 font-serif"
+      // Accessibility: announce changes to screen readers
+      role="text"
+      aria-live="polite"
+      aria-atomic="true"
     >
       {words[currentWordIndex]}
     </span>

@@ -2,7 +2,7 @@
 import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-// Server-side Supabase client optimized for SSR
+// Server-side Supabase client for authenticated requests
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies()
   
@@ -55,5 +55,5 @@ export function createPublicServerClient() {
   )
 }
 
-// Backward compatibility alias - no performance impact
+// Backward compatibility alias
 export const createServerClient = createPublicServerClient;

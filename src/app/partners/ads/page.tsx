@@ -1,7 +1,8 @@
-// src/app/partners/ads/page.tsx - Complete Fixed Version
+// src/app/partners/ads/page.tsx - FULLY HYDRATION SAFE VERSION
 'use client'
+
 import { useEffect, useMemo, useState } from 'react'
-import { supabaseClient } from '@/app/lib/supabaseClient'
+import { useSupabaseBrowser } from '../../lib/supabaseClient'
 import { ArrowLeft, Calendar, Clock, DollarSign, Users, TrendingUp, CheckCircle2, AlertCircle, RefreshCw, ExternalLink, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -18,6 +19,8 @@ const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 export default function SponsorAdsPage() {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -25,20 +28,38 @@ export default function SponsorAdsPage() {
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
+  // Use the safe Supabase hook
+  const { client: supabase, isReady } = useSupabaseBrowser()
+
   useEffect(() => {
-    loadAvailability()
+    setMounted(true)
   }, [])
 
-  // Auto-refresh every 30 seconds to catch sold-out dates
   useEffect(() => {
-    const interval = setInterval(loadAvailability, 30000)
+    if (mounted && isReady && supabase) {
+      loadAvailability()
+    }
+  }, [mounted, isReady, supabase])
+
+  // Auto-refresh every 30 seconds to catch sold-out dates (only when mounted)
+  useEffect(() => {
+    if (!mounted) return
+
+    const interval = setInterval(() => {
+      if (isReady && supabase) {
+        loadAvailability()
+      }
+    }, 30000)
+    
     return () => clearInterval(interval)
-  }, [])
+  }, [mounted, isReady, supabase])
 
   async function loadAvailability() {
+    if (!mounted || !isReady || !supabase) return
+
     try {
       // Require sign-in with clear error messaging
-      const { data: { user } } = await supabaseClient.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) { 
         window.location.href = `/auth?vendor=true&next=${encodeURIComponent('/partners/ads')}`
         return 
@@ -76,12 +97,15 @@ export default function SponsorAdsPage() {
   }
 
   async function retryLoad() {
+    if (!mounted) return
     setRetryCount(prev => prev + 1)
     setLoading(true)
     await loadAvailability()
   }
 
   const calendar = useMemo(() => {
+    if (!mounted) return []
+
     const start = new Date()
     const end = new Date()
     end.setMonth(end.getMonth() + 2)
@@ -124,9 +148,11 @@ export default function SponsorAdsPage() {
     }
     
     return months
-  }, [])
+  }, [mounted])
 
   async function selectDate(date: string) {
+    if (!mounted) return
+    
     // Prevent selection during processing
     if (processingState !== 'idle') return
     
@@ -167,7 +193,7 @@ export default function SponsorAdsPage() {
   }
 
   async function confirmPurchase() {
-    if (!selectedDate || processingState !== 'idle') return
+    if (!mounted || !selectedDate || processingState !== 'idle') return
     
     setProcessingState('confirming')
     setError(null)
@@ -209,15 +235,16 @@ export default function SponsorAdsPage() {
     }
   }
 
-  const byDate = new Map(items.map(i => [i.date, i]))
+  const byDate = useMemo(() => new Map(items.map(i => [i.date, i])), [items])
   const selectedItem = selectedDate ? byDate.get(selectedDate) : null
-  const availableCount = items.filter(i => i.status === 'open').length
-  const heldCount = items.filter(i => i.status === 'held').length
+  const availableCount = useMemo(() => items.filter(i => i.status === 'open').length, [items])
+  const heldCount = useMemo(() => items.filter(i => i.status === 'held').length, [items])
 
   // Show different UI states based on processing
   const isDisabled = processingState !== 'idle' || loading
 
-  if (loading && items.length === 0) {
+  // Show loading during hydration
+  if (!mounted || (loading && items.length === 0)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -530,27 +557,6 @@ export default function SponsorAdsPage() {
                     <div className="font-medium">Email mention</div>
                     <div className="text-gray-600">Featured in that day's email to 15,000+ subscribers</div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* FAQ */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="font-semibold mb-4">Common Questions</h3>
-              <div className="space-y-4 text-sm">
-                <div>
-                  <div className="font-medium text-gray-900 mb-1">How quickly will this go live?</div>
-                  <div className="text-gray-600">Your sponsorship will appear on the selected date. We'll coordinate with you on messaging and creative assets.</div>
-                </div>
-                
-                <div>
-                  <div className="font-medium text-gray-900 mb-1">Can I change my selected date?</div>
-                  <div className="text-gray-600">Yes, contact our team within 24 hours of purchase and we can help you reschedule if slots are available.</div>
-                </div>
-                
-                <div>
-                  <div className="font-medium text-gray-900 mb-1">What creative assets do I need?</div>
-                  <div className="text-gray-600">We'll use your existing company logo and messaging. Our team will create the integration copy to match our editorial style.</div>
                 </div>
               </div>
             </div>

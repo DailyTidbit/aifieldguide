@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 export default function CarouselComponent() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const carouselRef = useRef<HTMLDivElement>(null)
 
   const dailyTidbits = [
@@ -16,23 +17,34 @@ export default function CarouselComponent() {
     { id: 5, image: "https://cdn.dailytidbit.org/Day-5/Day-5.png", href: "/day/5" }
   ]
 
-  // Check if mobile on mount and resize
+  // Hydration safety
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Check if mobile on mount and resize - only after mounted
+  useEffect(() => {
+    if (!mounted) return
+
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
+      if (typeof window !== 'undefined') {
+        setIsMobile(window.innerWidth < 768)
+      }
     }
     
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  }, [mounted])
 
-  // Calculate slides
-  const itemsPerSlide = isMobile ? 1 : 3
+  // Calculate slides - only after mounted
+  const itemsPerSlide = mounted ? (isMobile ? 1 : 3) : 3 // Default to 3 for SSR
   const totalSlides = Math.ceil(dailyTidbits.length / itemsPerSlide)
 
   // Navigation functions
   const goToSlide = (slideIndex: number) => {
+    if (!mounted) return
+
     if (slideIndex < 0) slideIndex = totalSlides - 1
     if (slideIndex >= totalSlides) slideIndex = 0
     
@@ -50,6 +62,33 @@ export default function CarouselComponent() {
 
   const nextSlide = () => goToSlide(currentSlide + 1)
   const prevSlide = () => goToSlide(currentSlide - 1)
+
+  // Show loading state during hydration
+  if (!mounted) {
+    return (
+      <div className="relative w-full max-w-7xl mx-auto">
+        <div className="overflow-hidden relative px-12">
+          <div className="grid gap-6 grid-cols-3">
+            {dailyTidbits.slice(0, 3).map((tidbit) => (
+              <div key={tidbit.id} className="group">
+                <div className="bg-white rounded-xl shadow-md">
+                  <div className="bg-gray-200 rounded-t-xl overflow-hidden animate-pulse">
+                    <div className="w-full h-48 bg-gray-200"></div>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="h-6 bg-gray-200 rounded w-16 animate-pulse"></div>
+                      <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative w-full max-w-7xl mx-auto">

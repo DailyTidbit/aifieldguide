@@ -1,7 +1,7 @@
-// src/app/components/PartnerProfileSetupWizard.tsx - Complete Version
+// src/app/components/PartnerProfileSetupWizard.tsx - Hydration Safe Version
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { 
   X,
   ArrowRight, 
@@ -20,8 +20,8 @@ import {
   CheckCircle2
 } from 'lucide-react'
 import Image from 'next/image'
-import { supabaseClient } from '@/app/lib/supabaseClient'
-import type { PartnerInfo, PartnerProfile } from './types/partner'
+import { getSupabaseBrowserClientSafe, getSupabaseBrowserClient } from '@/app/lib/supabaseClient'
+import type { PartnerInfo, PartnerProfile } from '../types/partner'
 
 interface PartnerProfileSetupWizardProps {
   isOpen: boolean
@@ -52,37 +52,116 @@ export default function PartnerProfileSetupWizard({
   partnerInfo,
   existingProfile 
 }: PartnerProfileSetupWizardProps) {
+  const [mounted, setMounted] = useState(false)
+  const [clientReady, setClientReady] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const totalSteps = partnerInfo.role === 'company_admin' ? 4 : 3 // Admins get company setup step
 
-  // Form data state
+  // ✅ HYDRATION SAFE: Enhanced mounting and client checking
+  useEffect(() => {
+    setMounted(true)
+    
+    // Check if Supabase client is available
+    const checkClient = () => {
+      try {
+        const client = getSupabaseBrowserClient()
+        setClientReady(!!client)
+      } catch (error) {
+        console.warn('Supabase client not ready for partner wizard:', error)
+        setClientReady(false)
+      }
+    }
+    
+    checkClient()
+    
+    // Recheck periodically in case client becomes available later
+    const interval = setInterval(checkClient, 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
+
+  // ✅ HYDRATION SAFE: Get Supabase client safely
+  const getClient = () => {
+    if (!mounted || !clientReady) {
+      return null
+    }
+    
+    try {
+      return getSupabaseBrowserClientSafe()
+    } catch (error) {
+      console.warn('Failed to get Supabase client for partner wizard:', error)
+      return null
+    }
+  }
+
+  // ✅ Check if operations are ready
+  const isWizardReady = mounted && clientReady
+
+  const totalSteps = isWizardReady && partnerInfo.role === 'company_admin' ? 4 : 3
+
+  // Form data state - only initialize after mounted
   const [companyData, setCompanyData] = useState({
-    logo_url: existingProfile?.company.logo_url || '',
-    support_email: existingProfile?.company.support_email || '',
-    billing_email: existingProfile?.company.billing_email || '',
-    marketing_email: existingProfile?.company.marketing_email || ''
+    logo_url: '',
+    support_email: '',
+    billing_email: '',
+    marketing_email: ''
   })
 
   const [memberData, setMemberData] = useState({
-    title: existingProfile?.member.title || '',
-    phone: existingProfile?.member.phone || '',
-    timezone: existingProfile?.member.timezone || '',
-    billing_email: existingProfile?.member.billing_email || '',
-    marketing_email: existingProfile?.member.marketing_email || ''
+    title: '',
+    phone: '',
+    timezone: '',
+    billing_email: '',
+    marketing_email: ''
   })
 
   const [notificationData, setNotificationData] = useState({
-    notify_new_messages: existingProfile?.member.notify_new_messages ?? true,
-    notify_listing_changes: existingProfile?.member.notify_listing_changes ?? true
+    notify_new_messages: true,
+    notify_listing_changes: true
   })
 
-  // Handle logo upload
+  // Initialize form data after mounting and client ready
+  useEffect(() => {
+    if (isWizardReady && existingProfile) {
+      setCompanyData({
+        logo_url: existingProfile.company.logo_url || '',
+        support_email: existingProfile.company.support_email || '',
+        billing_email: existingProfile.company.billing_email || '',
+        marketing_email: existingProfile.company.marketing_email || ''
+      })
+
+      setMemberData({
+        title: existingProfile.member.title || '',
+        phone: existingProfile.member.phone || '',
+        timezone: existingProfile.member.timezone || '',
+        billing_email: existingProfile.member.billing_email || '',
+        marketing_email: existingProfile.member.marketing_email || ''
+      })
+
+      setNotificationData({
+        notify_new_messages: existingProfile.member.notify_new_messages ?? true,
+        notify_listing_changes: existingProfile.member.notify_listing_changes ?? true
+      })
+    }
+  }, [isWizardReady, existingProfile])
+
+  // ✅ HYDRATION SAFE: Handle logo upload with enhanced guards
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isWizardReady) {
+      setError('System not ready. Please try again in a moment.')
+      return
+    }
+    
+    const supabase = getClient()
+    if (!supabase) {
+      setError('Upload service unavailable. Please try again.')
+      return
+    }
+    
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -102,14 +181,14 @@ export default function PartnerProfileSetupWizard({
       const fileExt = file.name.split('.').pop()?.toLowerCase()
       const fileName = `company-logos/${partnerInfo.companyId}.${fileExt}`
 
-      const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('company-assets')
         .upload(fileName, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
       // Get public URL
-      const { data: urlData } = supabaseClient.storage
+      const { data: urlData } = supabase.storage
         .from('company-assets')
         .getPublicUrl(fileName)
 
@@ -121,15 +200,26 @@ export default function PartnerProfileSetupWizard({
     }
   }
 
-  // Save profile data
+  // ✅ HYDRATION SAFE: Save profile data with enhanced guards
   const handleComplete = async () => {
+    if (!isWizardReady) {
+      setError('System not ready. Please try again in a moment.')
+      return
+    }
+    
+    const supabase = getClient()
+    if (!supabase) {
+      setError('Save service unavailable. Please try again.')
+      return
+    }
+    
     try {
       setLoading(true)
       setError(null)
 
       // Save company profile (if admin)
       if (partnerInfo.role === 'company_admin') {
-        const { error: companyError } = await supabaseClient
+        const { error: companyError } = await supabase
           .from('company_profiles')
           .upsert({
             company_id: partnerInfo.companyId,
@@ -146,7 +236,7 @@ export default function PartnerProfileSetupWizard({
       }
 
       // Save member profile
-      const { error: memberError } = await supabaseClient
+      const { error: memberError } = await supabase
         .from('company_member_profiles')
         .upsert({
           user_id: userId,
@@ -188,8 +278,10 @@ export default function PartnerProfileSetupWizard({
     }
   }
 
-  // Validation for each step
+  // ✅ HYDRATION SAFE: Validation for each step
   const canProceed = () => {
+    if (!isWizardReady) return false
+    
     switch (currentStep) {
       case 1: // Company setup (admin only)
         if (partnerInfo.role !== 'company_admin') return true
@@ -203,9 +295,9 @@ export default function PartnerProfileSetupWizard({
     }
   }
 
-  if (!isOpen) return null
-
   const getStepTitle = () => {
+    if (!isWizardReady) return 'Setup'
+    
     if (partnerInfo.role === 'company_admin') {
       switch (currentStep) {
         case 1: return 'Company Information'
@@ -222,6 +314,26 @@ export default function PartnerProfileSetupWizard({
         default: return 'Setup'
       }
     }
+  }
+
+  // ✅ HYDRATION SAFE: Early return for SSR and client readiness
+  if (!isOpen) return null
+  
+  if (!mounted || !clientReady) {
+    return (
+      <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-2xl w-full p-8">
+          <div className="flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-gray-600">
+              <Loader2 className="w-8 h-8 animate-spin text-[#59B1E3]" />
+              <span className="text-sm">
+                {!mounted ? 'Loading...' : 'Connecting to services...'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const adjustedStep = partnerInfo.role === 'company_admin' ? currentStep : currentStep + 1
@@ -331,7 +443,7 @@ export default function PartnerProfileSetupWizard({
                   
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingLogo}
+                    disabled={uploadingLogo || !isWizardReady}
                     className="absolute bottom-0 right-0 p-3 bg-[#59B1E3] text-white rounded-full shadow-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
                   >
                     <Camera className="w-4 h-4" />
@@ -340,7 +452,7 @@ export default function PartnerProfileSetupWizard({
                 
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingLogo}
+                  disabled={uploadingLogo || !isWizardReady}
                   className="mt-4 flex items-center gap-2 mx-auto px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#59B1E3] hover:bg-blue-50 transition-colors disabled:opacity-50"
                 >
                   <Upload className="w-4 h-4" />
@@ -705,7 +817,7 @@ export default function PartnerProfileSetupWizard({
             
             <button
               onClick={nextStep}
-              disabled={!canProceed() || loading}
+              disabled={!canProceed() || loading || !isWizardReady}
               className="flex items-center gap-2 px-6 py-3 bg-[#59B1E3] text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {loading ? (

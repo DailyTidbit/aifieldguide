@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { Heart, User, Loader2, MessageCircle, ExternalLink, Sparkles, Clock } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { isValidMediaUrl } from '../lib/validateMedia'
 
 const bgColors = [
@@ -24,18 +24,68 @@ export default function PostCard({
   onLike: (postId: string) => void
   onClick?: () => void
 }) {
-  // Enhanced image loading states
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [isTouched, setIsTouched] = useState(false)
-  const [mounted, setMounted] = useState(false) // HYDRATION FIX
 
-  // HYDRATION FIX: Set mounted state
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // HYDRATION FIX: Return early during SSR to prevent hydration mismatches
+  // Deterministic background color selection - stable hash from post ID
+  const bgColor = useMemo(() => {
+    if (!post.id) return bgColors[0]
+    
+    let hash = 0
+    for (let i = 0; i < post.id.length; i++) {
+      hash = ((hash << 5) - hash + post.id.charCodeAt(i)) & 0xffffffff
+    }
+    return bgColors[Math.abs(hash) % bgColors.length]
+  }, [post.id])
+
+  // Stable content preview calculation
+  const contentPreview = useMemo(() => {
+    if (!post.content) return ''
+    
+    // Check if content has user commentary (separated by ---)
+    const parts = post.content.split('\n\n---\n\n')
+    if (parts.length > 1) {
+      // If there's commentary, show that instead of main content
+      const commentary = parts[1]
+      return commentary.length > 560 ? `${commentary.substring(0, 560)}...` : commentary
+    } else {
+      // No commentary, show main content
+      return post.content.length > 560 ? `${post.content.substring(0, 560)}...` : post.content
+    }
+  }, [post.content])
+
+  // Stable media type detection
+  const isAudioLink = useMemo(() => 
+    typeof post.media_url === 'string' &&
+    (post.media_url.includes('suno.ai') || post.media_url.includes('udio.com'))
+  , [post.media_url])
+
+  const hasImage = useMemo(() =>
+    typeof post.media_url === 'string' &&
+    isValidMediaUrl(post.media_url) &&
+    !isAudioLink &&
+    !imageError
+  , [post.media_url, isAudioLink, imageError])
+
+  const hasTextOnly = !hasImage && !isAudioLink && post.content
+
+  // Format date safely
+  const formattedDate = useMemo(() => {
+    try {
+      return new Date(post.created_at).toLocaleDateString()
+    } catch {
+      return 'Invalid date'
+    }
+  }, [post.created_at])
+
+  // Early return during SSR - show loading skeleton
   if (!mounted) {
     return (
       <div className="break-inside-avoid mb-4 w-full">
@@ -61,49 +111,6 @@ export default function PostCard({
       </div>
     )
   }
-
-  const isAudioLink =
-    typeof post.media_url === 'string' &&
-    (post.media_url.includes('suno.ai') || post.media_url.includes('udio.com'))
-
-  const hasImage =
-    typeof post.media_url === 'string' &&
-    isValidMediaUrl(post.media_url) &&
-    !isAudioLink &&
-    !imageError
-
-  const hasTextOnly = !hasImage && !isAudioLink && post.content
-
-  // HYDRATION FIX: Use stable background color selection based on post ID hash
-  const getStableBgColor = () => {
-    // Create a simple hash from the post ID for consistent color selection
-    let hash = 0
-    const id = post.id || ''
-    for (let i = 0; i < id.length; i++) {
-      hash = ((hash << 5) - hash + id.charCodeAt(i)) & 0xffffffff
-    }
-    return bgColors[Math.abs(hash) % bgColors.length]
-  }
-  
-  const bgColor = getStableBgColor()
-
-  // HYDRATION FIX: Stable content preview
-  const getContentPreview = () => {
-    if (!post.content) return ''
-    
-    // Check if content has user commentary (separated by ---)
-    const parts = post.content.split('\n\n---\n\n')
-    if (parts.length > 1) {
-      // If there's commentary, show that instead of main content
-      const commentary = parts[1]
-      return commentary.length > 560 ? `${commentary.substring(0, 560)}...` : commentary
-    } else {
-      // No commentary, show main content
-      return post.content.length > 560 ? `${post.content.substring(0, 560)}...` : post.content
-    }
-  }
-  
-  const contentPreview = getContentPreview()
 
   return (
     <div 
@@ -237,15 +244,7 @@ export default function PostCard({
                 </div>
                 <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
                   <Clock className="w-3 h-3" />
-                  <span>
-                    {(() => {
-                      try {
-                        return new Date(post.created_at).toLocaleDateString()
-                      } catch {
-                        return 'Invalid date'
-                      }
-                    })()}
-                  </span>
+                  <span>{formattedDate}</span>
                 </div>
               </div>
             </div>

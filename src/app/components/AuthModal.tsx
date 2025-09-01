@@ -1,4 +1,4 @@
-// src/app/components/AuthModal.tsx - Refactored to use useAuth hook
+// src/app/components/AuthModal.tsx - Fixed hydration safety issues
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -23,13 +23,20 @@ export default function AuthModal({
   title = 'Sign in', 
   subtitle 
 }: AuthModalProps) {
-  const { user, authState, loading } = useAuth()
+  const { user, authState, loading, mounted } = useAuth()
   const [showProfileSetup, setShowProfileSetup] = useState(false)
+  const [clientMounted, setClientMounted] = useState(false)
   const dialogRef = useRef<HTMLDivElement | null>(null)
 
-  // Focus trap + ESC + body scroll lock
+  // HYDRATION FIX: Wait for component to mount before any DOM manipulation
   useEffect(() => {
-    if (!isOpen) return
+    setClientMounted(true)
+  }, [])
+
+  // Focus trap + ESC + body scroll lock - HYDRATION FIX: Only after mounted
+  useEffect(() => {
+    if (!clientMounted || !isOpen) return
+    
     const dialog = dialogRef.current
     if (!dialog) return
 
@@ -58,17 +65,23 @@ export default function AuthModal({
 
     first?.focus()
     document.addEventListener('keydown', handleKeyDown)
-    document.body.classList.add('overflow-hidden')
+    
+    // HYDRATION FIX: Guard body class manipulation
+    if (typeof document !== 'undefined') {
+      document.body.classList.add('overflow-hidden')
+    }
     
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.classList.remove('overflow-hidden')
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('overflow-hidden')
+      }
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, clientMounted])
 
-  // Handle auth state changes
+  // Handle auth state changes - HYDRATION FIX: Wait for both mounted states
   useEffect(() => {
-    if (!isOpen || loading) return
+    if (!clientMounted || !mounted || !isOpen || loading) return
 
     if (authState === 'has-company-access') {
       // User is fully authenticated and has company access
@@ -86,7 +99,7 @@ export default function AuthModal({
       onSuccess?.()
       onClose()
     }
-  }, [authState, user, loading, isOpen, onClose, onSuccess])
+  }, [authState, user, loading, isOpen, onClose, onSuccess, clientMounted, mounted])
 
   const handleProfileSetupComplete = () => {
     setShowProfileSetup(false)
@@ -94,7 +107,8 @@ export default function AuthModal({
     onClose()
   }
 
-  if (!isOpen) return null
+  // HYDRATION FIX: Don't render modal until both client and auth are mounted
+  if (!clientMounted || !mounted || !isOpen) return null
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -118,7 +132,12 @@ export default function AuthModal({
           <p className="mb-3 text-center text-sm text-gray-600">{subtitle}</p>
         )}
 
-        {showProfileSetup && user ? (
+        {/* HYDRATION FIX: All auth-dependent rendering gated by mounted states */}
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin h-6 w-6 border-2 border-brand-green border-t-transparent rounded-full"></div>
+          </div>
+        ) : showProfileSetup && user ? (
           <ProfileSetupWizard
             userId={user.id}
             onComplete={handleProfileSetupComplete}

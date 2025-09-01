@@ -5,35 +5,43 @@ import CookieConsentManager from "./components/CookieConsentManager";
 import Footer from "./components/Footer";
 import "./globals.css";
 
+// Environment validation - runs on startup in development
+if (process.env.NODE_ENV === 'development') {
+  import('./lib/env-check')
+    .then(() => console.log('Environment validation complete'))
+    .catch(err => console.error('Environment validation failed:', err))
+}
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "600", "700"],
+  display: 'swap',
 });
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  // ✅ Added metadataBase for reliable OG/Twitter URL resolution
   metadataBase: new URL("https://dailytidbit.org"),
-
   title: "Daily Tidbit - AI for Real People",
-  description:
-    "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+  description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
   keywords: [
     "AI",
     "artificial intelligence",
@@ -62,8 +70,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Daily Tidbit - AI for Real People",
-    description:
-      "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+    description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     type: "website",
     url: "https://dailytidbit.org",
     siteName: "Daily Tidbit",
@@ -81,8 +88,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Daily Tidbit - AI for Real People",
-    description:
-      "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+    description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     images: ["https://cdn.dailytidbit.org/og-image.png"],
     creator: "@dailytidbit",
     site: "@dailytidbit",
@@ -92,45 +98,37 @@ export const metadata: Metadata = {
   },
   category: "Education",
   classification: "AI Education Platform",
-  verification: {
-    // Add these when you get them from Google Search Console, etc.
-    // google: "your-google-verification-token",
-    // yandex: "your-yandex-verification-token",
-    // yahoo: "your-yahoo-verification-token",
-    // other: {
-    //   "facebook-domain-verification": "your-facebook-verification-token"
-    // }
-  },
-  other: {
-    "application-name": "Daily Tidbit",
-    "mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "default",
-    "apple-mobile-web-app-title": "Daily Tidbit",
-    "theme-color": "#60A875",
-    "msapplication-TileColor": "#60A875",
-    "msapplication-config": "/browserconfig.xml",
-    // PWA manifest - remove this line to fix the 404 error
-    // "msapplication-square70x70logo": "/icons/mstile-70x70.png",
-    // "msapplication-square150x150logo": "/icons/mstile-150x150.png",
-    // "msapplication-wide310x150logo": "/icons/mstile-310x150.png",
-    // "msapplication-square310x310logo": "/icons/mstile-310x310.png",
-  },
-  // Icons for favicons and PWA
+  // Modern favicon configuration - FIXED to match your actual files
   icons: {
+    // Core favicon
     icon: [
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: '/96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' }
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    // Apple devices
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+    ],
+    // Legacy ICO fallback
+    shortcut: '/favicon.ico',
+    // PWA and Android icons - FIXED to match your actual files
     other: [
-      { url: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
-    ],
+      {
+        rel: 'icon',
+        url: '/192.png',
+        sizes: '192x192',
+        type: 'image/png'
+      },
+      {
+        rel: 'icon', 
+        url: '/512.png',
+        sizes: '512x512',
+        type: 'image/png'
+      }
+    ]
   },
-  // Manifest for PWA - comment out until you create the file
-  // manifest: "/manifest.json",
+  // Web app manifest - FIXED to match your actual file
+  manifest: '/manifest.json',
 };
 
 interface RootLayoutProps {
@@ -141,27 +139,46 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html
       lang="en"
-      // ✅ Apply ALL font variables here so Playfair/Space count as “used”
       className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable}`}
+      suppressHydrationWarning
     >
       <head>
-        {/* Preconnect to external domains for performance */}
+        {/* Preconnections for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.dailytidbit.org" />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
-
-        {/* DNS prefetch for external resources */}
         <link rel="dns-prefetch" href="https://www.google-analytics.com" />
-
-        {/* Viewport meta tag for responsive design */}
+        
+        {/* Core viewport and compatibility meta tags */}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-
-        {/* Additional SEO meta tags */}
         <meta name="format-detection" content="telephone=no" />
         <meta name="color-scheme" content="light" />
+        <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="renderer" content="webkit" />
+        <meta name="force-rendering" content="webkit" />
+        
+        {/* PWA Configuration - FIXED to match your actual file */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="application-name" content="Daily Tidbit" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Daily Tidbit" />
+        
+        {/* Theme colors with dark mode support */}
+        <meta name="theme-color" content="#60A875" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#60A875" />
+        
+        {/* Microsoft specific - FIXED to match your actual files */}
+        <meta name="msapplication-TileColor" content="#60A875" />
+        <meta name="msapplication-TileImage" content="/192.png" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
+        
+        {/* Safari specific */}
+        <link rel="mask-icon" href="/96.png" color="#60A875" />
 
-        {/* Structured data for organization */}
+        {/* Structured data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -172,13 +189,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
               name: "Daily Tidbit",
               url: "https://dailytidbit.org",
               logo: "https://cdn.dailytidbit.org/logo.png",
-              description:
-                "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
+              description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
               foundingDate: "2024",
-              sameAs: [
-                // "https://twitter.com/dailytidbit",
-                // "https://linkedin.com/company/dailytidbit"
-              ],
               contactPoint: {
                 "@type": "ContactPoint",
                 contactType: "customer service",
@@ -188,18 +200,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
           }}
         />
       </head>
-      <body
-        className={
-          // You can keep utility classes here; font families come from variables above
-          "antialiased min-h-screen bg-white flex flex-col"
-        }
-      >
-        {/* Skip to main content for accessibility */}
+      <body className="antialiased min-h-screen bg-white flex flex-col font-sans" suppressHydrationWarning>
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 
-                     bg-brand-green text-white px-4 py-2 rounded-md z-50
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-brand-green text-white px-4 py-2 rounded-md z-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
           Skip to main content
         </a>
@@ -210,20 +214,23 @@ export default function RootLayout({ children }: RootLayoutProps) {
           {children}
         </main>
 
-        {/* Footer at bottom of all pages */}
         <Footer />
-
-        {/* Cookie Consent Manager - handles GA loading based on consent */}
         <CookieConsentManager />
 
-        {/* Service Worker registration for PWA (if you want to add PWA features) */}
+        {/* Service Worker registration for PWA */}
         {process.env.NODE_ENV === "production" && (
           <script
             dangerouslySetInnerHTML={{
               __html: `
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js');
+                    navigator.serviceWorker.register('/sw.js')
+                      .then(function(registration) {
+                        console.log('SW registered: ', registration);
+                      })
+                      .catch(function(registrationError) {
+                        console.log('SW registration failed: ', registrationError);
+                      });
                   });
                 }
               `,

@@ -1,8 +1,8 @@
-// src/app/partners/settings/page.tsx
+// src/app/partners/settings/page.tsx - FULLY HYDRATION SAFE WITH SERVER ACTIONS
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Save, AlertCircle, CheckCircle2, Eye, EyeOff, Mail, Bell, User, Building2, Globe, Upload } from 'lucide-react'
+import { ArrowLeft, Save, AlertCircle, CheckCircle2, Mail, Bell, User, Building2, Globe } from 'lucide-react'
 import Link from 'next/link'
 
 type CompanyProfile = {
@@ -24,6 +24,8 @@ type MemberProfile = {
 }
 
 export default function VendorSettings() {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'company' | 'personal' | 'notifications'>('company')
@@ -33,30 +35,51 @@ export default function VendorSettings() {
   const [unsavedChanges, setUnsavedChanges] = useState(false)
 
   useEffect(() => {
-    loadSettings()
+    setMounted(true)
   }, [])
 
+  useEffect(() => {
+    if (mounted) {
+      loadSettings()
+    }
+  }, [mounted])
+
   async function loadSettings() {
+    if (!mounted) return
+
     try {
       setLoading(true)
       setMessage(null)
-      const res = await fetch('/api/partners/settings/profile')
-      const data = await res.json()
+      
+      const res = await fetch('/api/partners/settings/profile', {
+        method: 'GET',
+        credentials: 'include' // Important for cookies
+      })
       
       if (!res.ok) {
-        setMessage({ type: 'error', text: data?.error || 'Unable to load settings' })
-      } else {
-        setCompany(data.company || {})
-        setMember(data.member || {})
+        if (res.status === 401) {
+          // Unauthorized - redirect to partners page
+          window.location.href = '/partners'
+          return
+        }
+        const errorData = await res.json()
+        throw new Error(errorData.error || `HTTP ${res.status}`)
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Network error loading settings' })
+      
+      const data = await res.json()
+      setCompany(data.company || {})
+      setMember(data.member || {})
+    } catch (error: any) {
+      console.error('Settings load error:', error)
+      setMessage({ type: 'error', text: error.message || 'Unable to load settings' })
     } finally {
       setLoading(false)
     }
   }
 
   async function save() {
+    if (!mounted) return
+
     try {
       setSaving(true)
       setMessage(null)
@@ -64,31 +87,38 @@ export default function VendorSettings() {
       const res = await fetch('/api/partners/settings/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Important for cookies
         body: JSON.stringify({ company, member })
       })
       
-      const data = await res.json()
-      
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Settings saved successfully!' })
-        setUnsavedChanges(false)
-        setTimeout(() => setMessage(null), 3000)
-      } else {
-        setMessage({ type: 'error', text: data?.error || 'Save failed' })
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = '/partners'
+          return
+        }
+        const errorData = await res.json()
+        throw new Error(errorData.error || `HTTP ${res.status}`)
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Network error saving settings' })
+      
+      setMessage({ type: 'success', text: 'Settings saved successfully!' })
+      setUnsavedChanges(false)
+      setTimeout(() => setMessage(null), 3000)
+    } catch (error: any) {
+      console.error('Settings save error:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to save settings' })
     } finally {
       setSaving(false)
     }
   }
 
   function updateCompany(field: keyof CompanyProfile, value: any) {
+    if (!mounted) return
     setCompany(prev => ({ ...prev, [field]: value }))
     setUnsavedChanges(true)
   }
 
   function updateMember(field: keyof MemberProfile, value: any) {
+    if (!mounted) return
     setMember(prev => ({ ...prev, [field]: value }))
     setUnsavedChanges(true)
   }
@@ -99,7 +129,8 @@ export default function VendorSettings() {
     { id: 'notifications', label: 'Notifications', icon: Bell }
   ] as const
 
-  if (loading) {
+  // Show loading during hydration
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-2 border-brand-green border-t-transparent rounded-full"></div>
@@ -150,8 +181,9 @@ export default function VendorSettings() {
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                  onClick={() => mounted && setActiveTab(tab.id)}
+                  disabled={!mounted}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors disabled:opacity-50 ${
                     activeTab === tab.id
                       ? 'bg-brand-green text-white'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -167,9 +199,9 @@ export default function VendorSettings() {
             <div className="mt-8">
               <button
                 onClick={save}
-                disabled={saving || !unsavedChanges}
+                disabled={saving || !unsavedChanges || !mounted}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                  saving || !unsavedChanges
+                  saving || !unsavedChanges || !mounted
                     ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                     : 'bg-brand-green text-white hover:bg-brand-green/90 shadow-sm hover:shadow'
                 }`}
@@ -206,6 +238,7 @@ export default function VendorSettings() {
                         onChange={(v) => updateCompany('logo_url', v)}
                         placeholder="https://your-company.com/logo.png"
                         helper="Recommended: 400x400px, PNG or SVG format"
+                        disabled={!mounted}
                       />
                       {company.logo_url && (
                         <div className="mt-3 p-4 bg-gray-50 rounded-lg">
@@ -234,6 +267,7 @@ export default function VendorSettings() {
                         placeholder="support@yourcompany.com"
                         helper="Where users can get help with your tool"
                         required
+                        disabled={!mounted}
                       />
                       
                       <FormField
@@ -244,6 +278,7 @@ export default function VendorSettings() {
                         onChange={(v) => updateCompany('billing_email', v)}
                         placeholder="billing@yourcompany.com"
                         helper="For invoices and payment-related emails"
+                        disabled={!mounted}
                       />
                     </div>
 
@@ -255,6 +290,7 @@ export default function VendorSettings() {
                       onChange={(v) => updateCompany('marketing_email', v)}
                       placeholder="marketing@yourcompany.com"
                       helper="For partnership opportunities and marketing updates"
+                      disabled={!mounted}
                     />
                   </div>
                 </div>
@@ -282,6 +318,7 @@ export default function VendorSettings() {
                         onChange={(v) => updateMember('title', v)}
                         placeholder="e.g. Marketing Manager, Founder, CTO"
                         helper="How you'd like to be addressed"
+                        disabled={!mounted}
                       />
                       
                       <FormField
@@ -292,6 +329,7 @@ export default function VendorSettings() {
                         onChange={(v) => updateMember('phone', v)}
                         placeholder="+1 (555) 123-4567"
                         helper="For urgent account matters only"
+                        disabled={!mounted}
                       />
                     </div>
 
@@ -302,6 +340,7 @@ export default function VendorSettings() {
                       onChange={(v) => updateMember('timezone', v)}
                       placeholder="e.g. Pacific Time, UTC-8, America/Los_Angeles"
                       helper="Helps us schedule calls and send timely updates"
+                      disabled={!mounted}
                     />
 
                     <div className="grid md:grid-cols-2 gap-6">
@@ -313,6 +352,7 @@ export default function VendorSettings() {
                         onChange={(v) => updateMember('billing_email', v)}
                         placeholder="your-email@company.com"
                         helper="Personal copy of billing notifications"
+                        disabled={!mounted}
                       />
                       
                       <FormField
@@ -323,6 +363,7 @@ export default function VendorSettings() {
                         onChange={(v) => updateMember('marketing_email', v)}
                         placeholder="your-email@company.com"
                         helper="Personal copy of partnership updates"
+                        disabled={!mounted}
                       />
                     </div>
                   </div>
@@ -348,6 +389,7 @@ export default function VendorSettings() {
                       description="Get notified when the Daily Tidbit team sends you a message"
                       checked={member.notify_new_messages || false}
                       onChange={(v) => updateMember('notify_new_messages', v)}
+                      disabled={!mounted}
                     />
                     
                     <NotificationToggle
@@ -355,6 +397,7 @@ export default function VendorSettings() {
                       description="Get updates when your tool listing changes are approved or need revision"
                       checked={member.notify_listing_changes || false}
                       onChange={(v) => updateMember('notify_listing_changes', v)}
+                      disabled={!mounted}
                     />
 
                     <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -388,7 +431,8 @@ function FormField({
   type = 'text', 
   placeholder, 
   helper, 
-  required = false 
+  required = false,
+  disabled = false
 }: {
   label: string
   icon: any
@@ -398,6 +442,7 @@ function FormField({
   placeholder?: string
   helper?: string
   required?: boolean
+  disabled?: boolean
 }) {
   return (
     <div>
@@ -409,10 +454,11 @@ function FormField({
         </div>
         <input
           type={type}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => !disabled && onChange(e.target.value)}
           placeholder={placeholder}
+          disabled={disabled}
         />
         {helper && (
           <div className="text-xs text-gray-500 mt-1">{helper}</div>
@@ -426,12 +472,14 @@ function NotificationToggle({
   label, 
   description, 
   checked, 
-  onChange 
+  onChange,
+  disabled = false
 }: {
   label: string
   description: string
   checked: boolean
   onChange: (checked: boolean) => void
+  disabled?: boolean
 }) {
   return (
     <div className="flex items-start gap-4 p-4 border border-gray-200 rounded-lg">
@@ -443,11 +491,14 @@ function NotificationToggle({
         <input
           type="checkbox"
           checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
+          onChange={(e) => !disabled && onChange(e.target.checked)}
+          disabled={disabled}
           className="sr-only"
         />
         <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 ${
-          checked ? 'bg-brand-green' : 'bg-gray-200'
+          disabled 
+            ? 'opacity-50 cursor-not-allowed'
+            : checked ? 'bg-brand-green' : 'bg-gray-200'
         }`}>
           <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
             checked ? 'translate-x-6' : 'translate-x-1'

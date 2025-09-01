@@ -1,4 +1,4 @@
-// app/field-guide/page.tsx - TIGHTENED SPACING & REMOVED DESCRIPTIVE TEXT
+// app/field-guide/page.tsx - Enhanced with Design System Consistency
 import { Metadata } from 'next'
 import { FieldGuideServerAPI } from '../lib/field-guide-server'
 import FieldGuideClient from '../components/FieldGuideClient'
@@ -53,6 +53,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ])
     
     const sectionCount = sectionsWithCounts.length
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'
     
     return {
       title: `AI Field Guide - ${sectionCount} Categories, ${totalTools} Tools | Daily Tidbit`,
@@ -67,29 +68,44 @@ export async function generateMetadata(): Promise<Metadata> {
         'AI software directory',
         'AI tool recommendations'
       ],
+      authors: [{ name: 'Daily Tidbit' }],
+      creator: 'Daily Tidbit',
+      publisher: 'Daily Tidbit LLC',
       openGraph: {
         title: `AI Field Guide - ${totalTools} Tools Across ${sectionCount} Categories`,
         description: `Your comprehensive guide to AI tools. From writing and creating to automating and learning.`,
-        url: 'https://dailytidbit.org/field-guide',
+        url: `${baseUrl}/field-guide`,
+        siteName: 'Daily Tidbit',
         images: [
           {
-            url: 'https://cdn.dailytidbit.org/field-guide-og.png',
+            url: `${baseUrl}/field-guide-og.png`,
             width: 1200,
             height: 630,
             alt: `AI Field Guide - ${totalTools} Tools`,
           }
         ],
-        type: 'website',
-        siteName: 'Daily Tidbit'
+        type: 'website'
       },
       twitter: {
         title: `AI Field Guide - ${totalTools} AI Tools`,
         description: `Explore ${sectionCount} categories of hand-picked AI tools for every use case.`,
-        images: ['https://cdn.dailytidbit.org/field-guide-og.png'],
-        card: 'summary_large_image'
+        images: [`${baseUrl}/field-guide-og.png`],
+        card: 'summary_large_image',
+        site: '@dailytidbit',
+        creator: '@dailytidbit'
       },
       alternates: {
-        canonical: 'https://dailytidbit.org/field-guide',
+        canonical: `${baseUrl}/field-guide`,
+      },
+      robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+          'max-image-preview': 'large',
+          'max-snippet': -1,
+        },
       }
     }
   } catch (error) {
@@ -121,29 +137,26 @@ export default async function FieldGuidePage() {
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
-        {/* ✅ TIGHTENED HERO SECTION - Removed descriptive text & reduced spacing */}
+        {/* ✅ ENHANCED HERO SECTION with design system consistency */}
         <section className="px-6 md:px-12 py-12 md:py-16">
           <div className="max-w-6xl mx-auto text-center">
-            <h1 
-              className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8"
-              style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif", fontWeight: 700}}
-            >
-              <span className="text-[#60A875]">🧭</span> Your <span className="text-[#59B1E3]">AI Field Guide</span>
+            <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8 font-serif">
+              <span className="text-brand-green">🧭</span> Your <span className="text-brand-blue">AI Field Guide</span>
             </h1>
 
-            {/* Server-rendered stats - moved closer to title */}
+            {/* Server-rendered stats - enhanced styling */}
             <div className="grid grid-cols-2 gap-6 max-w-lg mx-auto">
-              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
-                <div className="text-3xl font-bold text-[#60A875]" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
+              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-green-200/50 hover:shadow-xl transition-shadow duration-300">
+                <div className="heading-section text-3xl text-brand-green font-serif">
                   {sortedSections.length}
                 </div>
-                <div className="text-gray-600 font-medium">Categories</div>
+                <div className="body-large text-gray-600">Categories</div>
               </div>
-              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
-                <div className="text-3xl font-bold text-[#59B1E3]" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
+              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-blue-200/50 hover:shadow-xl transition-shadow duration-300">
+                <div className="heading-section text-3xl text-brand-blue font-serif">
                   {totalTools}
                 </div>
-                <div className="text-gray-600 font-medium">AI Tools</div>
+                <div className="body-large text-gray-600">AI Tools</div>
               </div>
             </div>
           </div>
@@ -155,7 +168,7 @@ export default async function FieldGuidePage() {
         {/* CTA Section */}
         <CTASection variant="transparent" />
 
-        {/* Structured data for SEO */}
+        {/* Enhanced structured data for SEO */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -164,11 +177,12 @@ export default async function FieldGuidePage() {
               "@type": "WebPage",
               "name": "AI Field Guide",
               "description": `Comprehensive guide to ${totalTools} AI tools across ${sortedSections.length} categories`,
-              "url": "https://dailytidbit.org/field-guide",
+              "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide`,
+              "inLanguage": "en",
               "publisher": {
                 "@type": "Organization",
                 "name": "Daily Tidbit",
-                "url": "https://dailytidbit.org"
+                "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'
               },
               "mainEntity": {
                 "@type": "ItemList",
@@ -176,11 +190,11 @@ export default async function FieldGuidePage() {
                 "numberOfItems": sortedSections.length,
                 "itemListElement": sortedSections.map((section, index) => ({
                   "@type": "ListItem",
-                  "@id": `https://dailytidbit.org/field-guide/${section.slug}#listitem`,
+                  "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}#listitem`,
                   "position": index + 1,
                   "name": section.section_name,
                   "description": section.summary || section.intro,
-                  "url": `https://dailytidbit.org/field-guide/${section.slug}`
+                  "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}`
                 }))
               }
             })
@@ -191,18 +205,23 @@ export default async function FieldGuidePage() {
   } catch (error) {
     console.error('Server-side fetch error:', error)
     
-    // Fallback for errors - still server-rendered
+    // Enhanced fallback with design system consistency
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
         <div className="max-w-6xl mx-auto px-6 py-20">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Field Guide Temporarily Unavailable</h1>
-            <p className="text-gray-700 mb-6">
-              We're having trouble loading the field guide. Please try refreshing the page.
+            <div className="mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">⚠️</span>
+              </div>
+            </div>
+            <h1 className="heading-section text-gray-900 mb-4">Field Guide Temporarily Unavailable</h1>
+            <p className="body-large text-gray-700 mb-6 max-w-2xl mx-auto">
+              We're having trouble loading the field guide. Please try refreshing the page or check back in a few moments.
             </p>
             <a 
               href="/field-guide"
-              className="inline-block px-6 py-3 bg-[#60A875] text-white rounded-xl hover:bg-green-600 transition-colors focus:ring-2 focus:ring-[#60A875]/20 focus:outline-none"
+              className="inline-block px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-green-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 body-bold"
             >
               Refresh Page
             </a>

@@ -1,5 +1,7 @@
+// src/app/components/partners/PartnerHubDemo.tsx - FULLY HYDRATION SAFE VERSION
 'use client'
-import React, { useState } from 'react'
+
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CheckCircle2,
@@ -23,6 +25,7 @@ import {
 function Section({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <section className={`relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 ${className}`}>{children}</section>
 }
+
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-2xl border bg-white/70 backdrop-blur shadow-sm ${className}`}>{children}</div>
 }
@@ -33,6 +36,8 @@ export default function PartnerHubDemo({
   toolName,
   companyId, // kept for future use; not required by the submit API
 }: { userName: string; companyName: string; toolName: string; companyId: string }) {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [showFGModal, setShowFGModal] = useState(false)
   const [listing, setListing] = useState({
@@ -48,21 +53,36 @@ export default function PartnerHubDemo({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   async function handleSubmit() {
+    if (!mounted) return
+
     try {
       setSubmitting(true)
       const res = await fetch('/api/listing-changes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // ⬇️ API derives company_id from the logged-in user; no need to send companyId
+        credentials: 'include', // Important for cookie-based auth
+        // API derives company_id from the logged-in user; no need to send companyId
         body: JSON.stringify({ proposed: listing }),
       })
+      
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData?.error || `HTTP ${res.status}`)
+      }
+      
       const data = await res.json()
-      if (!res.ok || !data?.ok) {
+      if (!data?.ok) {
         throw new Error(data?.error || 'Failed to submit changes')
       }
+      
       setSubmitted(true)
     } catch (e: any) {
+      console.error('Listing submission error:', e)
       alert(e.message || 'Unable to submit changes')
     } finally {
       setSubmitting(false)
@@ -110,8 +130,9 @@ export default function PartnerHubDemo({
       {[1, 2, 3].map((i) => (
         <button
           key={i}
-          onClick={() => setStep(i as 1 | 2 | 3)}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm border transition ${
+          onClick={() => mounted && setStep(i as 1 | 2 | 3)}
+          disabled={!mounted}
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm border transition disabled:opacity-50 ${
             step === i ? 'border-neutral-900 text-neutral-900' : 'border-neutral-300 text-neutral-500 hover:text-neutral-800'
           }`}
         >
@@ -121,6 +142,15 @@ export default function PartnerHubDemo({
       ))}
     </div>
   )
+
+  // Show loading during hydration
+  if (!mounted) {
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-neutral-50 via-white to-neutral-100 flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-2 border-brand-green border-t-transparent rounded-full"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-neutral-50 via-white to-neutral-100 text-neutral-900">
@@ -190,7 +220,8 @@ export default function PartnerHubDemo({
               <div className="mx-auto max-w-3xl text-center">
                 <button
                   onClick={() => setStep(2)}
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 border text-sm hover:shadow"
+                  disabled={!mounted}
+                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 border text-sm hover:shadow disabled:opacity-50"
                 >
                   See everywhere your info appears <ArrowRight className="h-4 w-4" />
                 </button>
@@ -237,11 +268,20 @@ export default function PartnerHubDemo({
               <Card className="p-6 md:p-8">
                 <div className="flex flex-col md:flex-row items-start gap-6">
                   <div className="w-full md:w-1/2">
-                    <h3 className="text-lg font-semibold mb-2">Field Guide – Tool selector</h3>
+                    <h3 className="text-lg font-semibold mb-2">Field Guide — Tool selector</h3>
                     <div className="rounded-xl border p-3">
                       <div className="flex items-center gap-2 text-sm">
-                        <input className="w-full rounded-lg border px-3 py-2" placeholder="Search tools" defaultValue={toolName} />
-                        <button className="rounded-lg border px-3 py-2 text-sm" onClick={() => setShowFGModal(true)}>
+                        <input 
+                          className="w-full rounded-lg border px-3 py-2" 
+                          placeholder="Search tools" 
+                          defaultValue={toolName}
+                          disabled={!mounted}
+                        />
+                        <button 
+                          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50" 
+                          onClick={() => mounted && setShowFGModal(true)}
+                          disabled={!mounted}
+                        >
                           Open
                         </button>
                       </div>
@@ -250,7 +290,7 @@ export default function PartnerHubDemo({
                   <div className="w-full md:w-1/2">
                     <h3 className="text-lg font-semibold mb-2">Modal preview</h3>
                     <div className="rounded-xl border p-4 bg-white">
-                      <p className="text-sm text-neutral-600">Click “Open” to see the modal we use on the site.</p>
+                      <p className="text-sm text-neutral-600">Click "Open" to see the modal we use on the site.</p>
                       <div className="mt-3 aspect-video rounded-lg border bg-neutral-50 flex items-center justify-center text-xs text-neutral-500">
                         Modal area
                       </div>
@@ -262,7 +302,12 @@ export default function PartnerHubDemo({
 
             <AnimatePresence>
               {showFGModal && (
-                <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <motion.div 
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  exit={{ opacity: 0 }}
+                >
                   <motion.div
                     initial={{ scale: 0.97, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -278,7 +323,10 @@ export default function PartnerHubDemo({
                           <div className="text-xs text-neutral-600">{listing.summary}</div>
                         </div>
                       </div>
-                      <button onClick={() => setShowFGModal(false)} className="text-sm underline underline-offset-4">
+                      <button 
+                        onClick={() => setShowFGModal(false)} 
+                        className="text-sm underline underline-offset-4"
+                      >
                         Close
                       </button>
                     </div>
@@ -315,7 +363,11 @@ export default function PartnerHubDemo({
 
             <Section className="pb-16">
               <div className="mx-auto max-w-3xl text-center">
-                <button onClick={() => setStep(3)} className="inline-flex items-center gap-2 rounded-full px-5 py-3 border text-sm hover:shadow">
+                <button 
+                  onClick={() => setStep(3)} 
+                  disabled={!mounted}
+                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 border text-sm hover:shadow disabled:opacity-50"
+                >
                   Update your info <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -334,26 +386,66 @@ export default function PartnerHubDemo({
                   <p className="text-sm text-neutral-600 mt-1">Edit any field and submit for moderation.</p>
 
                   <div className="mt-6 grid sm:grid-cols-2 gap-4">
-                    <Field label="Display name" value={listing.display_name} onChange={(v) => setListing((s) => ({ ...s, display_name: v }))} />
-                    <Field label="Website URL" value={listing.website_url} onChange={(v) => setListing((s) => ({ ...s, website_url: v }))} />
-                    <Field label="Logo URL" value={listing.logo_url} onChange={(v) => setListing((s) => ({ ...s, logo_url: v }))} />
-                    <Field label="Model name" value={listing.model_name} onChange={(v) => setListing((s) => ({ ...s, model_name: v }))} />
-                    <Field label="Pricing" value={listing.pricing as any} onChange={(v) => setListing((s) => ({ ...s, pricing: v }))} />
-                    <Field label="Login requirements" value={listing.login_requirements} onChange={(v) => setListing((s) => ({ ...s, login_requirements: v }))} />
-                    <TextArea label="Summary" value={listing.summary} onChange={(v) => setListing((s) => ({ ...s, summary: v }))} />
-                    <TextArea label="Use cases" value={listing.use_cases} onChange={(v) => setListing((s) => ({ ...s, use_cases: v }))} />
+                    <Field 
+                      label="Display name" 
+                      value={listing.display_name} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, display_name: v }))}
+                      disabled={!mounted}
+                    />
+                    <Field 
+                      label="Website URL" 
+                      value={listing.website_url} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, website_url: v }))}
+                      disabled={!mounted}
+                    />
+                    <Field 
+                      label="Logo URL" 
+                      value={listing.logo_url} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, logo_url: v }))}
+                      disabled={!mounted}
+                    />
+                    <Field 
+                      label="Model name" 
+                      value={listing.model_name} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, model_name: v }))}
+                      disabled={!mounted}
+                    />
+                    <Field 
+                      label="Pricing" 
+                      value={listing.pricing as any} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, pricing: v }))}
+                      disabled={!mounted}
+                    />
+                    <Field 
+                      label="Login requirements" 
+                      value={listing.login_requirements} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, login_requirements: v }))}
+                      disabled={!mounted}
+                    />
+                    <TextArea 
+                      label="Summary" 
+                      value={listing.summary} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, summary: v }))}
+                      disabled={!mounted}
+                    />
+                    <TextArea 
+                      label="Use cases" 
+                      value={listing.use_cases} 
+                      onChange={(v) => mounted && setListing((s) => ({ ...s, use_cases: v }))}
+                      disabled={!mounted}
+                    />
                   </div>
 
                   <div className="mt-5 flex items-center gap-3">
                     <button
                       onClick={handleSubmit}
-                      disabled={submitting || submitted}
+                      disabled={submitting || submitted || !mounted}
                       className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm hover:shadow disabled:opacity-60"
                     >
                       {submitted ? <BadgeCheck className="h-4 w-4" /> : submitting ? <Save className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
                       {submitted ? 'Submitted' : submitting ? 'Submitting…' : 'Submit for approval'}
                     </button>
-                    <div className="text-xs text-neutral-500">You’ll see status in Messages; we’ll email you on publish.</div>
+                    <div className="text-xs text-neutral-500">You'll see status in Messages; we'll email you on publish.</div>
                   </div>
                 </Card>
 
@@ -377,20 +469,50 @@ export default function PartnerHubDemo({
   )
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({ 
+  label, 
+  value, 
+  onChange, 
+  disabled = false 
+}: { 
+  label: string
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+}) {
   return (
     <label className="block">
       <div className="text-xs font-medium text-neutral-700 mb-1">{label}</div>
-      <input className="w-full rounded-lg border px-3 py-2 text-sm" value={value} onChange={(e) => onChange(e.target.value)} />
+      <input 
+        className="w-full rounded-lg border px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed" 
+        value={value} 
+        onChange={(e) => !disabled && onChange(e.target.value)}
+        disabled={disabled}
+      />
     </label>
   )
 }
 
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextArea({ 
+  label, 
+  value, 
+  onChange, 
+  disabled = false 
+}: { 
+  label: string
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+}) {
   return (
     <label className="block sm:col-span-2">
       <div className="text-xs font-medium text-neutral-700 mb-1">{label}</div>
-      <textarea className="w-full rounded-lg border px-3 py-2 text-sm min-h-[100px]" value={value} onChange={(e) => onChange(e.target.value)} />
+      <textarea 
+        className="w-full rounded-lg border px-3 py-2 text-sm min-h-[100px] disabled:opacity-50 disabled:cursor-not-allowed" 
+        value={value} 
+        onChange={(e) => !disabled && onChange(e.target.value)}
+        disabled={disabled}
+      />
     </label>
   )
 }

@@ -1,5 +1,5 @@
 // src/app/admin/preview-manager/page.tsx
-// Admin interface for managing preview tokens
+// Admin interface for managing preview tokens - Hydration Safe
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -15,7 +15,8 @@ import {
   Trash2,
   Mail,
   Search,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react'
 
 interface PreviewToken {
@@ -36,6 +37,10 @@ interface Company {
 }
 
 export default function PreviewManagerPage() {
+  // Hydration safety state
+  const [mounted, setMounted] = useState(false)
+  
+  // Component state
   const [companies, setCompanies] = useState<Company[]>([])
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [tokens, setTokens] = useState<PreviewToken[]>([])
@@ -45,15 +50,22 @@ export default function PreviewManagerPage() {
   const [expiresInHours, setExpiresInHours] = useState(72)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Hydration safety - mount guard
   useEffect(() => {
-    loadCompanies()
+    setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (selectedCompany) {
+    if (mounted) {
+      loadCompanies()
+    }
+  }, [mounted])
+
+  useEffect(() => {
+    if (mounted && selectedCompany) {
       loadTokens(selectedCompany.id)
     }
-  }, [selectedCompany])
+  }, [mounted, selectedCompany])
 
   const loadCompanies = async () => {
     try {
@@ -118,9 +130,18 @@ export default function PreviewManagerPage() {
   }
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setMessage({ type: 'success', text: 'Copied to clipboard!' })
-    setTimeout(() => setMessage(null), 2000)
+    // Hydration-safe clipboard access
+    if (!mounted || typeof window === 'undefined' || !navigator.clipboard) {
+      setMessage({ type: 'error', text: 'Clipboard not available' })
+      return
+    }
+    
+    navigator.clipboard.writeText(text).then(() => {
+      setMessage({ type: 'success', text: 'Copied to clipboard!' })
+      setTimeout(() => setMessage(null), 2000)
+    }).catch(() => {
+      setMessage({ type: 'error', text: 'Failed to copy to clipboard' })
+    })
   }
 
   const generateEmailTemplate = (company: Company, previewUrl: string) => {
@@ -149,6 +170,24 @@ Best regards,
 Daily Tidbit Team`
   }
 
+  const openInNewTab = (url: string) => {
+    // Hydration-safe window access
+    if (!mounted || typeof window === 'undefined') return
+    window.open(url, '_blank')
+  }
+
+  // Loading state for hydration
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="body-medium">Loading preview manager...</span>
+        </div>
+      </div>
+    )
+  }
+
   const filteredCompanies = companies.filter(company =>
     company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     company.domain.toLowerCase().includes(searchTerm.toLowerCase())
@@ -159,8 +198,8 @@ Daily Tidbit Team`
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Preview Token Manager</h1>
-          <p className="text-gray-600">Generate and manage preview links for company partner portals</p>
+          <h1 className="heading-section text-gray-900 mb-2">Preview Token Manager</h1>
+          <p className="body-medium text-gray-600">Generate and manage preview links for company partner portals</p>
         </div>
 
         {/* Status Message */}
@@ -175,14 +214,14 @@ Daily Tidbit Team`
             ) : (
               <XCircle className="h-5 w-5 flex-shrink-0" />
             )}
-            {message.text}
+            <span className="body-medium">{message.text}</span>
           </div>
         )}
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Company Selection */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Company</h2>
+            <h2 className="heading-subsection text-gray-900 mb-4">Select Company</h2>
             
             {/* Search */}
             <div className="relative mb-4">
@@ -192,7 +231,7 @@ Daily Tidbit Team`
                 placeholder="Search companies..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green transition-colors"
               />
             </div>
 
@@ -202,17 +241,17 @@ Daily Tidbit Team`
                 <button
                   key={company.id}
                   onClick={() => setSelectedCompany(company)}
-                  className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                  className={`w-full p-3 rounded-lg border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 ${
                     selectedCompany?.id === company.id
-                      ? 'bg-[#60A875]/10 border-[#60A875] text-[#60A875]'
+                      ? 'bg-brand-green/10 border-brand-green text-brand-green'
                       : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Building2 className="h-5 w-5" />
                     <div>
-                      <div className="font-medium">{company.name}</div>
-                      <div className="text-xs text-gray-500">@{company.domain}</div>
+                      <div className="body-bold">{company.name}</div>
+                      <div className="body-small text-gray-500">@{company.domain}</div>
                     </div>
                   </div>
                 </button>
@@ -222,28 +261,28 @@ Daily Tidbit Team`
 
           {/* Token Generation */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate Preview Token</h2>
+            <h2 className="heading-subsection text-gray-900 mb-4">Generate Preview Token</h2>
             
             {selectedCompany ? (
               <div className="space-y-4">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-3 mb-2">
                     <Building2 className="h-5 w-5 text-blue-600" />
-                    <span className="font-medium text-blue-900">{selectedCompany.name}</span>
+                    <span className="body-bold text-blue-900">{selectedCompany.name}</span>
                   </div>
-                  <div className="text-sm text-blue-800">
+                  <div className="body-small text-blue-800">
                     Domain: {selectedCompany.domain}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block body-medium text-gray-700 mb-2">
                     Expires in (hours)
                   </label>
                   <select
                     value={expiresInHours}
                     onChange={(e) => setExpiresInHours(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green transition-colors"
                   >
                     <option value={24}>24 hours (1 day)</option>
                     <option value={48}>48 hours (2 days)</option>
@@ -255,11 +294,11 @@ Daily Tidbit Team`
                 <button
                   onClick={generateToken}
                   disabled={generating}
-                  className="w-full bg-[#60A875] text-white py-3 px-4 rounded-lg font-medium hover:bg-[#4f8f61] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full bg-brand-green text-white py-3 px-4 rounded-lg body-bold hover:bg-brand-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                 >
                   {generating ? (
                     <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Generating...
                     </>
                   ) : (
@@ -273,20 +312,20 @@ Daily Tidbit Team`
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <Building2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p>Select a company to generate a preview token</p>
+                <p className="body-medium">Select a company to generate a preview token</p>
               </div>
             )}
           </div>
 
           {/* Existing Tokens */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Existing Tokens</h2>
+            <h2 className="heading-subsection text-gray-900 mb-4">Existing Tokens</h2>
             
             {selectedCompany ? (
               loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin h-6 w-6 border-2 border-[#60A875] border-t-transparent rounded-full mx-auto mb-2"></div>
-                  <p className="text-gray-500 text-sm">Loading tokens...</p>
+                  <Loader2 className="h-6 w-6 animate-spin text-brand-green mx-auto mb-2" />
+                  <p className="body-small text-gray-500">Loading tokens...</p>
                 </div>
               ) : tokens.length > 0 ? (
                 <div className="space-y-3">
@@ -301,28 +340,28 @@ Daily Tidbit Team`
                           ) : (
                             <Clock className="h-4 w-4 text-yellow-500" />
                           )}
-                          <span className="text-xs font-medium">
+                          <span className="body-small font-medium">
                             {token.isExpired ? 'Expired' : token.isUsed ? 'Used' : 'Active'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => copyToClipboard(token.previewUrl)}
-                            className="p-1 text-gray-400 hover:text-gray-600"
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded"
                             title="Copy URL"
                           >
                             <Copy className="h-3 w-3" />
                           </button>
                           <button
-                            onClick={() => window.open(token.previewUrl, '_blank')}
-                            className="p-1 text-gray-400 hover:text-gray-600"
+                            onClick={() => openInNewTab(token.previewUrl)}
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded"
                             title="Open preview"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </button>
                           <button
                             onClick={() => copyToClipboard(generateEmailTemplate(selectedCompany, token.previewUrl))}
-                            className="p-1 text-gray-400 hover:text-gray-600"
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded"
                             title="Copy email template"
                           >
                             <Mail className="h-3 w-3" />
@@ -330,7 +369,7 @@ Daily Tidbit Team`
                         </div>
                       </div>
                       
-                      <div className="text-xs text-gray-500">
+                      <div className="body-small text-gray-500 space-y-1">
                         <div>Created: {new Date(token.created_at).toLocaleDateString()}</div>
                         <div>Expires: {new Date(token.expires_at).toLocaleDateString()}</div>
                         {token.used_at && (
@@ -343,12 +382,12 @@ Daily Tidbit Team`
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <Eye className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-sm">No preview tokens found</p>
+                  <p className="body-small">No preview tokens found</p>
                 </div>
               )
             ) : (
               <div className="text-center py-8 text-gray-500">
-                <p className="text-sm">Select a company to view tokens</p>
+                <p className="body-small">Select a company to view tokens</p>
               </div>
             )}
           </div>
@@ -356,8 +395,8 @@ Daily Tidbit Team`
 
         {/* Instructions */}
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
-          <h3 className="font-semibold text-blue-900 mb-3">How to use preview tokens:</h3>
-          <div className="space-y-2 text-sm text-blue-800">
+          <h3 className="body-bold text-blue-900 mb-3">How to use preview tokens:</h3>
+          <div className="space-y-2 body-small text-blue-800">
             <div className="flex items-start gap-2">
               <span className="font-medium">1.</span>
               <span>Select a company and generate a preview token</span>

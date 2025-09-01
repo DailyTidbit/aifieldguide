@@ -1,10 +1,10 @@
-// src/app/components/AuthGuard.tsx - Route Protection Component
+// app/components/AuthGuard.tsx - Hydration-safe route protection
 'use client'
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../hooks/useAuth'
-import { AuthState } from '../types'
+import type { AuthState } from '../types'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -21,11 +21,12 @@ export default function AuthGuard({
   fallback,
   allowedRoles
 }: AuthGuardProps) {
-  const { authState, loading, user, isCompanyAdmin } = useAuth()
+  const { authState, loading, user, isCompanyAdmin, mounted } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (loading) return
+    // Wait for hydration and auth to complete
+    if (!mounted || loading) return
 
     const requiredStates = Array.isArray(requiredState) ? requiredState : [requiredState]
     const hasRequiredState = requiredStates.includes(authState)
@@ -53,7 +54,7 @@ export default function AuthGuard({
           router.push('/partners/setup')
           break
         case 'no-company':
-          router.push('/partners') // Show company access needed
+          router.push('/partners')
           break
         case 'loading':
           // Stay on current page while loading
@@ -62,10 +63,10 @@ export default function AuthGuard({
           router.push('/partners')
       }
     }
-  }, [authState, loading, redirectTo, router, user, isCompanyAdmin, allowedRoles])
+  }, [authState, loading, mounted, redirectTo, router, user, isCompanyAdmin, allowedRoles])
 
-  // Show loading state
-  if (loading) {
+  // Show loading state during hydration or auth check
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { 
   Eye, 
   MessageSquare, 
@@ -38,12 +38,18 @@ interface TidbitProgressTrackerProps {
 type FilterType = 'all' | 'completed' | 'in-progress' | 'not-started'
 
 export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitProgressTrackerProps) {
+  // Hydration safety
+  const [mounted, setMounted] = useState(false)
   const [progress, setProgress] = useState<TidbitProgress[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
   const [filter, setFilter] = useState<FilterType>('all')
   const [showDetails, setShowDetails] = useState(false)
-  const [showLegend, setShowLegend] = useState(false) // NEW: State for collapsible legend
+  const [showLegend, setShowLegend] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Calculate stats
   const totalTidbits = progress.length
@@ -63,12 +69,18 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
   })
 
   useEffect(() => {
-    fetchTidbitProgress()
-  }, [userId])
+    if (mounted) {
+      fetchTidbitProgress()
+    }
+  }, [userId, mounted])
 
   const fetchTidbitProgress = async () => {
+    if (!mounted) return // Hydration guard
+    
     try {
       setLoading(true)
+
+      const supabase = getSupabaseBrowserClient()
 
       // Get all published tidbits
       const { data: tidbits, error: tidbitsError } = await supabase
@@ -120,6 +132,8 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
 
   // Handle clicking anywhere in the Learning Progress area to expand
   const handleSectionClick = () => {
+    if (!mounted) return // Hydration guard
+    
     if (!expanded) {
       setExpanded(true)
     }
@@ -127,6 +141,8 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
 
   // Handle stat box clicks 
   const handleStatClick = (filterType: FilterType) => {
+    if (!mounted) return // Hydration guard
+    
     if (!expanded) {
       // If collapsed, expand and set filter
       setExpanded(true)
@@ -143,6 +159,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
 
   // Handle manual collapse via chevron button
   const handleToggleCollapse = () => {
+    if (!mounted) return // Hydration guard
     setExpanded(!expanded)
   }
 
@@ -180,6 +197,22 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
     if (completedSteps === 3) return 'Completed'
     if (completedSteps > 0) return `${completedSteps}/3 steps`
     return 'Not started'
+  }
+
+  // Hydration safety - show loading during hydration
+  if (!mounted) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-4 bg-gray-200 rounded w-full"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

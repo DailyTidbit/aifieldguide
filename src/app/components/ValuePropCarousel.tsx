@@ -1,4 +1,4 @@
-// components/ValuePropCarousel.tsx
+// components/ValuePropCarousel.tsx - Hydration safety with FIXED HOOKS
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -93,29 +93,26 @@ interface ValuePropCarouselProps {
   className?: string;
 }
 
-// COMPLETELY SIMPLIFIED APPROACH - Show only current card, no complex sliding
 const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({ 
   cards = [], 
   autoPlay = true, 
   autoPlayDelay = 4000,
   className = ""
 }) => {
+  // ✅ FIXED: All hooks BEFORE any conditional returns
+  const [mounted, setMounted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(autoPlay);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const totalCards = cards.length;
 
-  // Early return if no cards
-  if (!cards || cards.length === 0) {
-    return (
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-        <div className="p-6 text-center text-gray-500">
-          No cards to display
-        </div>
-      </div>
-    );
-  }
+  // HYDRATION FIX: Wait for mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const goToSlide = useCallback((index: number) => {
     if (isTransitioning) return; // Prevent rapid clicks
@@ -143,13 +140,15 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
     goToSlide(currentIndex - 1);
   }, [currentIndex, goToSlide]);
 
-  // Auto-play functionality
+  // HYDRATION FIX: Auto-play functionality only after mount
   useEffect(() => {
+    if (!mounted) return;
+    
     if (isAutoPlaying && totalCards > 1 && !isTransitioning) {
       const interval = setInterval(nextSlide, autoPlayDelay);
       return () => clearInterval(interval);
     }
-  }, [isAutoPlaying, totalCards, nextSlide, autoPlayDelay, isTransitioning]);
+  }, [mounted, isAutoPlaying, totalCards, nextSlide, autoPlayDelay, isTransitioning]);
 
   // Pause auto-play on hover
   const handleMouseEnter = useCallback(() => {
@@ -160,8 +159,10 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
     setIsAutoPlaying(autoPlay);
   }, [autoPlay]);
 
-  // Keyboard navigation
+  // HYDRATION FIX: Keyboard navigation only after mount
   useEffect(() => {
+    if (!mounted) return;
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -174,12 +175,9 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextSlide, prevSlide]);
+  }, [mounted, nextSlide, prevSlide]);
 
   // Touch handling
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
@@ -203,6 +201,40 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
     }
   }, [touchStart, touchEnd, nextSlide, prevSlide]);
 
+  // ✅ FIXED: Early returns AFTER all hooks are declared
+  
+  // Early return if no cards
+  if (!cards || cards.length === 0) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+        <div className="p-6 text-center text-gray-500">
+          No cards to display
+        </div>
+      </div>
+    );
+  }
+
+  // HYDRATION FIX: Don't render interactive elements until mounted
+  if (!mounted) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '0 auto', position: 'relative' }}>
+        <div style={{ paddingLeft: '60px', paddingRight: '60px' }}>
+          <div className="animate-pulse">
+            <div 
+              className="h-full w-full p-6 bg-gray-200 rounded-2xl flex flex-col items-center"
+              style={{ minHeight: '280px' }}
+            >
+              <div className="w-16 h-16 bg-gray-300 rounded-full mb-4"></div>
+              <div className="h-6 bg-gray-300 rounded w-32 mb-3"></div>
+              <div className="h-4 bg-gray-300 rounded w-full mb-2"></div>
+              <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Get current card
   const currentCard = cards[currentIndex];
 
@@ -217,18 +249,17 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{
-        maxWidth: '600px',  // Increased from 400px to 600px
+        maxWidth: '600px',
         margin: '0 auto',
         position: 'relative'
       }}
     >
-      {/* SIMPLE APPROACH: Just show the current card with fade transition */}
       <div
         style={{
           position: 'relative',
           width: '100%',
           height: 'auto',
-          paddingLeft: '60px',   // Increased padding for wider container
+          paddingLeft: '60px',
           paddingRight: '60px'
         }}
       >

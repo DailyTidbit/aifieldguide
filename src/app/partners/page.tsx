@@ -1,16 +1,25 @@
-// src/app/partners/page.tsx - Refactored to use useAuth hook
+// src/app/partners/page.tsx - FULLY HYDRATION SAFE VERSION
 'use client'
+
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/app/hooks/useAuth'
+import { useAuth } from '../hooks/useAuth'
 import { ArrowRight, Building2, Shield, Settings, BarChart3, MessageSquare, Zap, Eye, Lock, ExternalLink, AlertCircle } from 'lucide-react'
 
 export default function PartnersLanding() {
+  // Hydration safety - critical for SSR
+  const [mounted, setMounted] = useState(false)
   const { authState, user, company, loading, signOut } = useAuth()
   const [showAuthRequired, setShowAuthRequired] = useState(false)
 
-  // Handle magic link redirect on component mount
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Handle magic link redirect safely after mount
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return
+    
     const urlParams = new URLSearchParams(window.location.search)
     const accessToken = urlParams.get('access_token')
     const refreshToken = urlParams.get('refresh_token')
@@ -19,7 +28,7 @@ export default function PartnersLanding() {
       // Magic link detected - redirect to setup page
       window.location.href = '/partners/setup'
     }
-  }, [])
+  }, [mounted])
 
   const features = [
     {
@@ -57,7 +66,8 @@ export default function PartnersLanding() {
   ]
 
   const AuthRequiredModal = () => {
-    if (!showAuthRequired) return null
+    // Only render when mounted and modal should show
+    if (!mounted || !showAuthRequired) return null
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
@@ -90,7 +100,8 @@ export default function PartnersLanding() {
     )
   }
 
-  if (loading) {
+  // Show loading state during hydration
+  if (!mounted || loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-2 border-brand-green border-t-transparent rounded-full"></div>
@@ -180,8 +191,8 @@ export default function PartnersLanding() {
             Keep your listing accurate, track performance, and connect directly with our team.
           </p>
 
-          {/* Status Messages */}
-          {authState === 'logged-out' && (
+          {/* Status Messages - Only render when mounted */}
+          {mounted && authState === 'logged-out' && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8 inline-block">
               <div className="flex items-center gap-2 text-green-800">
                 <Eye className="w-4 h-4" />
@@ -192,10 +203,10 @@ export default function PartnersLanding() {
             </div>
           )}
 
-          {authState === 'needs-password-setup' && (
+          {mounted && authState === 'needs-password-setup' && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-8 inline-block">
               <div className="flex items-center gap-2 text-amber-800">
-                <AlertCircle className="w-4 w-4" />
+                <AlertCircle className="w-4 h-4" />
                 <span className="text-sm">
                   <strong>Complete your setup!</strong> You need to create a password to access your partner dashboard.
                 </span>
@@ -203,7 +214,7 @@ export default function PartnersLanding() {
             </div>
           )}
 
-          {authState === 'no-company' && (
+          {mounted && authState === 'no-company' && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-8 inline-block">
               <div className="flex items-center gap-2 text-amber-800">
                 <AlertCircle className="w-4 h-4" />
@@ -214,7 +225,7 @@ export default function PartnersLanding() {
             </div>
           )}
 
-          {authState === 'has-company-access' && company && (
+          {mounted && authState === 'has-company-access' && company && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8 inline-block">
               <div className="flex items-center gap-2 text-green-800">
                 <Building2 className="w-4 h-4" />
@@ -225,54 +236,56 @@ export default function PartnersLanding() {
             </div>
           )}
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            {authState === 'has-company-access' ? (
-              <Link 
-                href="/partners/dashboard"
-                className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full font-medium hover:bg-brand-green/90 transition-colors"
-              >
-                Go to Dashboard <ArrowRight className="h-4 w-4" />
-              </Link>
-            ) : authState === 'needs-password-setup' ? (
-              <Link 
-                href="/partners/setup"
-                className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full font-medium hover:bg-brand-green/90 transition-colors"
-              >
-                Complete Setup <ArrowRight className="h-4 w-4" />
-              </Link>
-            ) : authState === 'no-company' ? (
-              <div className="text-center">
-                <div className="bg-white border border-gray-200 rounded-xl p-6 inline-block">
-                  <h3 className="font-semibold text-gray-900 mb-2">Need Company Access</h3>
-                  <p className="text-gray-600 text-sm mb-4">
-                    Your account exists but isn't linked to a company. Contact our team to get added.
-                  </p>
-                  <a 
-                    href="mailto:partners@dailytidbit.org"
-                    className="inline-flex items-center gap-2 bg-brand-green text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-green/90 transition-colors"
-                  >
-                    Contact Support
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <>
+          {/* CTA Buttons - Only render when mounted */}
+          {mounted && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              {authState === 'has-company-access' ? (
                 <Link 
-                  href="/partners/request-access"
+                  href="/partners/dashboard"
                   className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full font-medium hover:bg-brand-green/90 transition-colors"
                 >
-                  Request Partner Access <ArrowRight className="h-4 w-4" />
+                  Go to Dashboard <ArrowRight className="h-4 w-4" />
                 </Link>
+              ) : authState === 'needs-password-setup' ? (
                 <Link 
-                  href="#how-it-works"
-                  className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 px-6 py-3 rounded-full font-medium hover:bg-gray-50 transition-colors"
+                  href="/partners/setup"
+                  className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full font-medium hover:bg-brand-green/90 transition-colors"
                 >
-                  Learn More
+                  Complete Setup <ArrowRight className="h-4 w-4" />
                 </Link>
-              </>
-            )}
-          </div>
+              ) : authState === 'no-company' ? (
+                <div className="text-center">
+                  <div className="bg-white border border-gray-200 rounded-xl p-6 inline-block">
+                    <h3 className="font-semibold text-gray-900 mb-2">Need Company Access</h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Your account exists but isn't linked to a company. Contact our team to get added.
+                    </p>
+                    <a 
+                      href="mailto:partners@dailytidbit.org"
+                      className="inline-flex items-center gap-2 bg-brand-green text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-green/90 transition-colors"
+                    >
+                      Contact Support
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Link 
+                    href="/partners/request-access"
+                    className="inline-flex items-center gap-2 bg-brand-green text-white px-6 py-3 rounded-full font-medium hover:bg-brand-green/90 transition-colors"
+                  >
+                    Request Partner Access <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <Link 
+                    href="#how-it-works"
+                    className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 px-6 py-3 rounded-full font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Learn More
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -285,7 +298,8 @@ export default function PartnersLanding() {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => {
-              const canAccess = authState === 'has-company-access'
+              // Only show interactive behavior when mounted
+              const canAccess = mounted && authState === 'has-company-access'
               
               if (canAccess) {
                 return (
@@ -310,8 +324,9 @@ export default function PartnersLanding() {
                 return (
                   <button
                     key={index}
-                    onClick={() => setShowAuthRequired(true)}
+                    onClick={() => mounted && setShowAuthRequired(true)}
                     className="group bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-brand-green/20 transition-all duration-200 cursor-pointer text-left w-full focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2"
+                    disabled={!mounted}
                   >
                     <div className="w-12 h-12 bg-brand-green/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-brand-green/20 transition-colors">
                       <feature.icon className="h-6 w-6 text-brand-green" />
@@ -401,7 +416,7 @@ export default function PartnersLanding() {
             <div className="text-sm text-gray-600 mb-4">
               Sponsor a Daily Tidbit for just $1 this month. One day per company. All times Eastern.
             </div>
-            {authState === 'has-company-access' ? (
+            {mounted && authState === 'has-company-access' ? (
               <Link 
                 href="/partners/ads" 
                 className="inline-flex items-center gap-1 text-brand-green font-medium text-sm hover:gap-2 transition-all"
@@ -410,8 +425,9 @@ export default function PartnersLanding() {
               </Link>
             ) : (
               <button
-                onClick={() => setShowAuthRequired(true)}
-                className="inline-flex items-center gap-1 text-brand-green font-medium text-sm hover:gap-2 transition-all"
+                onClick={() => mounted && setShowAuthRequired(true)}
+                disabled={!mounted}
+                className="inline-flex items-center gap-1 text-brand-green font-medium text-sm hover:gap-2 transition-all disabled:opacity-50"
               >
                 Request access to book <Eye className="h-4 w-4" />
               </button>
@@ -421,7 +437,7 @@ export default function PartnersLanding() {
       </section>
 
       {/* Final CTA */}
-      {authState === 'logged-out' && (
+      {mounted && authState === 'logged-out' && (
         <section className="py-16 bg-gradient-to-r from-brand-green/10 via-brand-blue/10 to-brand-green/10">
           <div className="mx-auto max-w-2xl px-6 text-center">
             <h3 className="text-2xl font-semibold text-gray-900 mb-4">

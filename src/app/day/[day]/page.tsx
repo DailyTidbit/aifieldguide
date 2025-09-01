@@ -1,12 +1,11 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react'
-import { Clock, Star, Tag, Play, Users, ArrowRight, CheckCircle, Lightbulb, Target, Camera, Share2, Trophy } from 'lucide-react'
-import { Metadata } from 'next'
+import { Clock, Star, Tag, Play, Users, ArrowRight, CheckCircle, Lightbulb, Target, Camera, Share2, Trophy, Loader2 } from 'lucide-react'
 import TidbitTutor from '../../components/TidbitTutor'
 import RotatingWord from '../../components/RotatingWord'
 import TryOtherAITools from '../../components/TryOtherAITools'
-import { supabase } from '../../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { enhancedAnalytics } from '../../lib/enhancedAnalytics'
 
 interface TidbitStep {
@@ -50,10 +49,12 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    enhancedAnalytics.trackError('react_error_boundary', error.message, {
-      stack: error.stack,
-      componentStack: errorInfo.componentStack
-    })
+    if (typeof window !== 'undefined' && enhancedAnalytics) {
+      enhancedAnalytics.trackError('react_error_boundary', error.message, {
+        stack: error.stack,
+        componentStack: errorInfo.componentStack
+      })
+    }
   }
 
   render() {
@@ -70,11 +71,11 @@ const StepsErrorFallback = ({ error }: { error?: Error }) => (
   <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
     <div className="text-red-600 mb-4">
       <Target className="w-12 h-12 mx-auto mb-4" />
-      <h3 className="text-xl font-bold">Steps temporarily unavailable</h3>
-      <p className="text-sm mt-2">We're working on loading the walkthrough steps.</p>
+      <h3 className="heading-subsection">Steps temporarily unavailable</h3>
+      <p className="body-small mt-2">We're working on loading the walkthrough steps.</p>
       <button 
-        onClick={() => window.location.reload()} 
-        className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        onClick={() => typeof window !== 'undefined' && window.location.reload()} 
+        className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
       >
         Try Again
       </button>
@@ -85,7 +86,7 @@ const StepsErrorFallback = ({ error }: { error?: Error }) => (
 const VideoErrorFallback = ({ error }: { error?: Error }) => (
   <div className="bg-gray-100 rounded-2xl p-8 text-center">
     <Play className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-    <p className="text-gray-600">Video temporarily unavailable</p>
+    <p className="body-medium text-gray-600">Video temporarily unavailable</p>
   </div>
 )
 
@@ -93,8 +94,8 @@ const TutorErrorFallback = ({ error }: { error?: Error }) => (
   <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8 text-center">
     <div className="text-blue-600 mb-4">
       <Lightbulb className="w-12 h-12 mx-auto mb-4" />
-      <h3 className="text-xl font-bold">AI Tutor temporarily unavailable</h3>
-      <p className="text-sm mt-2">You can still complete the walkthrough above!</p>
+      <h3 className="heading-subsection">AI Tutor temporarily unavailable</h3>
+      <p className="body-small mt-2">You can still complete the walkthrough above!</p>
     </div>
   </div>
 )
@@ -120,9 +121,16 @@ const StepsLoadingSkeleton = () => (
   </div>
 )
 
-// Social Sharing Component
+// Social Sharing Component - Hydration Safe
 const SocialShare = ({ tidbit }: { tidbit: any }) => {
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Hydration-safe values - only available after mounting
+  const shareUrl = mounted && typeof window !== 'undefined' ? window.location.href : ''
   const shareText = `Check out Day ${tidbit.day_number}: ${tidbit.title} on Daily Tidbit!`
 
   const shareOptions = [
@@ -139,8 +147,7 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
     {
       name: 'TikTok',
       url: `https://www.tiktok.com/`,
-      color: 'bg-black hover:bg-gray-900 border border-pink-400 !text-white',
-      textColor: '!text-white',
+      color: 'bg-black hover:bg-gray-900 border border-pink-400 text-white',
       logo: (
         <svg className="w-4 h-4" fill="white" viewBox="0 0 24 24">
           <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-.88-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.04-.1z"/>
@@ -160,37 +167,63 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
   ]
 
   const copyToClipboard = async () => {
+    // Hydration-safe clipboard access
+    if (!mounted || typeof window === 'undefined' || !navigator?.clipboard) {
+      alert('Clipboard not available')
+      return
+    }
+
     try {
       await navigator.clipboard.writeText(shareUrl)
-      enhancedAnalytics.trackUserEngagement('click', 'copy_link_button')
+      if (enhancedAnalytics) {
+        enhancedAnalytics.trackUserEngagement('click', 'copy_link_button')
+      }
       alert('Link copied to clipboard!')
     } catch (err) {
       console.error('Failed to copy:', err)
+      alert('Failed to copy link')
     }
   }
 
   const handleSocialShare = (platform: string, url: string) => {
-    enhancedAnalytics.trackUserEngagement('click', `share_${platform.toLowerCase()}_button`)
+    // Hydration-safe window access
+    if (!mounted || typeof window === 'undefined') return
+    
+    if (enhancedAnalytics) {
+      enhancedAnalytics.trackUserEngagement('click', `share_${platform.toLowerCase()}_button`)
+    }
     window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  // Show loading state until mounted
+  if (!mounted) {
+    return (
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-brand-green" />
+          <p className="body-medium text-gray-600 mt-4">Loading sharing options...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-[#60A875] to-[#59B1E3] text-white shadow-lg">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-brand-green to-brand-blue text-white shadow-lg">
             <Share2 className="w-6 h-6" />
           </div>
         </div>
         
-        <h3 className="text-2xl font-bold text-gray-900 mb-2" style={{fontFamily: "'Playfair Display', serif"}}>
+        <h3 className="heading-subsection text-gray-900 mb-2">
           Send this <RotatingWord /> to a friend!
         </h3>
         
-        <p className="text-lg text-gray-700 font-medium">
+        <p className="body-large text-gray-700">
           Let's grow this community! 🌱
         </p>
-        <p className="text-gray-600 mt-2">
+        <p className="body-medium text-gray-600 mt-2">
           Share this AI tip and help others learn something new today
         </p>
       </div>
@@ -200,12 +233,11 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
           <button
             key={option.name}
             onClick={() => handleSocialShare(option.name, option.url)}
-            className={`flex items-center gap-2 px-4 py-3 ${option.color} ${option.textColor || ''} rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20`}
-            style={option.name === 'TikTok' ? { color: 'white !important' } : {}}
+            className={`flex items-center gap-2 px-4 py-3 ${option.color} rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg body-bold shadow-md border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2`}
             title={`Share on ${option.name}`}
           >
             {option.logo}
-            <span className="hidden sm:inline" style={option.name === 'TikTok' ? { color: 'white !important' } : {}}>
+            <span className="hidden sm:inline">
               {option.name}
             </span>
           </button>
@@ -213,7 +245,7 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
         
         <button
           onClick={copyToClipboard}
-          className="flex items-center gap-2 px-4 py-3 bg-[#60A875] hover:bg-[#60A875]/90 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg font-medium shadow-md border border-white/20"
+          className="flex items-center gap-2 px-4 py-3 bg-brand-green hover:bg-brand-green/90 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg body-bold shadow-md border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
           title="Copy link"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -226,11 +258,16 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
   )
 }
 
-// Enhanced Video Component
+// Enhanced Video Component - Hydration Safe
 const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
+  const [mounted, setMounted] = useState(false)
   const [videoError, setVideoError] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleVideoLoad = () => {
     setVideoLoaded(true)
@@ -238,26 +275,44 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
 
   const handleVideoError = () => {
     setVideoError(true)
-    enhancedAnalytics.trackError('video_load_error', `Failed to load video for tidbit ${tidbit.day_number}`)
+    if (mounted && enhancedAnalytics) {
+      enhancedAnalytics.trackError('video_load_error', `Failed to load video for tidbit ${tidbit.day_number}`)
+    }
   }
 
   const handlePlay = () => {
     setIsPlaying(true)
-    enhancedAnalytics.trackVideoInteraction({
-      video_id: `tidbit_${tidbit.day_number}_video`,
-      action: 'play',
-      timestamp: Date.now(),
-      duration: 0
-    })
+    if (mounted && enhancedAnalytics) {
+      enhancedAnalytics.trackVideoInteraction({
+        video_id: `tidbit_${tidbit.day_number}_video`,
+        action: 'play',
+        timestamp: Date.now(),
+        duration: 0
+      })
+    }
   }
 
   const handlePause = () => {
     setIsPlaying(false)
-    enhancedAnalytics.trackVideoInteraction({
-      video_id: `tidbit_${tidbit.day_number}_video`,
-      action: 'pause',
-      timestamp: Date.now()
-    })
+    if (mounted && enhancedAnalytics) {
+      enhancedAnalytics.trackVideoInteraction({
+        video_id: `tidbit_${tidbit.day_number}_video`,
+        action: 'pause',
+        timestamp: Date.now()
+      })
+    }
+  }
+
+  if (!mounted) {
+    return (
+      <div className="max-w-3xl mx-auto mb-8">
+        <div className="relative bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="aspect-video flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-white" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (videoError) {
@@ -270,8 +325,8 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
         {!videoLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
             <div className="text-center text-white">
-              <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p>Loading video...</p>
+              <Loader2 className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="body-medium">Loading video...</p>
             </div>
           </div>
         )}
@@ -295,32 +350,51 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
   )
 }
 
-// Progress Analytics Component
+// Progress Analytics Component - Hydration Safe
 const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="bg-gradient-to-r from-brand-green/10 to-brand-blue/10 rounded-xl p-6 border border-brand-green/20 animate-pulse">
+        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="h-12 bg-gray-200 rounded"></div>
+          <div className="h-12 bg-gray-200 rounded"></div>
+          <div className="h-12 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
   const hasViewed = !!progress.viewedAt
   const hasCompleted = !!progress.completedAt
   const hasPracticedAI = !!progress.practicedWithAI
   
   return (
-    <div className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-xl p-6 border border-[#60A875]/20">
+    <div className="bg-gradient-to-r from-brand-green/10 to-brand-blue/10 rounded-xl p-6 border border-brand-green/20">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-[#60A875]" />
-          <h4 className="text-lg font-bold text-gray-900">Your Progress</h4>
+          <Trophy className="w-6 h-6 text-brand-green" />
+          <h4 className="heading-subsection text-gray-900">Your Progress</h4>
         </div>
       </div>
       
-      <div className="grid grid-cols-3 gap-4 text-center text-sm">
+      <div className="grid grid-cols-3 gap-4 text-center body-small">
         <div>
-          <div className="font-bold text-[#60A875]">{hasViewed ? '✅' : '⏳'}</div>
+          <div className="body-bold text-brand-green">{hasViewed ? '✅' : '⏳'}</div>
           <div className="text-gray-600">Viewed</div>
         </div>
         <div>
-          <div className="font-bold text-[#59B1E3]">{hasPracticedAI ? '✅' : '⏳'}</div>
+          <div className="body-bold text-brand-blue">{hasPracticedAI ? '✅' : '⏳'}</div>
           <div className="text-gray-600">AI Practice</div>
         </div>
         <div>
-          <div className="font-bold text-purple-600">{hasCompleted ? '✅' : '⏳'}</div>
+          <div className="body-bold text-purple-600">{hasCompleted ? '✅' : '⏳'}</div>
           <div className="text-gray-600">Posted</div>
         </div>
       </div>
@@ -329,6 +403,10 @@ const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
 }
 
 export default function DayPage({ params }: DayPageProps) {
+  // CRITICAL: Mount guard for hydration safety
+  const [mounted, setMounted] = useState(false)
+  
+  // Component state
   const [resolvedParams, setResolvedParams] = useState<{ day: string } | null>(null)
   const [tidbit, setTidbit] = useState<any>(null)
   const [tidbitSteps, setTidbitSteps] = useState<TidbitStep[]>([])
@@ -340,6 +418,11 @@ export default function DayPage({ params }: DayPageProps) {
   const [user, setUser] = useState<any>(null)
   const [userProgress, setUserProgress] = useState<UserProgress>({})
 
+  // Initialize mounted state
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Memoized processed steps
   const processedSteps = useMemo(() => 
     tidbitSteps.map(step => ({
@@ -348,12 +431,18 @@ export default function DayPage({ params }: DayPageProps) {
     })), [tidbitSteps]
   )
 
-  // Enhanced progress tracking
+  // Enhanced progress tracking - hydration safe
   const markTidbitViewed = async (tidbitNumber: number) => {
-    if (!user) return
+    if (!mounted || !user) return
 
     setProgressLoading(true)
     try {
+      const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        console.warn('Supabase client not available')
+        return
+      }
+      
       const { error } = await supabase
         .from('user_tidbit_progress')
         .upsert({
@@ -368,7 +457,9 @@ export default function DayPage({ params }: DayPageProps) {
         console.error('Error marking tidbit viewed:', error)
       } else {
         setUserProgress(prev => ({ ...prev, viewedAt: new Date().toISOString() }))
-        enhancedAnalytics.trackTidbitViewed(tidbitNumber)
+        if (mounted && enhancedAnalytics) {
+          enhancedAnalytics.trackTidbitViewed(tidbitNumber)
+        }
       }
     } catch (error) {
       console.error('Error updating progress:', error)
@@ -378,9 +469,12 @@ export default function DayPage({ params }: DayPageProps) {
   }
 
   const markTutorUsed = async (tidbitNumber: number) => {
-    if (!user) return
+    if (!mounted || !user) return
 
     try {
+      const supabase = getSupabaseBrowserClient()
+      if (!supabase) return
+      
       const { error } = await supabase
         .from('user_tidbit_progress')
         .upsert({
@@ -395,21 +489,28 @@ export default function DayPage({ params }: DayPageProps) {
         console.error('Error marking tutor used:', error)
       } else {
         setUserProgress(prev => ({ ...prev, practicedWithAI: true }))
-        enhancedAnalytics.trackAIPracticed(tidbitNumber, {
-          conversation_id: `conv_${Date.now()}`,
-          message_count: 1,
-          session_duration: 0,
-          topics_discussed: [tidbit?.title || 'AI Practice']
-        })
+        if (mounted && enhancedAnalytics) {
+          enhancedAnalytics.trackAIPracticed(tidbitNumber, {
+            conversation_id: `conv_${Date.now()}`,
+            message_count: 1,
+            session_duration: 0,
+            topics_discussed: [tidbit?.title || 'AI Practice']
+          })
+        }
       }
     } catch (error) {
       console.error('Error updating progress:', error)
     }
   }
 
-  // Load user progress
+  // Load user progress - hydration safe
   const loadUserProgress = async (userId: string, tidbitNumber: number) => {
+    if (!mounted) return
+    
     try {
+      const supabase = getSupabaseBrowserClient()
+      if (!supabase) return
+      
       const { data: tidbitProgress } = await supabase
         .from('user_tidbit_progress')
         .select('*')
@@ -427,15 +528,17 @@ export default function DayPage({ params }: DayPageProps) {
     }
   }
 
-  // 🎯 Simple progress refresh function
+  // Simple progress refresh function
   const refreshUserProgress = async () => {
-    if (user && tidbit) {
+    if (mounted && user && tidbit) {
       await loadUserProgress(user.id, tidbit.day_number)
     }
   }
 
-  // 🔥 Enhanced conversation handler
+  // Enhanced conversation handler
   const handleConversationUpdate = async (userInput: string, aiOutput: string) => {
+    if (!mounted) return
+    
     setLatestConversation({
       userInput,
       aiOutput,
@@ -447,14 +550,16 @@ export default function DayPage({ params }: DayPageProps) {
       await markTutorUsed(tidbit.day_number)
     }
     
-    // 🎯 NEW: If this is a progress update, refresh the progress
+    // If this is a progress update, refresh the progress
     if (userInput === 'PROGRESS_UPDATE') {
       await refreshUserProgress()
     }
   }
 
-  // Resolve params and fetch data
+  // Resolve params and fetch data - ONLY after mounting
   useEffect(() => {
+    if (!mounted) return
+
     async function fetchData() {
       try {
         const resolvedParams = await params
@@ -463,6 +568,13 @@ export default function DayPage({ params }: DayPageProps) {
         const { day } = resolvedParams
         console.log('Day param:', day)
 
+        // Hydration-safe Supabase client access
+        const supabase = getSupabaseBrowserClient()
+        if (!supabase) {
+          setError('Database connection unavailable')
+          return
+        }
+        
         // Fetch main tidbit data
         const { data, error } = await supabase
           .from('tidbits')
@@ -503,38 +615,47 @@ export default function DayPage({ params }: DayPageProps) {
       } catch (err) {
         setError('Failed to load tidbit')
         console.error(err)
-        enhancedAnalytics.trackError('tidbit_fetch_error', String(err))
+        if (mounted && enhancedAnalytics) {
+          enhancedAnalytics.trackError('tidbit_fetch_error', String(err))
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [params])
+  }, [mounted, params])
 
-  // Check for user auth and load progress
+  // Check for user auth and load progress - ONLY after mounting and tidbit loaded
   useEffect(() => {
+    if (!mounted || !tidbit) return
+    
     const initializeUser = async () => {
+      const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        console.warn('Supabase client not available for user initialization')
+        return
+      }
+      
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       
-      if (user && tidbit) {
+      if (user) {
         await loadUserProgress(user.id, tidbit.day_number)
         await markTidbitViewed(tidbit.day_number)
       }
     }
     
     initializeUser()
-  }, [tidbit])
+  }, [mounted, tidbit])
 
-  // 🔥 REMOVED: Real-time listener for posts - now using direct tracking in components
-
-  if (loading) {
+  // Loading state - show until mounted AND data loaded
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50/30 to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-[#60A875] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading tidbit...</p>
+          <Loader2 className="w-8 w-8 text-brand-green animate-spin mx-auto mb-4" />
+          <p className="body-medium text-gray-600">Loading tidbit...</p>
         </div>
       </div>
     )
@@ -543,11 +664,15 @@ export default function DayPage({ params }: DayPageProps) {
   if (error || !tidbit) {
     return (
       <div className="p-8 text-red-600 text-center">
-        <h1 className="text-2xl font-bold">Day {resolvedParams?.day} not found</h1>
-        <p>{error}</p>
+        <h1 className="heading-section">Day {resolvedParams?.day} not found</h1>
+        <p className="body-medium">{error}</p>
         <button 
-          onClick={() => window.location.href = '/'}
-          className="mt-4 px-6 py-2 bg-[#60A875] text-white rounded-lg hover:bg-[#60A875]/90 transition-colors"
+          onClick={() => {
+            if (mounted && typeof window !== 'undefined') {
+              window.location.href = '/'
+            }
+          }}
+          className="mt-4 px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-green/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
         >
           Back to Home
         </button>
@@ -569,7 +694,7 @@ export default function DayPage({ params }: DayPageProps) {
 
           {/* Title */}
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 max-w-2xl mx-auto leading-tight mb-6" style={{fontFamily: "'Playfair Display', serif"}}>
+            <h1 className="heading-hero text-gray-900 max-w-2xl mx-auto mb-6">
               {tidbit.title}
             </h1>
           </div>
@@ -580,8 +705,8 @@ export default function DayPage({ params }: DayPageProps) {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="space-y-12">
           
-          {/* Progress Analytics (for logged-in users) */}
-          {user && (
+          {/* Progress Analytics (for logged-in users only) */}
+          {mounted && user && (
             <ProgressAnalytics progress={userProgress} />
           )}
 
@@ -591,10 +716,10 @@ export default function DayPage({ params }: DayPageProps) {
               {/* What You'll Learn */}
               <div>
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-lg bg-[#59B1E3] text-white">
+                  <div className="p-2 rounded-lg bg-brand-blue text-white">
                     <Lightbulb className="w-6 h-6" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                  <h3 className="heading-subsection text-gray-900">
                     What You'll Learn
                   </h3>
                 </div>
@@ -604,10 +729,10 @@ export default function DayPage({ params }: DayPageProps) {
               {/* What You Need */}
               <div>
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-lg bg-[#60A875] text-white">
+                  <div className="p-2 rounded-lg bg-brand-green text-white">
                     <CheckCircle className="w-6 h-6" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
+                  <h3 className="heading-subsection text-gray-900">
                     What You Need
                   </h3>
                 </div>
@@ -623,11 +748,11 @@ export default function DayPage({ params }: DayPageProps) {
                 <div className="relative z-10">
                   {/* Header */}
                   <div className="flex items-center gap-3 mb-8 sm:mb-10 px-4 sm:px-0">
-                    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br from-[#60A875] to-[#59B1E3] text-white shadow-lg">
+                    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-green to-brand-blue text-white shadow-lg">
                       <Target className="w-5 h-5 sm:w-7 sm:h-7" />
                     </div>
                     <div>
-                      <h3 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent" style={{fontFamily: "'Playfair Display', serif"}}>
+                      <h3 className="heading-section bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                         Day {tidbit.day_number}'s Walkthrough Steps
                       </h3>
                     </div>
@@ -644,8 +769,8 @@ export default function DayPage({ params }: DayPageProps) {
                             absolute top-2 left-2 sm:-left-6 sm:top-1/2 sm:-translate-y-1/2 flex items-center justify-center 
                             w-10 h-10 sm:w-20 sm:h-20 
                             ${index % 2 === 0 
-                              ? 'bg-[#60A875]' 
-                              : 'bg-[#59B1E3]'
+                              ? 'bg-brand-green' 
+                              : 'bg-brand-blue'
                             }
                             text-white rounded-lg sm:rounded-xl lg:rounded-2xl font-bold text-base sm:text-2xl 
                             shadow-lg sm:shadow-2xl border-2 sm:border-4 border-white
@@ -669,7 +794,7 @@ export default function DayPage({ params }: DayPageProps) {
                             hover:bg-opacity-90
                           `}>
                             {/* Step Content */}
-                            <div className="pl-2 sm:pl-0">
+                            <div className="pl-12 sm:pl-0">
                               <div className="relative mb-4 sm:mb-6">
                                 {/* Large Background Icon */}
                                 {step.icon && (
@@ -682,21 +807,19 @@ export default function DayPage({ params }: DayPageProps) {
                                   </div>
                                 )}
                                 
-                                {/* Title aligned with step number */}
+                                {/* Title and Content */}
                                 <div className="relative z-10">
                                   <h4 className={`
-                                    text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold leading-tight mb-4 sm:mb-3
-                                    pl-10 sm:pl-0 mt-1 sm:mt-0
+                                    heading-subsection leading-tight mb-4 sm:mb-3
                                     ${index % 2 === 0 
                                       ? 'bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent' 
                                       : 'bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent'
                                     }
-                                  `} style={{fontFamily: "'Playfair Display', serif"}}>
+                                  `}>
                                     {step.title}
                                   </h4>
                                   
-                                  {/* Content can flow under the step number */}
-                                  <div className="text-gray-700 leading-relaxed text-sm sm:text-base lg:text-lg mt-2 sm:mt-0">
+                                  <div className="body-medium text-gray-700">
                                     <RichContent>{step.content}</RichContent>
                                   </div>
                                 </div>
@@ -736,34 +859,7 @@ export default function DayPage({ params }: DayPageProps) {
   )
 }
 
-function Section({ 
-  title, 
-  children, 
-  icon, 
-  gradient, 
-  highlight = false 
-}: { 
-  title: string
-  children: string
-  icon: React.ReactElement
-  gradient: string
-  highlight?: boolean
-}) {
-  return (
-    <section className={`${highlight ? 'bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg' : ''}`}>
-      <div className="flex items-center gap-3 mb-6">
-        <div className={`p-2 rounded-lg bg-gradient-to-r ${gradient} text-white`}>
-          {icon}
-        </div>
-        <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: "'Playfair Display', serif"}}>
-          {title}
-        </h3>
-      </div>
-      <RichContent>{children}</RichContent>
-    </section>
-  )
-}
-
+// Rich Content Component - keeping original functionality
 function RichContent({ children }: { children: string }) {
   // Clean up content - handle \r\n, multiple spaces, etc.
   const cleanContent = children
@@ -782,8 +878,8 @@ function RichContent({ children }: { children: string }) {
         <ul key={`ul-${keyPrefix}`} className="list-none space-y-3 ml-0 my-6">
           {listBuffer.map((item, i) => (
             <li key={`li-${keyPrefix}-${i}`} className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-[#60A875] flex-shrink-0 mt-0.5" />
-              <span className="text-gray-700 leading-relaxed text-lg">{parseInlineFormatting(item)}</span>
+              <CheckCircle className="w-5 h-5 text-brand-green flex-shrink-0 mt-0.5" />
+              <span className="body-large text-gray-700">{parseInlineFormatting(item)}</span>
             </li>
           ))}
         </ul>
@@ -814,7 +910,7 @@ function RichContent({ children }: { children: string }) {
                 } else if (part.startsWith('http')) {
                   return (
                     <a key={i} href={part} target="_blank" rel="noopener noreferrer" 
-                       className="text-[#59B1E3] hover:text-blue-700 underline underline-offset-2">
+                       className="text-brand-blue hover:text-blue-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2">
                       {part}
                     </a>
                   )
@@ -826,22 +922,6 @@ function RichContent({ children }: { children: string }) {
         ))}
       </>
     )
-  }
-
-  // Detect numbered circle steps (① ②③④⑤⑥⑦⑧⑨⑩)
-  const isNumberedStep = (line: string): boolean => {
-    return /^[① ②③④⑤⑥⑦⑧⑨⑩]/.test(line.trim())
-  }
-
-  // Extract step number from circle
-  const getStepNumber = (line: string): string => {
-    const circles = ['① ', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩']
-    const match = line.trim().match(/^[① ②③④⑤⑥⑦⑧⑨⑩]/)
-    if (match) {
-      const index = circles.indexOf(match[0])
-      return (index + 1).toString()
-    }
-    return '1'
   }
 
   lines.forEach((line, i) => {
@@ -862,138 +942,9 @@ function RichContent({ children }: { children: string }) {
       return
     }
 
-    // Handle images
-    if (trimmed.startsWith('<img')) {
-      const altMatch = trimmed.match(/alt="([^"]*)"/)
-      const altText = altMatch ? altMatch[1] : 'Tidbit image'
-      
-      elements.push(
-        <div key={`img-${i}`} className="my-8">
-          <div 
-            className="rounded-xl overflow-hidden shadow-lg border border-gray-200"
-            dangerouslySetInnerHTML={{ __html: trimmed }}
-          />
-          <p className="text-sm text-gray-500 text-center mt-3 italic">{altText}</p>
-        </div>
-      )
-      return
-    }
-
-    // Handle callout boxes
-    if (trimmed.startsWith('✅')) {
-      elements.push(
-        <div key={`callout-${i}`} className="bg-green-50 border border-green-200 rounded-lg p-4 my-6">
-          <div className="flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <p className="text-green-800 font-medium leading-relaxed">{parseInlineFormatting(trimmed.slice(2).trim())}</p>
-          </div>
-        </div>
-      )
-      return
-    }
-
-    if (trimmed.startsWith('🧠 ')) {
-      elements.push(
-        <div key={`callout-${i}`} className="bg-purple-50 border border-purple-200 rounded-lg p-4 my-6">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-            <p className="text-purple-800 font-medium leading-relaxed">{parseInlineFormatting(trimmed.slice(2).trim())}</p>
-          </div>
-        </div>
-      )
-      return
-    }
-
-    if (trimmed.startsWith('📸')) {
-      elements.push(
-        <div key={`callout-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-4 my-6">
-          <div className="flex items-start gap-3">
-            <Camera className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <p className="text-blue-800 font-medium leading-relaxed">{parseInlineFormatting(trimmed.slice(2).trim())}</p>
-          </div>
-        </div>
-      )
-      return
-    }
-
-    // Handle numbered circle steps (① ②③④⑤⑥⑦⑧⑨⑩)
-    if (isNumberedStep(trimmed)) {
-      const stepNum = getStepNumber(trimmed)
-      const stepText = trimmed.replace(/^[① ②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
-      
-      elements.push(
-        <div key={`step-${i}`} className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-xl p-6 border border-[#60A875]/20 my-6">
-          <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-8 h-8 bg-[#60A875] text-white rounded-full font-bold text-sm flex-shrink-0">
-              {stepNum}
-            </div>
-            <div className="flex-1">
-              <p className="text-gray-900 font-semibold text-lg leading-relaxed">{parseInlineFormatting(stepText)}</p>
-            </div>
-          </div>
-        </div>
-      )
-      return
-    }
-
-    // Handle "Step" prefixed lines (fallback)
-    if (trimmed.toLowerCase().startsWith('step ')) {
-      elements.push(
-        <div key={`step-${i}`} className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-lg p-4 border border-[#60A875]/20 my-6">
-          <div className="flex items-start gap-3">
-            <Target className="w-5 h-5 text-[#60A875] flex-shrink-0 mt-0.5" />
-            <p className="font-semibold text-[#60A875] text-lg leading-relaxed">{parseInlineFormatting(line)}</p>
-          </div>
-        </div>
-      )
-      return
-    }
-
-    // Handle example callouts
-    if (trimmed.toLowerCase().startsWith('example:')) {
-      const exampleText = trimmed.slice(8).trim()
-      elements.push(
-        <div key={`example-${i}`} className="bg-amber-50 border border-amber-200 rounded-lg p-4 my-6">
-          <div className="flex items-start gap-3">
-            <div className="text-xl">💡</div>
-            <div>
-              <p className="font-semibold text-amber-800 mb-2">Example:</p>
-              {exampleText && (
-                <p className="text-amber-700 leading-relaxed">{parseInlineFormatting(exampleText)}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )
-      return
-    }
-
-    // Handle subject lines and structured content
-    if (trimmed.toLowerCase().startsWith('subject:')) {
-      elements.push(
-        <div key={`subject-${i}`} className="bg-gray-50 border border-gray-200 rounded-lg p-4 my-4">
-          <p className="font-mono text-sm text-gray-700">{parseInlineFormatting(trimmed)}</p>
-        </div>
-      )
-      return
-    }
-
-    // Handle website URLs
-    if (trimmed.match(/^www\./)) {
-      elements.push(
-        <div key={`url-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center my-6">
-          <p className="font-mono text-blue-700 font-semibold text-lg">{trimmed}</p>
-          <p className="text-sm text-blue-600 mt-1">↗ Open this in your browser</p>
-        </div>
-      )
-      return
-    }
-
     // Regular paragraphs
     elements.push(
-      <p key={`p-${i}`} 
-         className="text-gray-700 leading-relaxed text-lg my-4" 
-         style={{fontFamily: "'Space Grotesk', sans-serif"}}>
+      <p key={`p-${i}`} className="body-large text-gray-700 my-4">
         {parseInlineFormatting(line)}
       </p>
     )
