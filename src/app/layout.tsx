@@ -98,7 +98,7 @@ export const metadata: Metadata = {
   },
   category: "Education",
   classification: "AI Education Platform",
-  // Modern favicon configuration - FIXED to match your actual files
+  // Modern favicon configuration
   icons: {
     // Core favicon
     icon: [
@@ -111,7 +111,7 @@ export const metadata: Metadata = {
     ],
     // Legacy ICO fallback
     shortcut: '/favicon.ico',
-    // PWA and Android icons - FIXED to match your actual files
+    // PWA and Android icons
     other: [
       {
         rel: 'icon',
@@ -127,7 +127,7 @@ export const metadata: Metadata = {
       }
     ]
   },
-  // Web app manifest - FIXED to match your actual file
+  // Web app manifest
   manifest: '/manifest.json',
 };
 
@@ -158,7 +158,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="renderer" content="webkit" />
         <meta name="force-rendering" content="webkit" />
         
-        {/* PWA Configuration - FIXED to match your actual file */}
+        {/* PWA Configuration */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="application-name" content="Daily Tidbit" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -166,11 +166,11 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Daily Tidbit" />
         
-        {/* Theme colors with dark mode support */}
+        {/* Theme colors with dark mode support - FIXED: Use actual hex values */}
         <meta name="theme-color" content="#60A875" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#60A875" />
         
-        {/* Microsoft specific - FIXED to match your actual files */}
+        {/* Microsoft specific */}
         <meta name="msapplication-TileColor" content="#60A875" />
         <meta name="msapplication-TileImage" content="/192.png" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
@@ -201,9 +201,11 @@ export default function RootLayout({ children }: RootLayoutProps) {
         />
       </head>
       <body className="antialiased min-h-screen bg-white flex flex-col font-sans" suppressHydrationWarning>
+        {/* Skip to main content link - FIXED: Use actual hex value */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-brand-green text-white px-4 py-2 rounded-md z-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 px-4 py-2 rounded-md z-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          style={{ backgroundColor: '#60A875', color: 'white' }}
         >
           Skip to main content
         </a>
@@ -222,15 +224,17 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <script
             dangerouslySetInnerHTML={{
               __html: `
-                if ('serviceWorker' in navigator) {
+                if ('serviceWorker' in navigator && typeof window !== 'undefined') {
                   window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js')
-                      .then(function(registration) {
-                        console.log('SW registered: ', registration);
-                      })
-                      .catch(function(registrationError) {
-                        console.log('SW registration failed: ', registrationError);
-                      });
+                    if (window.navigator?.serviceWorker) {
+                      window.navigator.serviceWorker.register('/sw.js')
+                        .then(function(registration) {
+                          console.log('SW registered: ', registration);
+                        })
+                        .catch(function(registrationError) {
+                          console.log('SW registration failed: ', registrationError);
+                        });
+                    }
                   });
                 }
               `,

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { Users, Share2, Sparkles, Target, ArrowRight, ExternalLink, CheckCircle, Clock } from 'lucide-react'
 import RotatingWord from './RotatingWord'
+import { formatDate } from '../lib/clientUtils' // ✅ Use safe date formatter
 
 interface WalkthroughBitBoardCTAProps {
   tidbitNumber: number
@@ -36,14 +37,16 @@ export default function WalkthroughBitBoardCTA({
   user, 
   latestConversation
 }: WalkthroughBitBoardCTAProps) {
-  // Hydration safety
+  // ✅ HYDRATION SAFETY: Mount protection
   const [mounted, setMounted] = useState(false)
   const [recentPosts, setRecentPosts] = useState<SimplePost[]>([])
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [totalPostsCount, setTotalPostsCount] = useState(0)
   const [userProgress, setUserProgress] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
+  // ✅ HYDRATION SAFETY: Mount detection
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -63,17 +66,30 @@ export default function WalkthroughBitBoardCTA({
     
     try {
       setLoadingPosts(true)
+      setError(null)
       
       const supabase = getSupabaseBrowserClient()
       
+      // ✅ FIXED: Handle null supabase client
+      if (!supabase) {
+        console.error('Supabase client not available')
+        setError('Unable to connect to database')
+        setLoadingPosts(false)
+        return
+      }
+
       // Get total count
-      const { count } = await supabase
+      const { count, error: countError } = await supabase
         .from('posts')
         .select('*', { count: 'exact', head: true })
         .eq('tidbit', tidbitNumber)
         .eq('is_private', false)
 
-      setTotalPostsCount(count || 0)
+      if (countError) {
+        console.error('Error fetching post count:', countError)
+      } else {
+        setTotalPostsCount(count || 0)
+      }
 
       // Get recent posts (simple query)
       const { data: posts, error: postsError } = await supabase
@@ -86,7 +102,7 @@ export default function WalkthroughBitBoardCTA({
 
       if (postsError) {
         console.error('Error fetching posts:', postsError)
-        return
+        throw postsError
       }
 
       if (posts && posts.length > 0) {
@@ -101,13 +117,16 @@ export default function WalkthroughBitBoardCTA({
             .select('id, username, full_name, avatar_url')
             .in('id', userIds)
 
-          if (!profilesError && profiles) {
+          if (profilesError) {
+            console.error('Error fetching profiles:', profilesError)
+          } else if (profiles) {
             setUserProfiles(profiles)
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading recent posts:', err)
+      setError('Failed to load recent posts')
     } finally {
       setLoadingPosts(false)
     }
@@ -118,20 +137,32 @@ export default function WalkthroughBitBoardCTA({
     
     try {
       const supabase = getSupabaseBrowserClient()
-      const { data: progress } = await supabase
+      
+      // ✅ FIXED: Handle null supabase client
+      if (!supabase) {
+        console.error('Supabase client not available for user progress')
+        return
+      }
+      
+      const { data: progress, error } = await supabase
         .from('user_tidbit_progress')
         .select('*')
         .eq('user_id', user.id)
         .eq('tidbit_number', tidbitNumber)
         .single()
-      setUserProgress(progress)
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading user progress:', error)
+      } else {
+        setUserProgress(progress)
+      }
     } catch (err) {
       console.error('Error loading user progress:', err)
     }
   }
 
   const handleShareClick = () => {
-    if (!mounted) return
+    if (!mounted || typeof window === 'undefined') return
     
     const params = new URLSearchParams({
       tidbit: tidbitNumber.toString(),
@@ -170,6 +201,18 @@ export default function WalkthroughBitBoardCTA({
       )
     }
 
+    if (error) {
+      return (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <Users className="w-8 h-8 text-red-400" />
+          </div>
+          <h4 className="text-lg font-semibold text-red-700 mb-2">Error Loading Posts</h4>
+          <p className="text-red-600">{error}</p>
+        </div>
+      )
+    }
+
     if (recentPosts.length === 0) {
       return (
         <div className="text-center py-8">
@@ -196,7 +239,7 @@ export default function WalkthroughBitBoardCTA({
                     className="w-6 h-6 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 bg-gradient-to-br from-brand-blue to-brand-green rounded-full flex items-center justify-center">
                     <span className="text-white text-xs font-bold">
                       {(profile?.full_name || profile?.username || 'A').charAt(0).toUpperCase()}
                     </span>
@@ -209,7 +252,8 @@ export default function WalkthroughBitBoardCTA({
                     </span>
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                       <Clock className="w-3 h-3" />
-                      {new Date(post.created_at).toLocaleDateString()}
+                      {/* ✅ HYDRATION SAFE: Use formatDate instead of toLocaleDateString */}
+                      {formatDate(post.created_at)}
                     </div>
                   </div>
                 </div>
@@ -224,7 +268,7 @@ export default function WalkthroughBitBoardCTA({
     )
   }
 
-  // Hydration safety - show loading during hydration
+  // ✅ HYDRATION SAFE: Loading skeleton during hydration
   if (!mounted) {
     return (
       <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 lg:p-12 border border-blue-200 text-center">
@@ -244,7 +288,8 @@ export default function WalkthroughBitBoardCTA({
     return (
       <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 lg:p-12 border border-blue-200 text-center">
         <div className="max-w-2xl mx-auto">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-full mb-6">
+          {/* ✅ BRAND COLOR FIX: Use brand-blue */}
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-blue rounded-full mb-6">
             <Users className="w-8 h-8 text-white" />
           </div>
           <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
@@ -267,8 +312,12 @@ export default function WalkthroughBitBoardCTA({
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => window.location.href = '/auth'}
-              className="inline-flex items-center justify-center gap-3 bg-green-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-green-700 transition-all duration-200 transform hover:scale-105"
+              onClick={() => {
+                if (mounted && typeof window !== 'undefined') {
+                  window.location.href = '/auth'
+                }
+              }}
+              className="inline-flex items-center justify-center gap-3 bg-brand-green text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-brand-greenDark transition-all duration-200 transform hover:scale-105"
             >
               <Target className="w-5 h-5" />
               SIGN IN TO SHARE
@@ -276,7 +325,7 @@ export default function WalkthroughBitBoardCTA({
             
             <a
               href="/bitboard"
-              className="inline-flex items-center justify-center gap-3 border-2 border-blue-500 text-blue-500 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-500 hover:text-white transition-all duration-200"
+              className="inline-flex items-center justify-center gap-3 border-2 border-brand-blue text-brand-blue px-8 py-4 rounded-xl font-semibold text-lg hover:bg-brand-blue hover:text-white transition-all duration-200"
             >
               <Users className="w-5 h-5" />
               BROWSE COMMUNITY
@@ -293,7 +342,8 @@ export default function WalkthroughBitBoardCTA({
       {/* Main CTA Section */}
       <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 border border-blue-200">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-full mb-6">
+          {/* ✅ BRAND COLOR FIX: Use brand gradient colors */}
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-blue to-brand-green rounded-full mb-6">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
@@ -306,14 +356,14 @@ export default function WalkthroughBitBoardCTA({
           {/* Progress indicators */}
           {userProgress && (
             <div className="flex justify-center gap-4 mb-6">
-              {userProgress.practiced_with_ai && (
-                <div className="flex items-center gap-2 text-green-600">
+              {userProgress.tutor_used_at && (
+                <div className="flex items-center gap-2 text-brand-green">
                   <CheckCircle className="w-4 h-4" />
                   <span className="text-sm font-medium">Practiced with AI</span>
                 </div>
               )}
-              {userProgress.created_post && (
-                <div className="flex items-center gap-2 text-blue-600">
+              {userProgress.posted_at && (
+                <div className="flex items-center gap-2 text-brand-blue">
                   <CheckCircle className="w-4 h-4" />
                   <span className="text-sm font-medium">Already shared!</span>
                 </div>
@@ -326,10 +376,10 @@ export default function WalkthroughBitBoardCTA({
               onClick={handleShareClick}
               className={`inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 ${
                 latestConversation 
-                  ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg' 
+                  ? 'bg-brand-blue text-white hover:bg-brand-blueDark shadow-lg' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
-              disabled={!latestConversation}
+              disabled={!latestConversation || !mounted}
             >
               <Share2 className="w-5 h-5" />
               {latestConversation ? 'SHARE YOUR RESULTS' : 'TRY TUTOR FIRST'}
@@ -374,7 +424,7 @@ export default function WalkthroughBitBoardCTA({
             </div>
             <a 
               href={`/bitboard?tidbit=${tidbitNumber}`}
-              className="text-blue-500 hover:text-blue-600 font-medium flex items-center gap-1"
+              className="text-brand-blue hover:text-brand-blueDark font-medium flex items-center gap-1"
             >
               View all <ArrowRight className="w-3 h-3" />
             </a>
@@ -387,7 +437,7 @@ export default function WalkthroughBitBoardCTA({
           <div className="mt-6 text-center">
             <a
               href={`/bitboard?tidbit=${tidbitNumber}`}
-              className="inline-flex items-center gap-2 text-blue-500 hover:text-blue-600 font-medium transition-colors"
+              className="inline-flex items-center gap-2 text-brand-blue hover:text-brand-blueDark font-medium transition-colors"
             >
               <span>See all {totalPostsCount} Day {tidbitNumber} creations</span>
               <ArrowRight className="w-4 h-4" />

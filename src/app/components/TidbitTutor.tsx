@@ -1,12 +1,13 @@
-// app/components/TidbitTutor.tsx
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../lib/supabaseClient";
+import { safeWindow } from "../lib/clientUtils";
 import { Calendar, Loader2, Lock } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
-// Import our modular components (unchanged)
+// Import our modular components
 import { FormattedMessage } from "./tutor/FormattedMessage";
 import { AIProviderSelector, API_PROVIDERS } from "./tutor/AIProviderSelector";
 import { TutorErrorDisplay, type ErrorState, type ErrorType } from "./tutor/TutorErrorDisplay";
@@ -53,6 +54,25 @@ interface TidbitTutorProps {
 
 type LoadingState = "idle" | "sending" | "posting" | "copying" | "loading_tidbit";
 
+// Skeleton component for loading state
+function TidbitTutorSkeleton({ embedded = false }: { embedded?: boolean }) {
+  return (
+    <div className={embedded ? "w-full relative" : "relative max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"}>
+      <div className="animate-pulse">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+            <div className="h-6 bg-gray-200 rounded w-32"></div>
+          </div>
+          <div className="w-20 h-8 bg-gray-200 rounded"></div>
+        </div>
+        <div className="h-20 bg-gray-200 rounded-lg mb-4"></div>
+        <div className="h-12 bg-gray-200 rounded-lg"></div>
+      </div>
+    </div>
+  );
+}
+
 export default function TidbitTutor({
   tidbitNumber,
   tidbitTitle,
@@ -61,7 +81,7 @@ export default function TidbitTutor({
   dayNumber,
   embedded = false,
 }: TidbitTutorProps) {
-  // Hydration safety
+  // PRIMARY HYDRATION SAFETY - Critical first state
   const [mounted, setMounted] = useState(false);
 
   // Core state
@@ -69,7 +89,6 @@ export default function TidbitTutor({
   const [input, setInput] = useState("");
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [error, setError] = useState<ErrorState | null>(null);
-  const [user, setUser] = useState<any>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>("openai");
   const [showProviderMenu, setShowProviderMenu] = useState(false);
@@ -89,16 +108,19 @@ export default function TidbitTutor({
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // New: redirect target for OAuth to return to this screen
-  const redirectTo = useMemo(
-    () => (mounted && typeof window !== "undefined" ? window.location.href : null),
-    [mounted]
-  );
+  // Use safe auth hook
+  const { user, loading: authLoading, mounted: authMounted } = useAuth();
 
-  // Hydration fix
+  // Mount detection - Critical for hydration safety
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // OAuth redirect target - HYDRATION SAFE: Only after mounted
+  const redirectTo = useMemo(() => {
+    if (!mounted || typeof window === 'undefined') return null;
+    return window.location.href;
+  }, [mounted]);
 
   // Derived values
   const getCurrentProvider = () =>
@@ -112,7 +134,7 @@ export default function TidbitTutor({
       ? `${getCurrentProvider().name} is processing...`
       : "Type your message...");
 
-  // Load tidbit from Supabase
+  // Load tidbit from Supabase - HYDRATION SAFE: Only after mounted
   useEffect(() => {
     const loadTidbitData = async () => {
       if (!autoLoadFromSupabase || !mounted) return;
@@ -121,6 +143,12 @@ export default function TidbitTutor({
 
       try {
         const supabase = getSupabaseBrowserClient();
+        
+        // CRITICAL FIX: Handle null supabase client
+        if (!supabase) {
+          throw new Error('Supabase client not available');
+        }
+        
         let query = supabase.from("tidbits").select("*").eq("status", "published");
 
         if (dayNumber) {
@@ -151,7 +179,7 @@ export default function TidbitTutor({
         } else {
           setTidbitData(data);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load tidbit:", err);
         setError({
           type: "tidbit_load",
@@ -166,9 +194,9 @@ export default function TidbitTutor({
     loadTidbitData();
   }, [autoLoadFromSupabase, dayNumber, tidbitNumber, mounted]);
 
-  // Set initial prefill/provider from tidbit
+  // Set initial prefill/provider from tidbit - HYDRATION SAFE: Only after both mounted
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !authMounted) return;
     
     if (tidbitData && messages.length === 0) {
       if (tidbitData.tutor_prefill && shouldShowStarterText) {
@@ -179,9 +207,9 @@ export default function TidbitTutor({
         if (valid) setSelectedProvider(valid.id);
       }
     }
-  }, [tidbitData, messages.length, shouldShowStarterText, mounted]);
+  }, [tidbitData, messages.length, shouldShowStarterText, mounted, authMounted]);
 
-  // Starter text behavior on provider change
+  // Starter text behavior on provider change - HYDRATION SAFE: Only after mounted
   useEffect(() => {
     if (!mounted) return;
     
@@ -196,40 +224,6 @@ export default function TidbitTutor({
       }
     }
   }, [selectedProvider, tidbitData?.tutor_prefill, hasUsedProvider, input, mounted]);
-
-  // Auth: check user
-  useEffect(() => {
-    const checkUser = async () => {
-      if (!mounted) return;
-      
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.getUser();
-        if (error) return;
-        setUser(data.user ?? null);
-      } catch (err) {
-        console.debug("Auth check (non-fatal):", err);
-      }
-    };
-    checkUser();
-
-    // Listen for auth changes
-    if (mounted) {
-      const supabase = getSupabaseBrowserClient();
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === "SIGNED_IN") {
-          setUser(session?.user ?? null);
-          setShowAuthModal(false);
-        } else if (event === "SIGNED_OUT") {
-          setUser(null);
-        }
-      });
-
-      return () => subscription.unsubscribe();
-    }
-  }, [mounted]);
 
   // Auto-clear error/success
   useEffect(() => {
@@ -255,13 +249,14 @@ export default function TidbitTutor({
 
   // Auth modal handlers
   const handleAuthSuccess = () => {
+    if (!mounted) return;
     setSuccessMessage("Welcome! You can now use Tidbit Tutor.");
     setShowAuthModal(false);
   };
 
-  // Chat
+  // Chat - HYDRATION SAFE: Only after both mounted
   async function sendMessage() {
-    if (!mounted) return; // Hydration guard
+    if (!mounted || !authMounted) return;
     
     // Block send when not logged in - show modal instead
     if (!user) {
@@ -362,7 +357,7 @@ export default function TidbitTutor({
     }
   }
 
-  // Copy
+  // Copy - HYDRATION SAFE: Fixed navigator.clipboard access
   const copyMessage = async (content: string, index: number) => {
     if (!mounted || loadingState === "copying") return;
 
@@ -370,11 +365,12 @@ export default function TidbitTutor({
     clearError();
 
     try {
-      if (!navigator.clipboard) {
+      // HYDRATION FIX: Safe clipboard access
+      if (!window.navigator?.clipboard) {
         throw new Error("Clipboard not supported in this browser");
       }
 
-      await navigator.clipboard.writeText(content);
+      await window.navigator.clipboard.writeText(content);
       setCopiedMessageIndex(index);
       setSuccessMessage("Message copied to clipboard!");
       setTimeout(() => setCopiedMessageIndex(null), 2000);
@@ -385,14 +381,17 @@ export default function TidbitTutor({
         "Failed to copy to clipboard. You can manually select and copy the text."
       );
 
+      // HYDRATION SAFE: Fallback copy method
       try {
-        const textArea = document.createElement("textarea");
-        textArea.value = content;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-        setSuccessMessage("Message copied to clipboard!");
+        if (typeof document !== 'undefined') {
+          const textArea = document.createElement("textarea");
+          textArea.value = content;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textArea);
+          setSuccessMessage("Message copied to clipboard!");
+        }
       } catch (fallbackErr) {
         console.error("Fallback copy failed:", fallbackErr);
       }
@@ -401,9 +400,9 @@ export default function TidbitTutor({
     }
   };
 
-  // Share a specific exchange
+  // Share a specific exchange - HYDRATION SAFE: Only after both mounted
   const shareSpecificConversation = async (userMsgIndex: number) => {
-    if (!mounted || loadingState === "posting") return;
+    if (!mounted || !authMounted || loadingState === "posting") return;
 
     if (!user) {
       setShowAuthModal(true);
@@ -423,6 +422,12 @@ export default function TidbitTutor({
 
     try {
       const supabase = getSupabaseBrowserClient();
+      
+      // CRITICAL FIX: Handle null supabase client  
+      if (!supabase) {
+        throw new Error('Supabase client not available');
+      }
+      
       const { error: supabaseError } = await supabase.from("posts").insert({
         user_id: user.id,
         content: `Used AI with Daily Tidbit #${currentTidbitNumber}! "${currentTidbitTitle}"`,
@@ -434,18 +439,24 @@ export default function TidbitTutor({
         ...(tidbitData && { tidbit_id: tidbitData.id }),
       });
 
-      if (supabaseError) throw supabaseError;
+      if (supabaseError) {
+        console.error('Supabase error:', supabaseError);
+        throw supabaseError;
+      }
 
       setLastSharedIndex(userMsgIndex + 1);
       setSuccessMessage("Conversation posted successfully!");
 
       setTimeout(() => setLastSharedIndex(null), 3000);
 
-      setTimeout(() => {
-        const viewPost = confirm("View your post on BitBoard?");
-        if (viewPost) window.open("/bitboard", "_blank");
-      }, 1000);
-    } catch (error) {
+      // HYDRATION SAFE: Window access
+      if (mounted && typeof window !== 'undefined') {
+        setTimeout(() => {
+          const viewPost = window.confirm("View your post on BitBoard?");
+          if (viewPost) window.open("/bitboard", "_blank");
+        }, 1000);
+      }
+    } catch (error: any) {
       console.error("Share error:", error);
       handleError("post", "Failed to share conversation. Please try again.", () =>
         shareSpecificConversation(userMsgIndex)
@@ -455,44 +466,30 @@ export default function TidbitTutor({
     }
   };
 
-  // Provider change
+  // Provider change - HYDRATION SAFE: Only after mounted
   const handleProviderChange = (providerId: string) => {
     if (!mounted) return;
     setSelectedProvider(providerId);
   };
 
-  // Clear starter text
+  // Clear starter text - HYDRATION SAFE: Only after mounted
   const handleClearPrefill = () => {
     if (!mounted) return;
     setInput("");
     setShouldShowStarterText(false);
   };
 
-  // Input area click handler
+  // Input area click handler - HYDRATION SAFE: Only after both mounted
   const handleInputAreaClick = () => {
-    if (!mounted) return;
+    if (!mounted || !authMounted) return;
     if (!user) {
       setShowAuthModal(true);
     }
   };
 
-  // Hydration safety - show loading during hydration
-  if (!mounted) {
-    return (
-      <div className={embedded ? "w-full relative" : "relative max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"}>
-        <div className="animate-pulse">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
-              <div className="h-6 bg-gray-200 rounded w-32"></div>
-            </div>
-            <div className="w-20 h-8 bg-gray-200 rounded"></div>
-          </div>
-          <div className="h-20 bg-gray-200 rounded-lg mb-4"></div>
-          <div className="h-12 bg-gray-200 rounded-lg"></div>
-        </div>
-      </div>
-    );
+  // HYDRATION SAFETY: Show skeleton during any loading state
+  if (!mounted || !authMounted) {
+    return <TidbitTutorSkeleton embedded={embedded} />;
   }
 
   const currentProvider = getCurrentProvider();
@@ -500,12 +497,11 @@ export default function TidbitTutor({
 
   return (
     <>
-      {/* Wrapper to allow absolute overlay */}
       <div className={embedded ? "w-full relative" : "relative max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"}>
-        {/* Header */}
+        {/* Header with BRAND COLORS */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#59B1E3] rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center">
               <span className="text-white text-sm font-bold">#{currentTidbitNumber}</span>
             </div>
             <h2
@@ -525,14 +521,14 @@ export default function TidbitTutor({
           />
         </div>
 
-        {/* Login soft-gate banner - clickable */}
+        {/* Login soft-gate banner with BRAND COLORS */}
         {gated && <LoginCtaBanner onClick={() => setShowAuthModal(true)} />}
 
-        {/* Tidbit context */}
+        {/* Tidbit context with BRAND COLORS */}
         {tidbitData && (
           <div className="mb-4">
             <div className="flex items-start gap-2">
-              <Calendar className="w-4 h-4 text-[#60A875] mt-0.5 flex-shrink-0" />
+              <Calendar className="w-4 h-4 text-brand-green mt-0.5 flex-shrink-0" />
               <div className="flex-1">
                 <h3 className="font-medium text-gray-900 text-sm">{tidbitData.title}</h3>
                 <p className="text-xs text-gray-600 mt-1 line-clamp-2">
@@ -546,7 +542,7 @@ export default function TidbitTutor({
                       .map((tag, i) => (
                         <span
                           key={i}
-                          className="text-xs bg-[#60A875]/10 text-[#60A875] px-2 py-0.5 rounded"
+                          className="text-xs bg-brand-green/10 text-brand-green px-2 py-0.5 rounded"
                         >
                           {tag.trim()}
                         </span>
@@ -558,11 +554,11 @@ export default function TidbitTutor({
           </div>
         )}
 
-        {/* Loading state for tidbit */}
+        {/* Loading state for tidbit with BRAND COLORS */}
         {loadingState === "loading_tidbit" && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-[#59B1E3] animate-spin" />
+              <Loader2 className="w-4 h-4 text-brand-blue animate-spin" />
               <span className="text-sm text-gray-600">Loading tidbit information...</span>
             </div>
           </div>
@@ -584,13 +580,13 @@ export default function TidbitTutor({
           currentProvider={currentProvider}
         />
 
-        {/* Thinking hint when first sending */}
+        {/* Thinking hint when first sending with BRAND COLORS */}
         {messages.length === 0 && loadingState === "sending" && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="bg-white text-gray-800 border border-gray-200 p-3 rounded-lg">
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${currentProvider.color}`}></div>
-                <Loader2 className="w-4 h-4 text-[#59B1E3] animate-spin" />
+                <Loader2 className="w-4 h-4 text-brand-blue animate-spin" />
                 <span className="text-sm text-gray-600">{currentProvider.name} is thinking...</span>
               </div>
             </div>
@@ -641,7 +637,7 @@ export default function TidbitTutor({
           <div className="fixed inset-0 z-5" onClick={() => setShowProviderMenu(false)} />
         )}
 
-        {/* ========= NEW: Full-window overlay (big CTA) ========= */}
+        {/* Full-window overlay (big CTA) with BRAND COLORS */}
         {gated && (
           <FullScreenGate
             onPrimary={() => setShowAuthModal(true)}
@@ -663,12 +659,8 @@ export default function TidbitTutor({
   );
 }
 
-/** Soft-gate banner component - now with onClick */
-interface LoginCtaBannerProps {
-  onClick?: () => void;
-}
-
-function LoginCtaBanner({ onClick }: LoginCtaBannerProps) {
+// Login CTA Banner with BRAND COLORS
+function LoginCtaBanner({ onClick }: { onClick?: () => void }) {
   return (
     <div
       className="mb-4 border border-amber-200 bg-amber-50 text-amber-900 rounded-lg p-4 cursor-pointer hover:bg-amber-100 transition-colors"
@@ -689,7 +681,7 @@ function LoginCtaBanner({ onClick }: LoginCtaBannerProps) {
   );
 }
 
-/** ========= NEW: Full-window overlay component ========= */
+// Full Screen Gate with BRAND COLORS
 function FullScreenGate({
   onPrimary,
   onSecondary,
@@ -700,7 +692,7 @@ function FullScreenGate({
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm p-6 text-center rounded-xl border border-gray-100">
       <div className="max-w-md w-full">
-        <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-[#60A875] text-white flex items-center justify-center shadow-sm">
+        <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-brand-green text-white flex items-center justify-center shadow-sm">
           <span className="text-lg font-bold">🔒</span>
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -713,13 +705,13 @@ function FullScreenGate({
         <div className="grid grid-cols-1 gap-2">
           <button
             onClick={onPrimary}
-            className="px-5 py-3 rounded-lg bg-[#60A875] text-white font-semibold hover:brightness-95 transition"
+            className="px-5 py-3 rounded-lg bg-brand-green text-white font-semibold hover:bg-brand-greenDark transition"
           >
             Sign in or Create Account
           </button>
           <button
             onClick={onSecondary}
-            className="text-sm text-[#59B1E3] hover:underline"
+            className="text-sm text-brand-blue hover:underline"
           >
             Already have an account? Log In
           </button>

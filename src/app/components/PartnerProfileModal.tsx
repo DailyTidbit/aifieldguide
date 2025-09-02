@@ -1,4 +1,3 @@
-// src/app/components/PartnerProfileModal.tsx - Fixed Import + Hydration Safe
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -21,6 +20,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSupabaseBrowser } from '../lib/supabaseClient'
 import PartnerProfileSetupWizard from './PartnerProfileSetupWizard'
+import { formatDateSafe } from '../lib/clientUtils'
 import type { PartnerInfo, PartnerProfile, CompanyProfile, MemberProfile, TeamMember } from '../types/partner'
 
 interface PartnerProfileModalProps {
@@ -31,7 +31,7 @@ interface PartnerProfileModalProps {
 }
 
 export default function PartnerProfileModal({ isOpen, onClose, userId, partnerInfo }: PartnerProfileModalProps) {
-  // Hydration safety
+  // ✅ HYDRATION SAFETY: Primary mounted state
   const [mounted, setMounted] = useState(false)
   const [profile, setProfile] = useState<PartnerProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -53,7 +53,7 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
   }, [isOpen, mounted, isReady, partnerInfo.companyId, userId, supabase])
 
   const fetchPartnerProfile = async () => {
-    if (!mounted || !isReady || !supabase) return // HYDRATION FIX: Guard against running during hydration
+    if (!mounted || !isReady || !supabase) return // ✅ HYDRATION SAFETY: Guard against running during hydration
     
     try {
       setLoading(true)
@@ -144,20 +144,20 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
   }
 
   const handleSetupComplete = () => {
-    if (!mounted) return // HYDRATION FIX: Guard callback
+    if (!mounted) return // ✅ HYDRATION SAFETY: Guard callback
     
     setShowSetupWizard(false)
     setNeedsSetup(false)
     fetchPartnerProfile() // Refresh data
   }
 
-  // Early return during SSR or when not open - HYDRATION FIX
+  // ✅ HYDRATION SAFETY: Early return during SSR or when not open
   if (!isOpen || !mounted) return null
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto relative">
-        {/* Header */}
+        {/* Header - BRAND COLORS FIXED */}
         <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b border-gray-200 z-10">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-brand-blue/10 rounded-lg">
@@ -191,7 +191,7 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
                 <p className="text-gray-600 mb-4">{error}</p>
                 <button
                   onClick={fetchPartnerProfile}
-                  className="px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  className="px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-blueDark transition-colors"
                 >
                   Try Again
                 </button>
@@ -206,7 +206,7 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
               </p>
               <button
                 onClick={() => setShowSetupWizard(true)}
-                className="inline-flex items-center gap-2 bg-brand-blue text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                className="inline-flex items-center gap-2 bg-brand-blue text-white px-6 py-3 rounded-lg hover:bg-brand-blueDark transition-colors font-medium"
               >
                 <Building2 className="w-4 h-4" />
                 Set Up Profile
@@ -238,7 +238,7 @@ export default function PartnerProfileModal({ isOpen, onClose, userId, partnerIn
   )
 }
 
-// Partner Profile Content Component
+// Partner Profile Content Component - BRAND COLORS FIXED
 function PartnerProfileContent({ 
   profile, 
   partnerInfo, 
@@ -250,7 +250,7 @@ function PartnerProfileContent({
 }) {
   return (
     <div className="space-y-8">
-      {/* Profile Header */}
+      {/* Profile Header - BRAND COLORS FIXED */}
       <div className="bg-gradient-to-r from-brand-blue/5 to-brand-green/5 rounded-2xl p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
@@ -287,7 +287,7 @@ function PartnerProfileContent({
                 )}
                 <div className="flex items-center gap-1 text-sm text-gray-600">
                   <Calendar className="w-4 h-4" />
-                  Member since {new Date(partnerInfo.memberSince).toLocaleDateString()}
+                  Member since {formatDateSafe(partnerInfo.memberSince)}
                 </div>
               </div>
             </div>
@@ -303,7 +303,7 @@ function PartnerProfileContent({
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - BRAND COLORS FIXED */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-brand-blue">{profile.stats.totalListings}</div>
@@ -324,7 +324,7 @@ function PartnerProfileContent({
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
-        {/* Company Information */}
+        {/* Company Information - BRAND COLORS FIXED */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-brand-blue" />
@@ -371,7 +371,7 @@ function PartnerProfileContent({
           </div>
         </div>
 
-        {/* Personal Information */}
+        {/* Personal Information - BRAND COLORS FIXED */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <User className="w-5 h-5 text-brand-green" />
@@ -442,7 +442,7 @@ function PartnerProfileContent({
                   </div>
                 </div>
                 <div className="text-sm text-gray-500">
-                  Joined {new Date(member.joined).toLocaleDateString()}
+                  Joined {formatDateSafe(member.joined)}
                 </div>
               </div>
             ))}
@@ -450,7 +450,7 @@ function PartnerProfileContent({
         </div>
       )}
 
-      {/* Quick Actions */}
+      {/* Quick Actions - BRAND COLORS FIXED */}
       <div className="bg-gray-50 rounded-2xl p-6">
         <h4 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

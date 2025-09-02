@@ -1,8 +1,8 @@
-// src/app/hooks/useAuthForm.ts - Fixed hydration safety issues
+// src/app/hooks/useAuthForm.ts - COMPLETE HYDRATION SAFE FIX
 'use client'
 
 import { useCallback, useMemo, useState, useEffect } from 'react'
-import { getSupabaseBrowserClientSafe, getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 
 export type AuthMode = 'login' | 'signup'
 
@@ -19,62 +19,99 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false) // HYDRATION FIX
-  const [clientReady, setClientReady] = useState(false) // HYDRATION FIX
+  
+  // ✅ HYDRATION SAFETY: Enhanced mounting and client availability detection
+  const [mounted, setMounted] = useState(false)
+  const [clientReady, setClientReady] = useState(false)
+  const [clientRetries, setClientRetries] = useState(0)
+  const MAX_CLIENT_RETRIES = 5
 
-  // HYDRATION FIX: Wait for component to mount and check client availability
+  // ✅ HYDRATION SAFETY: Wait for component to mount and check client availability
   useEffect(() => {
     setMounted(true)
     
-    // Check if Supabase client is available
+    // Check if Supabase client is available with retries
     const checkClient = () => {
       try {
         const client = getSupabaseBrowserClient()
-        setClientReady(!!client)
+        if (client) {
+          setClientReady(true)
+          return true
+        }
       } catch (error) {
         console.warn('Supabase client not ready:', error)
-        setClientReady(false)
       }
+      return false
     }
     
-    checkClient()
+    // Initial check
+    if (checkClient()) return
     
-    // Recheck periodically in case client becomes available later
-    const interval = setInterval(checkClient, 1000)
+    // Retry logic for client availability
+    const retryInterval = setInterval(() => {
+      if (checkClient() || clientRetries >= MAX_CLIENT_RETRIES) {
+        clearInterval(retryInterval)
+        if (clientRetries >= MAX_CLIENT_RETRIES) {
+          console.error('Supabase client failed to initialize after retries')
+          setError('Authentication service unavailable. Please refresh the page.')
+        }
+      } else {
+        setClientRetries(prev => prev + 1)
+      }
+    }, 1000)
     
-    return () => clearInterval(interval)
-  }, [])
+    return () => clearInterval(retryInterval)
+  }, [clientRetries])
 
-  const redirectTo = useMemo(() => opts.redirectTo ?? null, [opts.redirectTo])
+  // ✅ HYDRATION SAFE: Memoized redirect URL with proper guards
+  const redirectTo = useMemo(() => {
+    if (!mounted || typeof window === 'undefined') return opts.redirectTo ?? null
+    
+    try {
+      return opts.redirectTo ?? window.location.href
+    } catch (error) {
+      console.warn('Error accessing window.location:', error)
+      return opts.redirectTo ?? null
+    }
+  }, [opts.redirectTo, mounted])
+
   const isVendorFlow = useMemo(() => opts.isVendorFlow ?? false, [opts.isVendorFlow])
 
-  // ✅ HYDRATION SAFE: Get Supabase client safely
+  // ✅ HYDRATION SAFE: Get Supabase client safely with proper error handling
   const getClient = useCallback(() => {
     if (!mounted || !clientReady) {
       return null
     }
     
     try {
-      return getSupabaseBrowserClientSafe()
+      return getSupabaseBrowserClient()
     } catch (error) {
       console.warn('Failed to get Supabase client:', error)
+      setError('Authentication service temporarily unavailable. Please try again.')
       return null
     }
   }, [mounted, clientReady])
 
-  // Detect company from email domain
+  // ✅ HYDRATION SAFE: Enhanced company detection with error handling
   const getCompanyFromEmail = useCallback((email: string) => {
-    const domain = email.split('@')[1]
-    if (!domain) return null
+    if (!mounted || !email) return null
     
-    return {
-      name: domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1),
-      domain: domain,
-      isVerified: ['microsoft.com', 'google.com', 'stripe.com', 'anthropic.com'].includes(domain)
+    try {
+      const domain = email.split('@')[1]
+      if (!domain) return null
+      
+      return {
+        name: domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1),
+        domain: domain,
+        isVerified: ['microsoft.com', 'google.com', 'stripe.com', 'anthropic.com'].includes(domain)
+      }
+    } catch (error) {
+      console.warn('Error parsing email domain:', error)
+      return null
     }
-  }, [])
+  }, [mounted])
 
-  // HYDRATION FIX: Only calculate company after mounted
+  // ✅ HYDRATION SAFE: Only calculate company after mounted
   const company = useMemo(() => {
     if (!mounted) return null
     return getCompanyFromEmail(email)
@@ -85,11 +122,12 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     setError(null)
   }, [])
 
-  // ✅ HYDRATION SAFE: Check if auth operations are available
+  // ✅ HYDRATION SAFE: Enhanced auth readiness check
   const isAuthReady = useMemo(() => {
-    return mounted && clientReady
-  }, [mounted, clientReady])
+    return mounted && clientReady && clientRetries < MAX_CLIENT_RETRIES
+  }, [mounted, clientReady, clientRetries])
 
+  // ✅ HYDRATION SAFE: Enhanced email auth with better error handling
   const handleEmailAuth = useCallback(async () => {
     if (!isAuthReady) {
       setError('Authentication system is not ready. Please try again in a moment.')
@@ -98,7 +136,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     
     const supabase = getClient()
     if (!supabase) {
-      setError('Authentication service unavailable. Please try again.')
+      setError('Authentication service unavailable. Please refresh the page and try again.')
       return
     }
     
@@ -120,14 +158,13 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
         if (data?.user?.id) {
           await supabase.from('profiles').upsert({ id: data.user.id }, { onConflict: 'id' })
         }
-        setMessage('Signed in!')
+        setMessage('Signed in successfully!')
       } else {
         const { data, error } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
-            // HYDRATION FIX: Guard window access
-            emailRedirectTo: redirectTo || (mounted && typeof window !== 'undefined' ? window.location.origin : undefined),
+            emailRedirectTo: redirectTo || undefined,
             data: {
               email: email,
               vendor_flow: isVendorFlow
@@ -141,12 +178,14 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
         setMessage('Account created! Check your email if confirmation is required.')
       }
     } catch (e: any) {
-      setError(e?.message ?? 'Something went wrong.')
+      console.error('Email auth error:', e)
+      setError(e?.message ?? 'Authentication failed. Please try again.')
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, confirmPassword, email, mode, password, redirectTo, isVendorFlow, getClient, isAuthReady, mounted])
+  }, [clearAlerts, confirmPassword, email, mode, password, redirectTo, isVendorFlow, getClient, isAuthReady])
 
+  // ✅ HYDRATION SAFE: Enhanced magic link auth
   const handleMagicLinkAuth = useCallback(async () => {
     if (!isAuthReady) {
       setError('Authentication system is not ready. Please try again in a moment.')
@@ -155,7 +194,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     
     const supabase = getClient()
     if (!supabase) {
-      setError('Authentication service unavailable. Please try again.')
+      setError('Authentication service unavailable. Please refresh the page and try again.')
       return
     }
     
@@ -170,8 +209,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          // HYDRATION FIX: Guard window access
-          emailRedirectTo: redirectTo || (mounted && typeof window !== 'undefined' ? window.location.href : undefined),
+          emailRedirectTo: redirectTo || undefined,
           data: {
             vendor_flow: isVendorFlow,
             company_domain: company?.domain
@@ -182,12 +220,14 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       
       setMessage(`Check your email! We sent a sign-in link to ${email}`)
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to send magic link.')
+      console.error('Magic link auth error:', e)
+      setError(e?.message ?? 'Failed to send magic link. Please try again.')
     } finally {
       setLoading(false)
     }
-  }, [clearAlerts, email, redirectTo, isVendorFlow, company, getClient, isAuthReady, mounted])
+  }, [clearAlerts, email, redirectTo, isVendorFlow, company, getClient, isAuthReady])
 
+  // ✅ HYDRATION SAFE: Enhanced OAuth handling
   const handleOAuth = useCallback(async (provider: 'google' | 'apple') => {
     if (!isAuthReady) {
       setError('Authentication system is not ready. Please try again in a moment.')
@@ -196,7 +236,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     
     const supabase = getClient()
     if (!supabase) {
-      setError('Authentication service unavailable. Please try again.')
+      setError('Authentication service unavailable. Please refresh the page and try again.')
       return
     }
     
@@ -206,8 +246,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // HYDRATION FIX: Guard window access
-          redirectTo: redirectTo ?? (mounted && typeof window !== 'undefined' ? window.location.href : undefined),
+          redirectTo: redirectTo ?? undefined,
           skipBrowserRedirect: false,
           queryParams: {
             vendor_flow: isVendorFlow ? 'true' : 'false'
@@ -216,11 +255,13 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       })
       if (error) throw error
     } catch (e: any) {
-      setError(e?.message ?? 'OAuth sign-in failed.')
+      console.error('OAuth error:', e)
+      setError(e?.message ?? `${provider} sign-in failed. Please try again.`)
       setLoading(false)
     }
-  }, [clearAlerts, redirectTo, isVendorFlow, getClient, isAuthReady, mounted])
+  }, [clearAlerts, redirectTo, isVendorFlow, getClient, isAuthReady])
 
+  // ✅ HYDRATION SAFE: Enhanced password reset
   const handleReset = useCallback(async () => {
     if (!isAuthReady) {
       setError('Authentication system is not ready. Please try again in a moment.')
@@ -229,7 +270,7 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     
     const supabase = getClient()
     if (!supabase) {
-      setError('Authentication service unavailable. Please try again.')
+      setError('Authentication service unavailable. Please refresh the page and try again.')
       return
     }
     
@@ -238,9 +279,9 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       setError('Enter your email first.') 
       return 
     }
+    
     try {
       setLoading(true)
-      // HYDRATION FIX: Guard window access
       const origin = mounted && typeof window !== 'undefined' ? window.location.origin : ''
       const { error } = await supabase.auth.resetPasswordForEmail(email, { 
         redirectTo: `${origin}/auth/reset` 
@@ -248,50 +289,58 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
       if (error) throw error
       setMessage('Reset link sent. Check your email.')
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to send reset link.')
+      console.error('Password reset error:', e)
+      setError(e?.message ?? 'Failed to send reset link. Please try again.')
     } finally {
       setLoading(false)
     }
   }, [clearAlerts, email, getClient, isAuthReady, mounted])
 
+  // ✅ Enhanced email domain validation with better error handling
   const validateEmailDomain = useCallback((email: string, allowedDomains: string[] = []) => {
     if (!allowedDomains.length) return { isValid: true, message: '' }
     
-    const domain = email.split('@')[1]?.toLowerCase()
-    if (!domain) return { isValid: false, message: 'Invalid email format' }
-    
-    const isAllowed = allowedDomains.some(allowedDomain => {
-      const normalizedDomain = allowedDomain.toLowerCase()
-      return domain === normalizedDomain || 
-             domain.endsWith(`.${normalizedDomain}`) ||
-             domain === `www.${normalizedDomain}` ||
-             normalizedDomain === `www.${domain}`
-    })
-    
-    if (isAllowed) {
-      return { 
-        isValid: true, 
-        message: `Perfect! Using an email ending in @${domain} allows for automatic verification.` 
+    try {
+      const domain = email.split('@')[1]?.toLowerCase()
+      if (!domain) return { isValid: false, message: 'Invalid email format' }
+      
+      const isAllowed = allowedDomains.some(allowedDomain => {
+        const normalizedDomain = allowedDomain.toLowerCase()
+        return domain === normalizedDomain || 
+               domain.endsWith(`.${normalizedDomain}`) ||
+               domain === `www.${normalizedDomain}` ||
+               normalizedDomain === `www.${domain}`
+      })
+      
+      if (isAllowed) {
+        return { 
+          isValid: true, 
+          message: `Perfect! Using an email ending in @${domain} allows for automatic verification.` 
+        }
+      } else {
+        return { 
+          isValid: false, 
+          message: `Using an email ending in @${domain} will help us verify your company. Manual verification is also available if needed.` 
+        }
       }
-    } else {
-      return { 
-        isValid: false, 
-        message: `Using an email ending in @${domain} will help us verify your company. Manual verification is also available if needed.` 
-      }
+    } catch (error) {
+      console.warn('Email domain validation error:', error)
+      return { isValid: false, message: 'Unable to validate email domain' }
     }
   }, [])
 
-  // ✅ Enhanced status information for better UX
+  // ✅ Enhanced status information for better UX and debugging
   const status = useMemo(() => {
     if (!mounted) return 'initializing'
-    if (!clientReady) return 'connecting'
+    if (!clientReady && clientRetries < MAX_CLIENT_RETRIES) return 'connecting'
+    if (clientRetries >= MAX_CLIENT_RETRIES) return 'failed'
     return 'ready'
-  }, [mounted, clientReady])
+  }, [mounted, clientReady, clientRetries])
 
   // ✅ Helper to check if operations should be disabled
   const isDisabled = useMemo(() => {
-    return loading || !isAuthReady
-  }, [loading, isAuthReady])
+    return loading || !isAuthReady || status === 'failed'
+  }, [loading, isAuthReady, status])
 
   return {
     // Basic form state
@@ -308,12 +357,13 @@ export function useAuthForm(opts: UseAuthFormOptions = {}) {
     error,
     company,
     
-    // Hydration safety state
+    // Enhanced hydration safety state
     mounted,
     clientReady,
     isAuthReady,
     status,
     isDisabled,
+    clientRetries,
     
     // Auth methods
     handleEmailAuth,

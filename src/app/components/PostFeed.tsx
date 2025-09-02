@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { getSupabaseBrowserClientSafe, getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import PostCard from './PostCard'
 import PostModal from './PostModal'
 
@@ -71,7 +71,7 @@ export default function PostFeed({
     }
     
     try {
-      return getSupabaseBrowserClientSafe()
+      return getSupabaseBrowserClient()
     } catch (error) {
       console.warn('Failed to get Supabase client for PostFeed:', error)
       return null

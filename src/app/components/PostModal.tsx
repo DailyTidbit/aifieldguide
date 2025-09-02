@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getSupabaseBrowserClientSafe } from '../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { safeWindow } from '../lib/clientUtils'
 import { 
   X, 
   Heart, 
@@ -26,7 +27,8 @@ import {
   PinOff
 } from 'lucide-react'
 import Image from 'next/image'
-import { isValidMediaUrl } from '../lib/validateMedia'
+import { isValidMediaUrl } from '../lib/clientUtils'
+import { formatDateSafe } from '../lib/clientUtils'
 
 // Enhanced Post type with comments
 export type Post = {
@@ -64,14 +66,30 @@ interface PostModalProps {
   onClose: () => void
 }
 
+// Loading Skeleton for PostModal
+function PostModalSkeleton() {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-3 text-gray-400">
+            <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm">Loading post...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PostModal({ post, onClose }: PostModalProps) {
-  // ✅ HYDRATION SAFETY: Primary mounted state
+  // PRIMARY HYDRATION SAFETY
   const [mounted, setMounted] = useState(false)
   
-  // ✅ SUPABASE SAFETY: Get client instance safely
+  // Safe Supabase client getter
   const getSupabaseClient = () => {
     try {
-      return getSupabaseBrowserClientSafe()
+      return getSupabaseBrowserClient()
     } catch (error) {
       console.error('Failed to get Supabase client:', error)
       return null
@@ -96,12 +114,12 @@ export default function PostModal({ post, onClose }: PostModalProps) {
   const [copySuccess, setCopySuccess] = useState(false)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
 
-  // ✅ HYDRATION SAFETY: Mount detection
+  // Mount detection
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // ✅ HYDRATION SAFE: Enhanced media type detection with guards
+  // Enhanced media type detection with guards
   const isAudioLink = mounted && typeof post.media_url === 'string' &&
     (post.media_url.includes('suno.ai') || post.media_url.includes('udio.com'))
 
@@ -110,8 +128,11 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
   const hasTextContent = Boolean(post.content)
 
-  // ✅ HYDRATION SAFE: Check if current user owns this post
+  // Check if current user owns this post
   const isOwnPost = mounted && currentUser?.id === post.user_id
+
+  // Format date with fallback
+  const formattedDate = formatDateSafe(post.created_at, 'Invalid date')
 
   // Fetch current user and check if they liked this post
   useEffect(() => {
@@ -213,7 +234,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     fetchComments()
   }, [post.id, mounted])
 
-  // ✅ HYDRATION SAFE: Enhanced like handler with guards
+  // Enhanced like handler with guards
   const handleLike = async () => {
     if (!mounted || !currentUser) {
       alert('Please log in to like posts.')
@@ -313,7 +334,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // ✅ HYDRATION SAFE: Enhanced post deletion with guards
+  // Enhanced post deletion with guards
   const handleDeletePost = async () => {
     if (!mounted || !currentUser || !isOwnPost) return
 
@@ -338,8 +359,8 @@ export default function PostModal({ post, onClose }: PostModalProps) {
       // Close modal and refresh the feed
       onClose()
       
-      // ✅ HYDRATION SAFE: Enhanced page refresh with error handling
-      if (typeof window !== 'undefined') {
+      // Enhanced page refresh with error handling
+      if (mounted && typeof window !== 'undefined') {
         window.location.reload()
       }
     } catch (error) {
@@ -434,7 +455,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // ✅ HYDRATION SAFE: Enhanced share functionality with browser guards
+  // FIXED: Enhanced share functionality using safeWindow
   const handleShare = async () => {
     if (!mounted || typeof window === 'undefined') return
 
@@ -445,25 +466,22 @@ export default function PostModal({ post, onClose }: PostModalProps) {
         url: window.location.href
       }
 
-      if (navigator.share) {
-        await navigator.share(shareData)
-      } else {
-        setShowShareMenu(true)
-      }
+      // Use safeWindow.navigator.share instead of direct navigator access
+      await safeWindow.navigator.share(shareData)
     } catch (error) {
       console.error('Error sharing:', error)
       setShowShareMenu(true)
     }
   }
 
-  // ✅ HYDRATION SAFE: Enhanced clipboard functionality
+  // Enhanced clipboard functionality
   const copyToClipboard = async () => {
-    if (!mounted || typeof window === 'undefined' || !navigator.clipboard) {
+    if (!mounted || typeof window === 'undefined' || !window.navigator?.clipboard) {
       return
     }
 
     try {
-      await navigator.clipboard.writeText(window.location.href)
+      await window.navigator.clipboard.writeText(window.location.href)
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (error) {
@@ -491,133 +509,9 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // ✅ HYDRATION SAFE: Enhanced media section rendering with guards
-  const renderMediaSection = () => {
-    if (!mounted) {
-      // Return loading placeholder that matches final dimensions
-      return (
-        <div className="relative w-full bg-gray-900 flex items-center justify-center min-h-[300px]">
-          <div className="flex flex-col items-center gap-3 text-gray-400">
-            <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm">Loading media...</span>
-          </div>
-        </div>
-      )
-    }
-
-    if (hasValidImage) {
-      return (
-        <div className="relative w-full bg-black flex items-center justify-center">
-          {!imageLoaded && (
-            <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-3 text-gray-400">
-                <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm">Loading image...</span>
-              </div>
-            </div>
-          )}
-          
-          <Image
-            src={post.media_url!}
-            alt="Post media"
-            fill
-            className={`object-contain transition-opacity duration-500 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            sizes="(max-width: 768px) 100vw, 50vw"
-            onLoad={() => setImageLoaded(true)}
-            onError={() => setImageError(true)}
-          />
-        </div>
-      )
-    }
-    
-    if (isAudioLink) {
-      return (
-        <div className="bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center p-12">
-          <div className="text-center text-white">
-            <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Volume2 className="w-12 h-12" />
-            </div>
-            <h3 className="text-2xl font-bold mb-4">Audio Content</h3>
-            <p className="text-white/80 mb-6">Listen to this AI-generated audio</p>
-            <a
-              href={post.media_url!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Open in {post.media_url!.includes('suno.ai') ? 'Suno' : 'Udio'}
-            </a>
-          </div>
-        </div>
-      )
-    }
-
-    // Enhanced text-only display with beautiful gradient and dynamic content
-    return (
-      <div className="bg-gradient-to-br from-[#60A875] via-[#59B1E3] to-purple-500 flex items-center justify-center p-8 min-h-[400px] relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-10 right-10 w-24 h-24 bg-white rounded-full blur-2xl animate-pulse delay-1000"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-white rounded-full blur-3xl animate-pulse delay-500"></div>
-        </div>
-        
-        <div className="text-center text-white max-w-lg relative z-10">
-          <div className="w-20 h-20 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
-            <Sparkles className="w-10 h-10 text-white drop-shadow-lg" />
-          </div>
-          <h3 className="text-3xl font-bold mb-6 drop-shadow-lg">AI Creation</h3>
-          
-          {post.content ? (
-            <div className="space-y-4">
-              <p className="text-white/95 text-lg leading-relaxed font-medium drop-shadow-md">
-                "{post.content.length > 120 ? post.content.substring(0, 120) + '...' : post.content}"
-              </p>
-              {post.content.length > 120 && (
-                <p className="text-white/70 text-sm">
-                  Read the full creation below ↓
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="text-white/90 text-lg leading-relaxed">
-              "Discover this amazing AI transformation"
-            </p>
-          )}
-          
-          <div className="mt-8 flex items-center justify-center gap-3 text-white/80">
-            <Clock className="w-5 h-5" />
-            <span className="text-lg font-semibold">Day {post.tidbit} Creation</span>
-          </div>
-          
-          {mounted && isPinned && (
-            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white/90">
-              <Pin className="w-4 h-4" />
-              <span className="text-sm font-medium">Pinned Post</span>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ✅ HYDRATION SAFETY: Early return for unmounted state
+  // Show loading skeleton until mounted
   if (!mounted) {
-    return (
-      <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4">
-        <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
-          <div className="flex items-center justify-center h-64">
-            <div className="flex flex-col items-center gap-3 text-gray-400">
-              <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm">Loading post...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <PostModalSkeleton />;
   }
 
   return (
@@ -628,10 +522,10 @@ export default function PostModal({ post, onClose }: PostModalProps) {
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
         {/* Mobile-First Stacked Layout */}
         <div className="flex flex-col h-full max-h-[95vh]">
-          {/* Header with Close Button */}
+          {/* Header with Close Button - Brand Colors Fixed */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              {/* FIXED: User avatar with proper aspect ratio */}
+              {/* User avatar with proper aspect ratio */}
               {post.user_avatar ? (
                 <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-gray-100 flex-shrink-0">
                   <Image
@@ -643,7 +537,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                   />
                 </div>
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-gradient-to-br from-brand-green to-brand-blue rounded-full flex items-center justify-center flex-shrink-0">
                   <span className="text-white font-bold">
                     {(post.username || post.user_full_name || 'A').charAt(0).toUpperCase()}
                   </span>
@@ -656,11 +550,11 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
                   <span>Day {post.tidbit}</span>
                   <span>•</span>
-                  <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                  <span>{formattedDate}</span>
                   {isPinned && (
                     <>
                       <span>•</span>
-                      <Pin className="w-3 h-3 text-[#60A875]" />
+                      <Pin className="w-3 h-3 text-brand-green" />
                     </>
                   )}
                 </div>
@@ -788,7 +682,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
           {/* Content and Comments Container */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Main Content Section */}
+            {/* Main Content Section with Brand Colors */}
             <div className="p-4 sm:p-6 border-b border-gray-200">
               {post.content && (
                 <div className="space-y-4">
@@ -801,15 +695,15 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                       
                       return (
                         <>
-                          {/* User Commentary - Show prominently if it exists */}
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                          {/* User Commentary with Brand Colors */}
+                          <div className="bg-gradient-to-r from-brand-blue/5 to-brand-blue/10 border-l-4 border-brand-blue p-4 rounded-lg">
                             <div className="flex items-center gap-2 mb-3">
-                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                              <div className="w-6 h-6 bg-brand-blue rounded-full flex items-center justify-center">
                                 <span className="text-white text-xs font-bold">💭</span>
                               </div>
-                              <span className="text-sm font-semibold text-blue-800">Personal Thoughts</span>
+                              <span className="text-sm font-semibold text-brand-blue">Personal Thoughts</span>
                             </div>
-                            <div className="whitespace-pre-wrap text-blue-900 leading-relaxed text-base">
+                            <div className="whitespace-pre-wrap text-brand-blueDark leading-relaxed text-base">
                               {userCommentary}
                             </div>
                           </div>
@@ -849,7 +743,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 </div>
               )}
 
-              {/* Enhanced Like and Comment buttons - Mobile Optimized */}
+              {/* Enhanced Like and Comment buttons with Brand Colors */}
               <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
                 <button
                   onClick={handleLike}
@@ -918,7 +812,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3 group">
-                        {/* FIXED: Comment avatar with proper aspect ratio */}
+                        {/* Comment avatar with Brand Colors */}
                         {comment.user_avatar ? (
                           <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                             <Image
@@ -930,7 +824,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                             />
                           </div>
                         ) : (
-                          <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
+                          <div className="w-8 h-8 bg-gradient-to-br from-brand-green to-brand-blue rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-white text-xs font-bold">
                               {(comment.username || 'A').charAt(0).toUpperCase()}
                             </span>
@@ -944,7 +838,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                                 {comment.user_full_name || comment.username || 'Anonymous'}
                               </span>
                               <span className="text-xs text-gray-500">
-                                {new Date(comment.created_at).toLocaleDateString()}
+                                {formatDateSafe(comment.created_at)}
                               </span>
                               {(currentUser?.id === comment.user_id || isOwnPost) && (
                                 <button
@@ -965,11 +859,11 @@ export default function PostModal({ post, onClose }: PostModalProps) {
               </div>
             </div>
 
-            {/* Enhanced Comment Input - Mobile Optimized */}
+            {/* Enhanced Comment Input with Brand Colors */}
             {currentUser && commentsEnabled ? (
               <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
                 <div className="flex gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-gradient-to-br from-brand-green to-brand-blue rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-xs font-bold">
                       {(currentUser.email || 'A').charAt(0).toUpperCase()}
                     </span>
@@ -981,7 +875,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder="Add a comment..."
                       rows={2}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] resize-none bg-white text-sm sm:text-base"
+                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green resize-none bg-white text-sm sm:text-base"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
@@ -996,7 +890,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                       <button
                         onClick={handleSubmitComment}
                         disabled={!newComment.trim() || isSubmittingComment}
-                        className="px-3 sm:px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium text-sm sm:text-base"
+                        className="px-3 sm:px-4 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium text-sm sm:text-base"
                       >
                         {isSubmittingComment ? (
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -1018,7 +912,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 {isOwnPost && (
                   <button
                     onClick={toggleCommentsEnabled}
-                    className="text-sm text-[#60A875] hover:text-green-600 font-medium"
+                    className="text-sm text-brand-green hover:text-brand-greenDark font-medium"
                   >
                     Enable comments
                   </button>
@@ -1029,7 +923,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 <p className="text-gray-600 mb-3 text-sm sm:text-base">Sign in to join the conversation</p>
                 <button 
                   onClick={onClose}
-                  className="px-4 sm:px-6 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors font-medium text-sm sm:text-base"
+                  className="px-4 sm:px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors font-medium text-sm sm:text-base"
                 >
                   Sign In
                 </button>
@@ -1058,7 +952,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 onClick={copyToClipboard}
                 className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                {copySuccess ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-gray-600" />}
+                {copySuccess ? <CheckCircle className="w-5 h-5 text-brand-green" /> : <Copy className="w-5 h-5 text-gray-600" />}
                 <span className="font-medium text-gray-900">
                   {copySuccess ? 'Copied!' : 'Copy link'}
                 </span>

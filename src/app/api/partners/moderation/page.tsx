@@ -1,4 +1,4 @@
-// src/app/api/partners/moderation/page.tsx - Updated for hydration safety and cookie auth
+﻿// src/app/api/partners/moderation/page.tsx - Updated for hydration safety and cookie auth
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -16,6 +16,7 @@ import {
   Send,
   Eye
 } from 'lucide-react'
+import { SafeDate } from '../../../lib/clientUtils' // ✅ FIXED: Import SafeDate
 
 type PartnerRequest = {
   id: string
@@ -400,8 +401,9 @@ function RequestCard({
         </div>
       </div>
 
+      {/* ✅ FIXED: Use SafeDate components instead of toLocaleDateString/toLocaleTimeString */}
       <div className="text-xs text-gray-500 mb-4">
-        Submitted: {new Date(request.created_at).toLocaleDateString()} at {new Date(request.created_at).toLocaleTimeString()}
+        Submitted: <SafeDate date={request.created_at} format="short" /> at <SafeDate date={request.created_at} format="time" />
       </div>
 
       {/* Actions for pending requests */}
@@ -446,7 +448,7 @@ function RequestCard({
             <button
               onClick={onApprove}
               disabled={processing || (!selectedCompanyId && !newCompanyName)}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 bg-brand-green text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-greenDark disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {processing ? (
                 <>
@@ -503,8 +505,9 @@ function RequestCard({
       {/* Show review info for processed requests */}
       {request.status !== 'pending' && request.reviewed_at && (
         <div className="border-t pt-4">
+          {/* ✅ FIXED: Use SafeDate component instead of toLocaleDateString */}
           <div className="text-xs text-gray-500">
-            {request.status === 'approved' ? 'Approved' : 'Rejected'}: {new Date(request.reviewed_at).toLocaleDateString()}
+            {request.status === 'approved' ? 'Approved' : 'Rejected'}: <SafeDate date={request.reviewed_at} format="short" />
             {request.reviewer_notes && (
               <div className="mt-1 bg-gray-50 rounded p-2">
                 <strong>Notes:</strong> {request.reviewer_notes}

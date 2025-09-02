@@ -1,8 +1,8 @@
-// src/app/components/CookieConsent.tsx - Fixed hydration safety issues
+﻿// src/app/components/CookieConsent.tsx - Fixed hydration safety issues
 'use client'
 
 import { useState, useEffect } from 'react'
-import { storeConsent } from '../lib/gtag'
+import { useConsentManagement } from '../lib/analytics'
 
 interface CookieConsentProps {
   onConsentChange: (consented: boolean) => void
@@ -13,13 +13,16 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
   const [mounted, setMounted] = useState(false)
 
+  // Use the analytics consent management hook
+  const { storeConsent, mounted: consentMounted } = useConsentManagement()
+
   // HYDRATION FIX: Wait for component to mount before any DOM operations
   useEffect(() => {
     setMounted(true)
   }, [])
 
   const handleAccept = () => {
-    if (!mounted) return // HYDRATION FIX
+    if (!mounted || !consentMounted) return // HYDRATION FIX
     
     const consentGranted = analyticsEnabled
     storeConsent(consentGranted)
@@ -27,7 +30,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
   }
 
   const handleDecline = () => {
-    if (!mounted) return // HYDRATION FIX
+    if (!mounted || !consentMounted) return // HYDRATION FIX
     
     storeConsent(false)
     onConsentChange(false)
@@ -53,8 +56,8 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
     }
   }, [showDetails, mounted])
 
-  // HYDRATION FIX: Don't render until mounted to prevent server/client mismatch
-  if (!mounted) {
+  // HYDRATION FIX: Don't render until both mounted states are ready
+  if (!mounted || !consentMounted) {
     return null
   }
 
@@ -108,7 +111,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <button
                     onClick={handleAccept}
-                    className="bg-brand-green text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-colors flex-1 sm:flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                    className="bg-brand-green text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand-greenDark transition-colors flex-1 sm:flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                     style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
                     aria-label="Accept all cookies including analytics"
                   >
@@ -179,7 +182,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
                           className="sr-only peer" 
                           aria-label="Enable analytics cookies"
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blueDark"></div>
                       </label>
                     </div>
                     <p className="text-sm text-gray-600 mb-2">
@@ -200,7 +203,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps) {
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
                   <button
                     onClick={handleAccept}
-                    className="bg-brand-green text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-colors flex-1 sm:flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                    className="bg-brand-green text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand-greenDark transition-colors flex-1 sm:flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                     aria-label={`Accept ${analyticsEnabled ? 'all cookies including analytics' : 'only essential cookies'}`}
                   >
                     Accept Selected

@@ -1,6 +1,7 @@
 // lib/enhancedAnalytics.ts - HYDRATION SAFE VERSION WITH FIXED TYPES
 import React from 'react'
 import { getSupabaseBrowserClientSafe, getSupabaseBrowserClient } from './supabaseClient'
+import { safeWindow } from './clientUtils'
 import * as existingAnalytics from './analytics'
 
 // Types for analytics events
@@ -37,6 +38,19 @@ export interface TutorAnalytics {
   satisfaction_rating?: number
 }
 
+// ✅ HYDRATION SAFE: Session ID generator without Math.random during SSR
+function generateSessionId(): string {
+  if (typeof window === 'undefined') {
+    // During SSR, generate a placeholder that will be replaced on client
+    return 'ssr_placeholder'
+  }
+  
+  // ✅ FIXED: Only use Math.random on client side
+  const timestamp = Date.now()
+  const randomPart = Math.random().toString(36).substr(2, 9)
+  return `session_${timestamp}_${randomPart}`
+}
+
 // Enhanced Analytics tracker with proper TypeScript types
 export class EnhancedAnalyticsTracker {
   private sessionId: string
@@ -47,16 +61,15 @@ export class EnhancedAnalyticsTracker {
   private clientReady: boolean = false
 
   constructor() {
-    this.sessionId = this.generateSessionId()
+    // ✅ HYDRATION SAFE: Initialize session ID safely
+    this.sessionId = 'pending' // Will be set after mount
     this.userAgent = ''
     
-    // Only initialize in browser after component mount
     if (typeof window !== 'undefined') {
       Promise.resolve().then(() => this.initialize())
     }
   }
 
-  // ✅ HYDRATION SAFE: Get Supabase client safely
   private getClient() {
     if (!this.mounted || !this.clientReady) {
       return null
@@ -74,11 +87,14 @@ export class EnhancedAnalyticsTracker {
     if (this.isInitialized) return
     
     try {
+      // ✅ HYDRATION SAFE: Generate session ID only after mount
+      this.sessionId = generateSessionId()
+      
       if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
-        this.userAgent = navigator.userAgent
+        // ✅ FIXED: Use safeWindow.navigator instead of direct access
+        this.userAgent = safeWindow.navigator.userAgent()
       }
       
-      // Check if Supabase client is available
       const checkClient = () => {
         try {
           const client = getSupabaseBrowserClient()
@@ -91,7 +107,6 @@ export class EnhancedAnalyticsTracker {
       
       checkClient()
       
-      // Recheck periodically in case client becomes available later
       const interval = setInterval(() => {
         if (!this.clientReady) {
           checkClient()
@@ -100,7 +115,6 @@ export class EnhancedAnalyticsTracker {
         }
       }, 1000)
       
-      // Clear interval after 30 seconds to avoid indefinite checking
       setTimeout(() => clearInterval(interval), 30000)
       
       await this.initializeUser()
@@ -109,10 +123,6 @@ export class EnhancedAnalyticsTracker {
     } catch (error) {
       console.error('Enhanced analytics initialization failed:', error)
     }
-  }
-
-  private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
   private async initializeUser(): Promise<void> {
@@ -659,7 +669,7 @@ export function usePageTracking(tidbitNumber?: number) {
   }, [tidbitNumber, mounted])
 }
 
-// Initialize performance monitoring when module loads
+// ✅ HYDRATION SAFE: Initialize performance monitoring only on client
 if (typeof window !== 'undefined') {
   const initializeWhenReady = () => {
     if (document.readyState === 'complete') {

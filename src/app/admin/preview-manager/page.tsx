@@ -1,4 +1,4 @@
-// src/app/admin/preview-manager/page.tsx
+﻿// src/app/admin/preview-manager/page.tsx
 // Admin interface for managing preview tokens - Hydration Safe
 'use client'
 
@@ -18,6 +18,7 @@ import {
   Calendar,
   Loader2
 } from 'lucide-react'
+import { SafeDate } from '../../lib/clientUtils' // ✅ FIXED: Import SafeDate
 
 interface PreviewToken {
   token: string
@@ -130,13 +131,13 @@ export default function PreviewManagerPage() {
   }
 
   const copyToClipboard = (text: string) => {
-    // Hydration-safe clipboard access
-    if (!mounted || typeof window === 'undefined' || !navigator.clipboard) {
+    // ✅ FIXED: Hydration-safe clipboard access
+    if (!mounted || typeof window === 'undefined' || !window.navigator?.clipboard) {
       setMessage({ type: 'error', text: 'Clipboard not available' })
       return
     }
     
-    navigator.clipboard.writeText(text).then(() => {
+    window.navigator.clipboard.writeText(text).then(() => {
       setMessage({ type: 'success', text: 'Copied to clipboard!' })
       setTimeout(() => setMessage(null), 2000)
     }).catch(() => {
@@ -267,7 +268,7 @@ Daily Tidbit Team`
               <div className="space-y-4">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-3 mb-2">
-                    <Building2 className="h-5 w-5 text-blue-600" />
+                    <Building2 className="h-5 w-5 text-brand-blueDark" />
                     <span className="body-bold text-blue-900">{selectedCompany.name}</span>
                   </div>
                   <div className="body-small text-blue-800">
@@ -294,7 +295,7 @@ Daily Tidbit Team`
                 <button
                   onClick={generateToken}
                   disabled={generating}
-                  className="w-full bg-brand-green text-white py-3 px-4 rounded-lg body-bold hover:bg-brand-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                  className="w-full bg-brand-green text-white py-3 px-4 rounded-lg body-bold hover:bg-brand-greenDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                 >
                   {generating ? (
                     <>
@@ -336,7 +337,7 @@ Daily Tidbit Team`
                           {token.isExpired ? (
                             <XCircle className="h-4 w-4 text-red-500" />
                           ) : token.isUsed ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <CheckCircle className="h-4 w-4 text-brand-green" />
                           ) : (
                             <Clock className="h-4 w-4 text-yellow-500" />
                           )}
@@ -369,11 +370,12 @@ Daily Tidbit Team`
                         </div>
                       </div>
                       
+                      {/* ✅ FIXED: Use SafeDate components instead of toLocaleDateString */}
                       <div className="body-small text-gray-500 space-y-1">
-                        <div>Created: {new Date(token.created_at).toLocaleDateString()}</div>
-                        <div>Expires: {new Date(token.expires_at).toLocaleDateString()}</div>
+                        <div>Created: <SafeDate date={token.created_at} format="short" /></div>
+                        <div>Expires: <SafeDate date={token.expires_at} format="short" /></div>
                         {token.used_at && (
-                          <div>Used: {new Date(token.used_at).toLocaleDateString()}</div>
+                          <div>Used: <SafeDate date={token.used_at} format="short" /></div>
                         )}
                       </div>
                     </div>

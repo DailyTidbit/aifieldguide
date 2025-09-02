@@ -2,13 +2,14 @@
 'use client'
 
 import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { getSupabaseBrowserClient } from '../lib/supabaseClient' // ✅ UPDATED: Use consolidated client
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import AuthForm from '../components/AuthForm'
 import PostForm from '../components/PostForm'
 import UserProfile from '../components/UserProfile'
 import ProfileSetupWizard from '../components/ProfileSetupWizard'
 import PostModal from '../components/PostModal'
 import PostCard from '../components/PostCard'
+import { formatDate, formatDateTime } from '../lib/clientUtils' // ✅ Use safe date formatter
 import { 
   Loader2, 
   RefreshCw, 
@@ -34,7 +35,7 @@ import {
   EyeOff
 } from 'lucide-react'
 import Image from 'next/image'
-import { isValidMediaUrl } from '../lib/validateMedia'
+import { isValidMediaUrl } from '../lib/clientUtils'
 
 // Enhanced Post type with privacy and pin support
 export type Post = {
@@ -93,47 +94,59 @@ interface PostData {
 type FilterOption = 'all' | 'trending' | 'recent' | 'popular' | 'liked' | 'commented' | 'private'
 type ViewMode = 'masonry' | 'grid' | 'list'
 
-// Helper function to parse search dates more reliably
+// ✅ HYDRATION SAFE: Helper function to parse search dates with consistent timezone
 const parseSearchDate = (dateString: string): Date => {
-  // First try standard Date constructor
-  const date = new Date(dateString)
-  
-  if (!isNaN(date.getTime())) {
-    return date
-  }
-  
-  // Try MM/DD/YYYY format
-  const mmddyyyy = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (mmddyyyy) {
-    const month = parseInt(mmddyyyy[1]) - 1  // Month is 0-indexed
-    const day = parseInt(mmddyyyy[2])
-    const year = parseInt(mmddyyyy[3])
-    return new Date(year, month, day)
-  }
-  
-  // Try MM-DD-YYYY format
-  const mmddyyyyDash = dateString.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
-  if (mmddyyyyDash) {
-    const month = parseInt(mmddyyyyDash[1]) - 1
-    const day = parseInt(mmddyyyyDash[2])
-    const year = parseInt(mmddyyyyDash[3])
-    return new Date(year, month, day)
-  }
-  
-  // Try YYYY/MM/DD format
-  const yyyymmdd = dateString.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
-  if (yyyymmdd) {
-    const year = parseInt(yyyymmdd[1])
-    const month = parseInt(yyyymmdd[2]) - 1
-    const day = parseInt(yyyymmdd[3])
-    return new Date(year, month, day)
+  // Use fixed timezone to prevent SSR/CSR mismatches
+  const tryFormats = [
+    // Try standard Date constructor first
+    () => new Date(dateString),
+    // Try MM/DD/YYYY format
+    () => {
+      const match = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+      if (match) {
+        const month = parseInt(match[1]) - 1
+        const day = parseInt(match[2])
+        const year = parseInt(match[3])
+        return new Date(year, month, day)
+      }
+      return new Date(NaN)
+    },
+    // Try MM-DD-YYYY format
+    () => {
+      const match = dateString.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+      if (match) {
+        const month = parseInt(match[1]) - 1
+        const day = parseInt(match[2])
+        const year = parseInt(match[3])
+        return new Date(year, month, day)
+      }
+      return new Date(NaN)
+    },
+    // Try YYYY/MM/DD format
+    () => {
+      const match = dateString.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
+      if (match) {
+        const year = parseInt(match[1])
+        const month = parseInt(match[2]) - 1
+        const day = parseInt(match[3])
+        return new Date(year, month, day)
+      }
+      return new Date(NaN)
+    }
+  ]
+
+  for (const tryFormat of tryFormats) {
+    const date = tryFormat()
+    if (!isNaN(date.getTime())) {
+      return date
+    }
   }
   
   console.log('Could not parse date:', dateString)
-  return new Date(NaN) // Invalid date
+  return new Date(NaN)
 }
 
-// FIXED: Better search parsing with proper day number handling
+// Enhanced search parsing with proper day number handling
 const parseSearchQuery = (query: string) => {
   const parts = {
     username: null as string | null,
@@ -166,19 +179,17 @@ const parseSearchQuery = (query: string) => {
     remainingQuery = remainingQuery.replace(beforeMatch[0], '').trim()
   }
 
-  // FIXED: Extract day number patterns - be more restrictive about standalone numbers
+  // Extract day number patterns
   const dayPatterns = [
     /day:(\d+)/i,      // day:5
     /day\s+(\d+)/i,    // day 5  
     /#(\d+)/           // #5
-    // Removed /^(\d{1,3})$/ to allow partial numbers like "2", "20", "202" to be text searches
   ]
 
   for (const pattern of dayPatterns) {
     const match = remainingQuery.match(pattern)
     if (match) {
       const dayNum = parseInt(match[1])
-      // Only treat as day number if it's reasonable (1-365 or similar)
       if (dayNum >= 1 && dayNum <= 365) {
         parts.dayNumber = dayNum
         remainingQuery = remainingQuery.replace(match[0], '').trim()
@@ -188,20 +199,17 @@ const parseSearchQuery = (query: string) => {
   }
 
   // Only treat bare numbers as tidbit days if they're complete and reasonable
-  // BUT ALSO keep them as text queries for broader matching
   const bareNumberMatch = remainingQuery.match(/^(\d{1,2})$/)
   if (bareNumberMatch) {
     const dayNum = parseInt(bareNumberMatch[1])
-    if (dayNum >= 1 && dayNum <= 31) { // Only single/double digit days (1-31)
+    if (dayNum >= 1 && dayNum <= 31) {
       parts.dayNumber = dayNum
-      // DON'T remove from remainingQuery - let it also be a text search
     }
   }
 
-  // Everything else is text search (including the number if it matched above)
+  // Everything else is text search
   parts.textQuery = remainingQuery.toLowerCase().trim()
   
-  console.log('Search parsed:', JSON.stringify(parts, null, 2), 'from query:', query)
   return parts
 }
 
@@ -216,10 +224,8 @@ function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'defau
   return (
     <div className="break-inside-avoid mb-3 w-full animate-pulse">
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        {/* Image skeleton */}
         <div className={`w-full ${heightClass} bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-shimmer`}></div>
         
-        {/* Content skeleton - mobile optimized */}
         <div className="p-3 sm:p-4 space-y-3">
           <div className="space-y-2">
             <div className="h-4 bg-gray-200 rounded w-full"></div>
@@ -227,7 +233,6 @@ function MobileSkeletonCard({ variant = 'default' }: { variant?: 'tall' | 'defau
             <div className="h-4 bg-gray-200 rounded w-3/5"></div>
           </div>
           
-          {/* User info skeleton */}
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gray-200 rounded-full"></div>
@@ -269,7 +274,7 @@ function MobileOptimizedMasonry({
   const [page, setPage] = useState(1)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
-  const postsPerPage = 20 // Reduced for mobile performance
+  const postsPerPage = 20
 
   // Mobile-optimized style injection
   const masonryStyles = useMemo(() => `
@@ -401,7 +406,7 @@ function MobileOptimizedMasonry({
           
           {/* Pin indicator */}
           {post.is_pinned && (
-            <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
+            <div className="absolute top-2 right-2 z-10 bg-brand-blue text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
               <span className="text-xs">📌</span>
               Pinned
             </div>
@@ -418,7 +423,7 @@ function MobileOptimizedMasonry({
     )
   }
 
-  // Render posts using the enhanced PostCard component with privacy indicators
+  // Render posts using the enhanced PostCard component
   const renderPosts = () => {
     if (loading) {
       const skeletonVariants: Array<'tall' | 'default' | 'wide'> = ['default', 'tall', 'wide']
@@ -479,13 +484,12 @@ function BitBoardContent() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   
-  // HYDRATION FIX: Add mounted state to prevent hydration mismatches
+  // ✅ HYDRATION SAFETY: Add mounted state to prevent hydration mismatches
   const [mounted, setMounted] = useState(false)
 
-  // ✅ UPDATED: Use hydration-safe client getter
   const supabase = getSupabaseBrowserClient()
 
-  // HYDRATION FIX: Set mounted after component mounts
+  // ✅ HYDRATION SAFETY: Set mounted after component mounts
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -508,29 +512,21 @@ function BitBoardContent() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // FIXED: Enhanced filtered posts with better search and debugging
+  // Enhanced filtered posts with better search
   const filteredPosts = useMemo(() => {
-    console.log('=== SEARCH DEBUG START ===')
-    console.log('Total posts:', posts.length)
-    console.log('Search query:', debouncedSearchQuery)
-    
     let filtered = [...posts]
 
     // Apply tidbit filter
     if (selectedTidbit !== null) {
       filtered = filtered.filter(post => post.tidbit === selectedTidbit)
-      console.log('After tidbit filter:', filtered.length)
     }
 
-    // Enhanced search filter with better date handling
+    // ✅ HYDRATION SAFE: Enhanced search filter with safe date handling
     if (debouncedSearchQuery.trim()) {
       const searchParts = parseSearchQuery(debouncedSearchQuery)
-      console.log('Search parts parsed:', searchParts)
-      
-      const beforeFilterCount = filtered.length
       
       filtered = filtered.filter(post => {
-        // Username filter - check both username and full_name
+        // Username filter
         if (searchParts.username) {
           const matchesUsername = post.username?.toLowerCase().includes(searchParts.username)
           const matchesFullName = post.user_full_name?.toLowerCase().includes(searchParts.username)
@@ -539,59 +535,42 @@ function BitBoardContent() {
           }
         }
         
-        // Date filters - improved logic with better error handling
+        // ✅ HYDRATION SAFE: Date filters using safe parsing
         if (searchParts.afterDate || searchParts.beforeDate) {
           const postDate = new Date(post.created_at)
-          console.log(`Checking post "${post.content?.slice(0, 20)}...": date = ${postDate} (valid: ${!isNaN(postDate.getTime())})`)
           
           if (searchParts.afterDate) {
             const searchDate = parseSearchDate(searchParts.afterDate)
-            console.log(`After comparison: ${postDate.toDateString()} >= ${searchDate.toDateString()} = ${postDate >= searchDate}`)
-            
-            if (isNaN(searchDate.getTime())) {
-              console.warn(`Invalid after date: ${searchParts.afterDate}`)
-              return false // Skip posts if date is invalid
-            }
-            
-            if (postDate < searchDate) {
+            if (isNaN(searchDate.getTime()) || postDate < searchDate) {
               return false
             }
           }
           
           if (searchParts.beforeDate) {
             const searchDate = parseSearchDate(searchParts.beforeDate)
-            searchDate.setHours(23, 59, 59, 999) // End of day
-            console.log(`Before comparison: ${postDate.toDateString()} <= ${searchDate.toDateString()} = ${postDate <= searchDate}`)
-            
-            if (isNaN(searchDate.getTime())) {
-              console.warn(`Invalid before date: ${searchParts.beforeDate}`)
-              return false // Skip posts if date is invalid
-            }
-            
-            if (postDate > searchDate) {
+            searchDate.setHours(23, 59, 59, 999)
+            if (isNaN(searchDate.getTime()) || postDate > searchDate) {
               return false
             }
           }
         }
         
-        // COMBINED SEARCH: Check both tidbit day AND text content
+        // Combined search: Check both tidbit day AND text content
         let matchesSearch = true
         
         if (searchParts.dayNumber !== null || searchParts.textQuery) {
           let matchesDay = false
           let matchesText = false
           
-          // Check tidbit day match
           if (searchParts.dayNumber !== null) {
             const postTidbit = Number(post.tidbit)
             const searchDay = Number(searchParts.dayNumber)
             matchesDay = !isNaN(postTidbit) && !isNaN(searchDay) && postTidbit === searchDay
           }
           
-          // Check text content match (including dates)
           if (searchParts.textQuery) {
-            const displayDate = new Date(post.created_at).toLocaleDateString()
-            const isoDate = new Date(post.created_at).toISOString()
+            // ✅ HYDRATION SAFE: Use formatDate for consistent date strings
+            const displayDate = formatDate(post.created_at)
             
             const searchableText = [
               post.content || '',
@@ -600,39 +579,18 @@ function BitBoardContent() {
               post.after_text || '',
               post.username || '',
               post.user_full_name || '',
-              displayDate, // Add formatted date (e.g., "7/22/2025")
-              isoDate, // Add ISO date (e.g., "2025-07-22T...")
-              post.created_at || '' // Add raw date string
+              displayDate,
+              post.created_at || ''
             ].join(' ').toLowerCase()
             
             matchesText = searchableText.includes(searchParts.textQuery)
           }
           
-          // Post matches if it matches EITHER day number OR text content
           matchesSearch = matchesDay || matchesText
         }
         
         return matchesSearch
       })
-      
-      console.log(`Filter results: ${beforeFilterCount} -> ${filtered.length}`)
-      
-      // Debug: show what we're actually searching for
-      if (searchParts.textQuery) {
-        console.log(`Text search active: "${searchParts.textQuery}"`)
-        console.log('Sample post content:', posts.slice(0, 2).map(p => p.content?.slice(0, 50) + '...'))
-      }
-      if (searchParts.dayNumber !== null) {
-        console.log(`Day number search: ${searchParts.dayNumber}`)
-        console.log('Post tidbits found:', posts.slice(0, 5).map(p => p.tidbit))
-      }
-      
-      // Add helpful feedback for date searches that return all results
-      if (searchParts.afterDate || searchParts.beforeDate) {
-        if (filtered.length === beforeFilterCount) {
-          console.log('🔍 Date filter returned all posts - consider adjusting your date range')
-        }
-      }
     }
 
     // Apply privacy-aware sorting
@@ -647,25 +605,20 @@ function BitBoardContent() {
         return filtered.filter(post => userCommentedPosts.includes(post.id))
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       case 'private':
-        // Show only user's private posts
         return filtered.filter(post => post.is_private && post.user_id === user?.id)
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       case 'recent':
       default:
-        // Sort with pinned posts first, then by date
         return filtered.sort((a, b) => {
-          // First, sort by pinned status (pinned posts first)
           if (a.is_pinned && !b.is_pinned) return -1
           if (!a.is_pinned && b.is_pinned) return 1
-          // Then by date
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
     }
   }, [posts, selectedTidbit, debouncedSearchQuery, filterOption, userLikedPosts, userCommentedPosts, user?.id])
 
-  // OPTIMIZED: Single batched fetchPosts function (no N+1 queries)
+  // Single batched fetchPosts function
   const fetchPosts = useCallback(async () => {
-    // ✅ UPDATED: Check if supabase client is available
     if (!supabase) {
       console.warn('Supabase client not available')
       setLoading(false)
@@ -676,17 +629,14 @@ function BitBoardContent() {
       setLoading(true)
       setError(null)
 
-      // 1) Who's logged in?
       const { data: { user: currentUser } } = await supabase.auth.getUser()
 
-      // 2) Get posts (public, or your own privates)
       let postsQuery = supabase
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false })
 
       if (currentUser) {
-        // public OR (private AND mine)
         postsQuery = postsQuery.or(
           `is_private.eq.false,and(is_private.eq.true,user_id.eq.${currentUser.id})`
         )
@@ -703,18 +653,13 @@ function BitBoardContent() {
         return
       }
 
-      // 3) Batch all secondary fetches in parallel (no per-post requests)
       const postIds = posts.map((p: PostData) => p.id)
       const userIds = [...new Set(posts.map((p: PostData) => p.user_id).filter(Boolean))] as string[]
 
       const [
-        // likes by current user (for heart fill)
         likesByUserPromise,
-        // all likes for these posts (to get counts)
         allLikesPromise,
-        // all comments for these posts (to get counts)
         allCommentsPromise,
-        // profiles for authors
         profilesPromise,
       ] = [
         currentUser
@@ -755,7 +700,6 @@ function BitBoardContent() {
         profilesPromise
       ])
 
-      // 4) Build count maps in O(n) - with null safety
       const likesCountMap = new Map<string, number>()
       if (allLikes) {
         for (const row of allLikes as LikeData[]) {
@@ -770,11 +714,9 @@ function BitBoardContent() {
         }
       }
 
-      // 5) Profile map
       const profileMap = new Map<string, Profile>()
       for (const p of profiles as Profile[]) profileMap.set(p.id, p as Profile)
 
-      // 6) Merge everything
       const enriched = posts.map((post: PostData) => {
         const profile = post.user_id ? profileMap.get(post.user_id) : undefined
         return {
@@ -787,19 +729,17 @@ function BitBoardContent() {
         } as Post
       })
 
-      // 7) Save liked posts list (for heart fill)
       setUserLikedPosts((likesByUser as LikeData[]).map((r: LikeData) => r.post_id))
-
       setPosts(enriched)
     } catch (err) {
-      console.error('⚠️ Error fetching posts:', err)
+      console.error('Error fetching posts:', err)
       setError('Failed to load posts. Please try again.')
     } finally {
       setLoading(false)
     }
   }, [supabase])
 
-  // OPTIMIZED: Simplified fetchUserAndLikes (likes now handled in fetchPosts)
+  // Simplified fetchUserAndLikes
   const fetchUserAndLikes = useCallback(async () => {
     if (!supabase) return
 
@@ -813,7 +753,6 @@ function BitBoardContent() {
       return
     }
 
-    // profile check
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name, username')
@@ -822,7 +761,6 @@ function BitBoardContent() {
 
     setNeedsProfileSetup(!profile?.full_name)
 
-    // commented posts (for your filter)
     const { data: commentsData } = await supabase
       .from('comments')
       .select('post_id')
@@ -852,7 +790,6 @@ function BitBoardContent() {
         setUserLikedPosts(prev => [...prev, postId])
       }
 
-      // Update like count in posts
       setPosts(prev => prev.map(post => 
         post.id === postId 
           ? { 
@@ -873,15 +810,15 @@ function BitBoardContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Initial setup
+  // ✅ HYDRATION SAFETY: Initial setup only after mounted
   useEffect(() => {
-    if (!mounted) return // Wait for hydration
+    if (!mounted) return
     
     fetchUserAndLikes()
     fetchPosts()
   }, [fetchUserAndLikes, fetchPosts, mounted])
 
-  // OPTIMIZED: Debounced real-time subscriptions
+  // Real-time subscriptions
   useEffect(() => {
     if (!mounted || !supabase) return
 
@@ -894,7 +831,7 @@ function BitBoardContent() {
         table: 'posts'
       }, (_payload: any) => {
         if (timer) clearTimeout(timer)
-        timer = setTimeout(() => fetchPosts(), 250) // coalesce bursts of events
+        timer = setTimeout(() => fetchPosts(), 250)
       })
       .subscribe()
 
@@ -904,12 +841,10 @@ function BitBoardContent() {
     }
   }, [fetchPosts, supabase, mounted])
 
-  // HYDRATION FIX: Move handleRefresh callback after fetchPosts/fetchUserAndLikes are defined
   const handleRefresh = useCallback(async () => {
     await Promise.all([fetchPosts(), fetchUserAndLikes()])
   }, [fetchPosts, fetchUserAndLikes])
 
-  // HYDRATION FIX: Use stable callback for handlePostSubmit 
   const handlePostSubmit = useCallback(() => {
     setShowPostForm(false)
     handleRefresh()
@@ -921,9 +856,9 @@ function BitBoardContent() {
     setFilterOption('recent')
   }, [])
 
-  // HYDRATION FIX: Create stable function for calculating active filters
+  // ✅ HYDRATION SAFETY: Calculate active filters only after mounting
   const activeFiltersCount = useMemo(() => {
-    if (!mounted) return 0 // Return 0 during SSR/hydration
+    if (!mounted) return 0
     
     let count = 0
     if (selectedTidbit !== null) count++
@@ -932,18 +867,18 @@ function BitBoardContent() {
     return count
   }, [mounted, selectedTidbit, debouncedSearchQuery, filterOption])
 
-  // HYDRATION FIX: Show loading screen during hydration
+  // ✅ HYDRATION SAFETY: Show loading screen during hydration
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-12 w-12 animate-spin text-[#60A875]" />
+        <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
       </div>
     )
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 overflow-hidden">
-      {/* Professional Header - Similar to Tidbit Library */}
+      {/* Professional Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
         <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
           <div className="text-center">
@@ -968,7 +903,7 @@ function BitBoardContent() {
               placeholder="Search posts"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 sm:pl-11 pr-8 sm:pr-12 py-2 sm:py-3 bg-gray-100 border-none rounded-full text-sm sm:text-base focus:ring-2 focus:ring-[#60A875]/20 focus:bg-white focus:shadow-md transition-all"
+              className="w-full pl-8 sm:pl-11 pr-8 sm:pr-12 py-2 sm:py-3 bg-gray-100 border-none rounded-full text-sm sm:text-base focus:ring-2 focus:ring-brand-green/20 focus:bg-white focus:shadow-md transition-all"
             />
             {searchQuery && (
               <button
@@ -983,12 +918,12 @@ function BitBoardContent() {
 
         {/* Right Section - Mobile Optimized */}
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* Filter Button - Mobile Priority */}
+          {/* Filter Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`p-2 sm:p-3 rounded-full transition-colors relative ${
               activeFiltersCount > 0 
-                ? 'bg-[#60A875] text-white'
+                ? 'bg-brand-green text-white'
                 : 'hover:bg-gray-100 text-gray-700'
             }`}
           >
@@ -1003,7 +938,7 @@ function BitBoardContent() {
           {user && (
             <button
               onClick={() => setShowPostForm(!showPostForm)}
-              className="p-2 sm:p-3 bg-[#60A875] text-white rounded-full hover:bg-[#60A875] transition-colors"
+              className="p-2 sm:p-3 bg-brand-green text-white rounded-full hover:bg-brand-greenDark transition-colors"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -1011,11 +946,10 @@ function BitBoardContent() {
         </div>
       </nav>
 
-      {/* Enhanced Desktop/Mobile-Optimized Filters Bar with Privacy Support */}
+      {/* Enhanced Filters Bar with Privacy Support */}
       {showFilters && (
         <div className="px-3 sm:px-4 py-2 sm:py-3 bg-gray-50 border-b border-gray-200">
           <div className="lg:flex lg:items-center lg:justify-between">
-            {/* Filter buttons - wrap on mobile, stay inline on desktop */}
             <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide lg:overflow-visible">
               {['recent', 'trending', 'popular', 'liked', 'commented'].map((filter) => (
                 <button
@@ -1023,7 +957,7 @@ function BitBoardContent() {
                   onClick={() => setFilterOption(filter as FilterOption)}
                   className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full transition-colors whitespace-nowrap capitalize text-xs sm:text-sm font-medium ${
                     filterOption === filter
-                      ? 'bg-[#60A875] text-white'
+                      ? 'bg-brand-green text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                   }`}
                 >
@@ -1034,7 +968,7 @@ function BitBoardContent() {
                 </button>
               ))}
 
-              {/* Private Posts Filter - Only for logged-in users */}
+              {/* Private Posts Filter */}
               {user && (
                 <button
                   onClick={() => setFilterOption('private')}
@@ -1050,10 +984,9 @@ function BitBoardContent() {
               )}
             </div>
 
-            {/* Secondary filters - on new line for mobile, same line for desktop */}
             <div className="flex items-center gap-2 mt-2 lg:mt-0 lg:ml-4">
               {selectedTidbit !== null && (
-                <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-[#59B1E3] text-white rounded-full">
+                <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-brand-blue text-white rounded-full">
                   <span className="text-xs sm:text-sm font-medium">Day {selectedTidbit}</span>
                   <button
                     onClick={() => setSelectedTidbit(null)}
@@ -1160,7 +1093,7 @@ function BitBoardContent() {
           </div>
         )}
 
-        {/* Main Content with Privacy Support */}
+        {/* Main Content */}
         <div className="h-full overflow-y-auto">
           {filteredPosts.length === 0 && !loading ? (
             <div className="flex items-center justify-center h-full p-4 sm:p-8">
@@ -1193,7 +1126,7 @@ function BitBoardContent() {
                   {user && (
                     <button
                       onClick={() => setShowPostForm(true)}
-                      className="px-4 sm:px-6 py-2.5 sm:py-3 bg-[#60A875] text-white rounded-full hover:bg-green-600 transition-colors font-medium text-sm sm:text-base flex items-center justify-center gap-2"
+                      className="px-4 sm:px-6 py-2.5 sm:py-3 bg-brand-green text-white rounded-full hover:bg-brand-greenDark transition-colors font-medium text-sm sm:text-base flex items-center justify-center gap-2"
                     >
                       <Plus className="w-4 h-4" />
                       {filterOption === 'private' ? 'Create private post' : 'Create your first post'}
@@ -1229,14 +1162,11 @@ function BitBoardContent() {
       {showScrollTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 p-3 bg-[#60A875] text-white rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 z-40 hover:scale-110"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 p-3 bg-brand-green text-white rounded-full shadow-lg hover:bg-brand-greenDark transition-all duration-300 z-40 hover:scale-110"
         >
           <ArrowUp className="w-5 h-5" />
         </button>
       )}
-      
-
-      
     </div>
   )
 }
@@ -1245,7 +1175,7 @@ export default function MobileOptimizedBitBoard() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-[#60A875]" />
+        <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
       </div>
     }>
       <BitBoardContent />

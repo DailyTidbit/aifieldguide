@@ -1,38 +1,62 @@
-// app/components/Footer.tsx - Minor hydration improvements
 'use client'
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { trackCTAClick } from '../lib/gtag'
+import { analytics, useAnalytics } from '../lib/analytics'
+import { getCurrentYear } from '../lib/clientUtils'
 
 export default function Footer() {
-  const [interactions, setInteractions] = useState(0)
+  // Hydration safety
   const [mounted, setMounted] = useState(false)
+  const [interactions, setInteractions] = useState(0)
+  const { analytics: analyticsInstance } = useAnalytics()
 
-  // Hydration safety for date
   useEffect(() => {
     setMounted(true)
   }, [])
 
   const bumpInteraction = () => setInteractions(p => p + 1)
-  const year = mounted ? new Date().getFullYear() : 2024 // Fallback year to prevent hydration mismatch
 
-  const handleSocialClick = (platform: string, url: string) => {
-    if (mounted) {
-      trackCTAClick(`social_${platform}`, 'footer', url)
-      bumpInteraction()
+  const handleSocialClick = async (platform: string, url: string) => {
+    if (mounted && analyticsInstance) {
+      try {
+        await analyticsInstance.trackEvent({
+          event_type: 'cta_click',
+          event_data: {
+            cta_type: `social_${platform}`,
+            cta_location: 'footer',
+            target_url: url,
+            platform
+          }
+        })
+        bumpInteraction()
+      } catch (error) {
+        console.warn('Analytics tracking failed:', error)
+      }
     }
   }
 
-  const handleFooterLinkClick = (label: string, url: string) => {
-    if (mounted) {
-      trackCTAClick(label, 'footer', url)
-      bumpInteraction()
+  const handleFooterLinkClick = async (label: string, url: string) => {
+    if (mounted && analyticsInstance) {
+      try {
+        await analyticsInstance.trackEvent({
+          event_type: 'cta_click',
+          event_data: {
+            cta_type: label,
+            cta_location: 'footer',
+            target_url: url,
+            link_type: 'footer_navigation'
+          }
+        })
+        bumpInteraction()
+      } catch (error) {
+        console.warn('Analytics tracking failed:', error)
+      }
     }
   }
 
   return (
-    <footer className="relative z-10 bg-gradient-to-br from-gray-200 via-gray-100 to-blue-100">
+    <footer className="relative z-10 bg-gradient-to-br from-gray-200 via-gray-100 to-brand-blue/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <div className="text-center space-y-6">
 
@@ -41,7 +65,7 @@ export default function Footer() {
             Come for the tips. <span className="text-brand-blue">Stay for the community.</span> ✨
           </p>
 
-          {/* Socials (blue hover, white icon) */}
+          {/* Socials */}
           <div className="mt-2 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
             {/* Facebook */}
             <a
@@ -136,31 +160,32 @@ export default function Footer() {
 
           {/* Legal + Get in Touch link */}
           <div className="pt-4 border-t border-gray-300 space-y-2">
-            <nav className="flex flex-wrap items-center justify-center gap-3 text-sm text-blue-600" aria-label="Footer">
-              <Link href="/privacy" className="hover:underline"
+            <nav className="flex flex-wrap items-center justify-center gap-3 text-sm text-brand-blue" aria-label="Footer">
+              <Link href="/privacy" className="hover:underline hover:text-brand-blueDark transition-colors"
                 onClick={() => handleFooterLinkClick('privacy_policy', '/privacy')}>
                 Privacy Policy
               </Link>
               <span className="text-gray-400 text-sm" aria-hidden="true">•</span>
-              <Link href="/accessibility" className="hover:underline"
+              <Link href="/accessibility" className="hover:underline hover:text-brand-blueDark transition-colors"
                 onClick={() => handleFooterLinkClick('accessibility_statement', '/accessibility')}>
                 Accessibility
               </Link>
               <span className="text-gray-400 text-sm" aria-hidden="true">•</span>
-              <Link href="/terms" className="hover:underline"
+              <Link href="/terms" className="hover:underline hover:text-brand-blueDark transition-colors"
                 onClick={() => handleFooterLinkClick('terms_conditions', '/terms')}>
                 Terms
               </Link>
               <span className="text-gray-400 text-sm" aria-hidden="true">•</span>
               <a
                 href="mailto:mike@dailytidbit.org"
-                className="hover:underline"
+                className="hover:underline hover:text-brand-blueDark transition-colors"
                 onClick={() => handleFooterLinkClick('email_contact', 'mailto:mike@dailytidbit.org')}
               >
                 Get in Touch
               </a>
             </nav>
-            <p className="text-xs text-gray-500">© {year} Daily Tidbit. All rights reserved.</p>
+            {/* ✅ HYDRATION SAFE: Uses UTC-based year calculation */}
+            <p className="text-xs text-gray-500">© {getCurrentYear()} Daily Tidbit. All rights reserved.</p>
           </div>
         </div>
       </div>

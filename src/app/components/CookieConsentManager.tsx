@@ -4,45 +4,29 @@
 import { useState, useEffect } from 'react'
 import CookieConsent from './CookieConsent'
 import GoogleAnalytics from './GoogleAnalytics'
-import { getStoredConsent } from '../lib/gtag'
+import { useConsentManagement } from '../lib/analytics'
 
 export default function CookieConsentManager() {
-  const [hasConsent, setHasConsent] = useState(false)
-  const [consentLoaded, setConsentLoaded] = useState(false)
-  const [showBanner, setShowBanner] = useState(false)
   const [mounted, setMounted] = useState(false)
+  
+  // Use the analytics consent management hook
+  const { consent, needsConsent, mounted: consentMounted } = useConsentManagement()
 
   // Hydration safety
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  useEffect(() => {
-    // Only access localStorage after mounted
-    if (!mounted) return
-
-    // Check existing consent on mount using unified keys
-    const { consent, isExpired } = getStoredConsent()
-    
-    if (consent && !isExpired) {
-      setHasConsent(consent === 'accepted')
-      setShowBanner(false)
-    } else {
-      // No consent or expired - show banner
-      setHasConsent(false)
-      setShowBanner(true)
-    }
-    
-    setConsentLoaded(true)
-  }, [mounted])
-
-  const handleConsentChange = (consented: boolean) => {
-    setHasConsent(consented)
-    setShowBanner(false)
+  const handleConsentChange = () => {
+    // The CookieConsent component handles the actual consent logic
+    // This callback is just for any additional cleanup if needed
   }
 
-  // Don't render anything until mounted and consent checked
-  if (!mounted || !consentLoaded) return null
+  // Don't render anything until both this component and consent management are mounted
+  if (!mounted || !consentMounted) return null
+
+  const hasConsent = consent === 'accepted'
+  const showBanner = needsConsent
 
   return (
     <>

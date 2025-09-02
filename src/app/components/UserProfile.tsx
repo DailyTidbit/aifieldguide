@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
@@ -178,7 +178,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     return tidbitBadges.length > 0 ? tidbitBadges[tidbitBadges.length - 1] : null
   }
 
-  // Fetch profile data
+  // Fetch profile data - FIXED with null safety
   const fetchProfile = async () => {
     if (!mounted) return // Hydration guard
     
@@ -187,6 +187,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       setError(null)
 
       const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        throw new Error('Supabase client not available')
+      }
+
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -213,12 +217,16 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Enhanced fetch stats with tidbit completion tracking
+  // Enhanced fetch stats with tidbit completion tracking - FIXED with null safety
   const fetchStats = async () => {
     if (!mounted) return // Hydration guard
     
     try {
       const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        console.error('Supabase client not available')
+        return
+      }
       
       // Get posts count
       const { count: postsCount } = await supabase
@@ -318,7 +326,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     return `https://${website}`
   }
 
-  // Handle avatar upload
+  // Handle avatar upload - FIXED with null safety
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!mounted) return // Hydration guard
     
@@ -344,6 +352,9 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       const fileName = `${userId}.${fileExt}`
 
       const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        throw new Error('Supabase client not available')
+      }
       
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -378,7 +389,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Save profile changes
+  // Save profile changes - FIXED with null safety
   const handleSave = async () => {
     if (!mounted) return // Hydration guard
     
@@ -387,6 +398,9 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       setError(null)
 
       const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        throw new Error('Supabase client not available')
+      }
       
       // Validate username uniqueness if changed
       if (formData.username && formData.username !== profile?.username) {
@@ -438,10 +452,16 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     fetchProfile()
   }
 
-  // Handle logout
+  // Handle logout - FIXED with null safety
   const handleLogout = async () => {
     if (!mounted) return
+    
     const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      console.error('Supabase client not available')
+      return
+    }
+    
     await supabase.auth.signOut()
     window.location.reload()
   }
@@ -858,7 +878,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   )
 }
 
-// Component to display user's posts in a grid with filtering and privacy support
+// Component to display user's posts in a grid with filtering and privacy support - FIXED with null safety
 function UserPostsGrid({ userId, filter = 'all', onPostClick }: { 
   userId: string
   filter?: 'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented' | 'received'
@@ -880,6 +900,11 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
       if (!mounted) return
       
       const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        console.error('Supabase client not available')
+        return
+      }
+      
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
     }
@@ -896,6 +921,11 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
         setLoading(true)
         
         const supabase = getSupabaseBrowserClient()
+        if (!supabase) {
+          console.error('Supabase client not available')
+          setLoading(false)
+          return
+        }
         
         // Get created posts
         const { data: createdPosts, error: postsError } = await supabase

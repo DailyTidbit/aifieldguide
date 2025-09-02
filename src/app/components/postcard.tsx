@@ -3,11 +3,12 @@
 import Image from 'next/image'
 import { Heart, User, Loader2, MessageCircle, ExternalLink, Sparkles, Clock } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
-import { isValidMediaUrl } from '../lib/validateMedia'
+import { isValidMediaUrl } from '../lib/clientUtils'
+import { formatDateSafe } from '../lib/clientUtils'
 
 const bgColors = [
   'bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50', 
-  'bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50', 
+  'bg-gradient-to-br from-brand-green/5 via-brand-green/10 to-teal-50', 
   'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50',
   'bg-gradient-to-br from-pink-50 via-rose-50 to-red-50',
   'bg-gradient-to-br from-indigo-50 via-purple-50 to-violet-50',
@@ -24,7 +25,7 @@ export default function PostCard({
   onLike: (postId: string) => void
   onClick?: () => void
 }) {
-  // Hydration safety
+  // ✅ HYDRATION SAFETY: Primary mounted state
   const [mounted, setMounted] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
@@ -34,7 +35,7 @@ export default function PostCard({
     setMounted(true)
   }, [])
 
-  // Deterministic background color selection - stable hash from post ID
+  // ✅ HYDRATION SAFE: Deterministic background color selection - stable hash from post ID
   const bgColor = useMemo(() => {
     if (!post.id) return bgColors[0]
     
@@ -45,7 +46,7 @@ export default function PostCard({
     return bgColors[Math.abs(hash) % bgColors.length]
   }, [post.id])
 
-  // Stable content preview calculation
+  // ✅ HYDRATION SAFE: Stable content preview calculation
   const contentPreview = useMemo(() => {
     if (!post.content) return ''
     
@@ -61,31 +62,27 @@ export default function PostCard({
     }
   }, [post.content])
 
-  // Stable media type detection
+  // ✅ HYDRATION SAFE: Stable media type detection with mounted guard
   const isAudioLink = useMemo(() => 
-    typeof post.media_url === 'string' &&
+    mounted && typeof post.media_url === 'string' &&
     (post.media_url.includes('suno.ai') || post.media_url.includes('udio.com'))
-  , [post.media_url])
+  , [post.media_url, mounted])
 
   const hasImage = useMemo(() =>
-    typeof post.media_url === 'string' &&
+    mounted && typeof post.media_url === 'string' &&
     isValidMediaUrl(post.media_url) &&
     !isAudioLink &&
     !imageError
-  , [post.media_url, isAudioLink, imageError])
+  , [post.media_url, isAudioLink, imageError, mounted])
 
   const hasTextOnly = !hasImage && !isAudioLink && post.content
 
-  // Format date safely
+  // ✅ HYDRATION SAFE: Format date with fallback
   const formattedDate = useMemo(() => {
-    try {
-      return new Date(post.created_at).toLocaleDateString()
-    } catch {
-      return 'Invalid date'
-    }
+    return formatDateSafe(post.created_at, 'Invalid date')
   }, [post.created_at])
 
-  // Early return during SSR - show loading skeleton
+  // ✅ HYDRATION SAFETY: Show loading skeleton during SSR
   if (!mounted) {
     return (
       <div className="break-inside-avoid mb-4 w-full">
@@ -126,7 +123,7 @@ export default function PostCard({
         } ${hasImage ? 'bg-white' : 'bg-white'} border border-gray-100`}
         onClick={onClick}
       >
-        {/* Enhanced Media Section with Better Loading */}
+        {/* Enhanced Media Section with Better Loading - BRAND COLORS FIXED */}
         {(hasImage || isAudioLink) && (
           <div className="relative w-full h-64 bg-gray-50 flex items-center justify-center overflow-hidden">
             {hasImage ? (
@@ -185,31 +182,31 @@ export default function PostCard({
           </div>
         )}
 
-        {/* Enhanced Text Content Section */}
+        {/* Enhanced Text Content Section - BRAND COLORS FIXED */}
         {post.content && (
           <div className={`p-6 text-gray-800 space-y-4 ${!hasImage && !isAudioLink ? bgColor : ''}`}>
-            {/* Main content with better typography - prioritize user commentary */}
+            {/* Main content with better typography */}
             <div>
               <div className="text-gray-800 leading-relaxed font-medium text-lg line-clamp-8 whitespace-pre-wrap">
                 {contentPreview}
               </div>
             </div>
 
-            {/* Add visual interest for text-only posts */}
+            {/* Add visual interest for text-only posts - BRAND COLORS FIXED */}
             {!hasImage && !isAudioLink && (
               <div className="relative">
                 <div className="absolute top-4 right-4 opacity-20">
-                  <Sparkles className="w-12 h-12 text-[#60A875]" />
+                  <Sparkles className="w-12 h-12 text-brand-green" />
                 </div>
                 <div className="absolute bottom-4 left-4 opacity-10">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full"></div>
+                  <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full"></div>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Enhanced User Info Bar */}
+        {/* Enhanced User Info Bar - BRAND COLORS FIXED */}
         <div className="px-6 pb-4">
           <div className="flex items-center justify-between">
             {/* Enhanced User info */}
@@ -225,7 +222,7 @@ export default function PostCard({
                   />
                 </div>
               ) : (
-                <div className="w-8 h-8 bg-gradient-to-br from-[#60A875] to-[#59B1E3] rounded-full flex items-center justify-center ring-2 ring-white shadow-md">
+                <div className="w-8 h-8 bg-gradient-to-br from-brand-green to-brand-blue rounded-full flex items-center justify-center ring-2 ring-white shadow-md">
                   <span className="text-white text-sm font-bold">
                     {(post.username || post.user_full_name || 'A').charAt(0).toUpperCase()}
                   </span>
@@ -237,7 +234,7 @@ export default function PostCard({
                     {post.user_full_name || (post.username ? `@${post.username}` : 'Anonymous')}
                   </span>
                   {post.tidbit && (
-                    <span className="text-xs bg-gradient-to-r from-[#59B1E3] to-blue-500 text-white px-3 py-1 rounded-full font-bold hover:from-blue-500 hover:to-blue-600 transition-all duration-200 whitespace-nowrap shadow-sm">
+                    <span className="text-xs bg-gradient-to-r from-brand-blue to-brand-blueDark text-white px-3 py-1 rounded-full font-bold hover:from-brand-blueDark hover:to-blue-600 transition-all duration-200 whitespace-nowrap shadow-sm">
                       Day {post.tidbit}
                     </span>
                   )}
@@ -249,7 +246,7 @@ export default function PostCard({
               </div>
             </div>
 
-            {/* Enhanced Action Buttons */}
+            {/* Enhanced Action Buttons - BRAND COLORS FIXED */}
             <div className="flex items-center gap-3">
               {/* Like Button */}
               <button
@@ -271,13 +268,13 @@ export default function PostCard({
                 <span className="text-sm font-semibold">{post.likes_count ?? 0}</span>
               </button>
 
-              {/* Comment Button */}
+              {/* Comment Button - BRAND COLORS FIXED */}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   if (onClick) onClick()
                 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 hover:bg-blue-50 text-gray-500 hover:text-[#59B1E3] border-2 border-gray-200 hover:border-[#59B1E3] shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 hover:bg-brand-blue/5 text-gray-500 hover:text-brand-blue border-2 border-gray-200 hover:border-brand-blue shadow-sm"
               >
                 <MessageCircle className="w-5 h-5" />
                 <span className="text-sm font-semibold">{post.comments_count ?? 0}</span>
@@ -295,8 +292,8 @@ export default function PostCard({
           </div>
         )}
 
-        {/* Subtle Glow Effect on Hover */}
-        <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-[#60A875]/5 to-[#59B1E3]/5 pointer-events-none"></div>
+        {/* Subtle Glow Effect on Hover - BRAND COLORS FIXED */}
+        <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-brand-green/5 to-brand-blue/5 pointer-events-none"></div>
       </div>
     </div>
   )

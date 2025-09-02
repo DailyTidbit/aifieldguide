@@ -2,19 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { formatDateSafe } from '../lib/clientUtils'
 import { 
   Eye, 
   MessageSquare, 
   Share, 
   CheckCircle, 
-  Clock,
   Trophy,
   ChevronDown,
   ChevronUp,
-  Calendar,
   Target,
-  Sparkles,
-  Filter,
   RotateCcw,
   PlayCircle,
   Circle
@@ -38,49 +35,46 @@ interface TidbitProgressTrackerProps {
 type FilterType = 'all' | 'completed' | 'in-progress' | 'not-started'
 
 export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitProgressTrackerProps) {
-  // Hydration safety
+  // ✅ HYDRATION SAFETY: Primary mounted state
   const [mounted, setMounted] = useState(false)
   const [progress, setProgress] = useState<TidbitProgress[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
   const [filter, setFilter] = useState<FilterType>('all')
-  const [showDetails, setShowDetails] = useState(false)
   const [showLegend, setShowLegend] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Calculate stats
-  const totalTidbits = progress.length
-  const completedTidbits = progress.filter(p => p.completed_steps === 3).length
-  const inProgressTidbits = progress.filter(p => p.completed_steps > 0 && p.completed_steps < 3).length
-  const notStartedTidbits = progress.filter(p => p.completed_steps === 0).length
-  const completionRate = totalTidbits > 0 ? Math.round((completedTidbits / totalTidbits) * 100) : 0
+  // ✅ HYDRATION SAFE: Calculate stats only after mounted
+  const totalTidbits = mounted ? progress.length : 0
+  const completedTidbits = mounted ? progress.filter(p => p.completed_steps === 3).length : 0
+  const inProgressTidbits = mounted ? progress.filter(p => p.completed_steps > 0 && p.completed_steps < 3).length : 0
+  const notStartedTidbits = mounted ? progress.filter(p => p.completed_steps === 0).length : 0
+  const completionRate = mounted && totalTidbits > 0 ? Math.round((completedTidbits / totalTidbits) * 100) : 0
 
-  // Filter progress
-  const filteredProgress = progress.filter(p => {
+  // ✅ HYDRATION SAFE: Filter progress only after mounted
+  const filteredProgress = mounted ? progress.filter(p => {
     switch (filter) {
       case 'completed': return p.completed_steps === 3
       case 'in-progress': return p.completed_steps > 0 && p.completed_steps < 3
       case 'not-started': return p.completed_steps === 0
       default: return true
     }
-  })
-
-  useEffect(() => {
-    if (mounted) {
-      fetchTidbitProgress()
-    }
-  }, [userId, mounted])
+  }) : []
 
   const fetchTidbitProgress = async () => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return // ✅ HYDRATION SAFETY: Guard against unmounted calls
     
     try {
       setLoading(true)
 
       const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        console.error('Supabase client not available')
+        return
+      }
 
       // Get all published tidbits
       const { data: tidbits, error: tidbitsError } = await supabase
@@ -130,9 +124,15 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
     }
   }
 
+  useEffect(() => {
+    if (mounted) {
+      fetchTidbitProgress()
+    }
+  }, [userId, mounted])
+
   // Handle clicking anywhere in the Learning Progress area to expand
   const handleSectionClick = () => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return // ✅ HYDRATION SAFETY: Guard callback
     
     if (!expanded) {
       setExpanded(true)
@@ -141,7 +141,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
 
   // Handle stat box clicks 
   const handleStatClick = (filterType: FilterType) => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return // ✅ HYDRATION SAFETY: Guard callback
     
     if (!expanded) {
       // If collapsed, expand and set filter
@@ -159,7 +159,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
 
   // Handle manual collapse via chevron button
   const handleToggleCollapse = () => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return // ✅ HYDRATION SAFETY: Guard callback
     setExpanded(!expanded)
   }
 
@@ -170,8 +170,9 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
       posted: !!progress.posted_at
     }
 
+    // ✅ BRAND COLORS FIXED
     const iconClass = completed[step] 
-      ? 'text-green-600 bg-green-100' 
+      ? 'text-brand-green bg-brand-green/10' 
       : 'text-gray-400 bg-gray-100'
 
     const IconComponent = {
@@ -188,8 +189,9 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
   }
 
   const getTidbitStatusColor = (completedSteps: number) => {
-    if (completedSteps === 3) return 'text-green-600 bg-green-50 border-green-200'
-    if (completedSteps > 0) return 'text-blue-600 bg-blue-50 border-blue-200'
+    // ✅ BRAND COLORS FIXED
+    if (completedSteps === 3) return 'text-brand-green bg-brand-green/5 border-brand-green/30'
+    if (completedSteps > 0) return 'text-brand-blue bg-brand-blue/5 border-brand-blue/30'
     return 'text-gray-600 bg-gray-50 border-gray-200'
   }
 
@@ -199,7 +201,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
     return 'Not started'
   }
 
-  // Hydration safety - show loading during hydration
+  // ✅ HYDRATION SAFETY: Show loading skeleton during hydration
   if (!mounted) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -236,7 +238,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-      {/* Header Summary - Clickable to expand */}
+      {/* Header Summary - Clickable to expand - BRAND COLORS FIXED */}
       <div 
         className={`p-6 border-b border-gray-200 transition-all duration-200 ${
           !expanded ? 'cursor-pointer hover:bg-gray-50' : ''
@@ -245,7 +247,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-[#60A875] to-[#59B1E3] text-white">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-brand-green to-brand-blue text-white">
               <Target className="w-6 h-6" />
             </div>
             <div>
@@ -270,7 +272,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
           </button>
         </div>
 
-        {/* Enhanced Quick Stats - Always clickable */}
+        {/* Enhanced Quick Stats - BRAND COLORS FIXED */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Completed Stats Box */}
           <button
@@ -280,20 +282,20 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
             }}
             className={`group relative text-center p-4 rounded-xl border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 ${
               expanded && filter === 'completed'
-                ? 'bg-green-50 border-green-300 shadow-lg ring-2 ring-green-200'
-                : 'bg-green-50 border-green-200 hover:border-green-300'
+                ? 'bg-brand-green/5 border-brand-green shadow-lg ring-2 ring-brand-green/20'
+                : 'bg-brand-green/5 border-brand-green/30 hover:border-brand-green'
             }`}
           >
             <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="p-1.5 rounded-lg bg-green-500 text-white group-hover:scale-110 transition-transform duration-200">
+              <div className="p-1.5 rounded-lg bg-brand-green text-white group-hover:scale-110 transition-transform duration-200">
                 <CheckCircle className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-green-600">{completedTidbits}</div>
-            <div className="text-sm text-green-700 font-medium">Completed</div>
+            <div className="text-2xl font-bold text-brand-green">{completedTidbits}</div>
+            <div className="text-sm text-brand-greenDark font-medium">Completed</div>
             {expanded && filter === 'completed' && (
               <div className="absolute top-2 right-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-brand-green rounded-full animate-pulse"></div>
               </div>
             )}
           </button>
@@ -306,20 +308,20 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
             }}
             className={`group relative text-center p-4 rounded-xl border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 ${
               expanded && filter === 'in-progress'
-                ? 'bg-blue-50 border-blue-300 shadow-lg ring-2 ring-blue-200'
-                : 'bg-blue-50 border-blue-200 hover:border-blue-300'
+                ? 'bg-brand-blue/5 border-brand-blue shadow-lg ring-2 ring-brand-blue/20'
+                : 'bg-brand-blue/5 border-brand-blue/30 hover:border-brand-blue'
             }`}
           >
             <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="p-1.5 rounded-lg bg-blue-500 text-white group-hover:scale-110 transition-transform duration-200">
+              <div className="p-1.5 rounded-lg bg-brand-blue text-white group-hover:scale-110 transition-transform duration-200">
                 <PlayCircle className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-blue-600">{inProgressTidbits}</div>
-            <div className="text-sm text-blue-700 font-medium">In Progress</div>
+            <div className="text-2xl font-bold text-brand-blue">{inProgressTidbits}</div>
+            <div className="text-sm text-brand-blueDark font-medium">In Progress</div>
             {expanded && filter === 'in-progress' && (
               <div className="absolute top-2 right-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-brand-blue rounded-full animate-pulse"></div>
               </div>
             )}
           </button>
@@ -377,7 +379,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
           </button>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Bar - BRAND COLORS FIXED */}
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">Tidbits Completed</span>
@@ -385,7 +387,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div 
-              className="bg-gradient-to-r from-[#60A875] to-[#59B1E3] h-3 rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-brand-green to-brand-blue h-3 rounded-full transition-all duration-500"
               style={{ width: `${completionRate}%` }}
             ></div>
           </div>
@@ -412,14 +414,14 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
         }`}
       >
         <div className="p-6 space-y-6 bg-gray-50">
-          {/* Collapsible Progress Legend */}
+          {/* Collapsible Progress Legend - BRAND COLORS FIXED */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <button
               onClick={() => setShowLegend(!showLegend)}
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center">
                   <Eye className="w-3 h-3" />
                 </div>
                 <h4 className="text-sm font-semibold text-gray-700">Progress Steps</h4>
@@ -432,7 +434,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
               )}
             </button>
             
-            {/* Collapsible Content */}
+            {/* Collapsible Content - BRAND COLORS FIXED */}
             <div 
               className={`transition-all duration-300 ease-in-out ${
                 showLegend 
@@ -443,7 +445,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
               <div className="px-4 pb-4 border-t border-gray-100">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-100 text-blue-600">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-brand-blue/10 text-brand-blue">
                       <Eye className="w-4 h-4" />
                     </div>
                     <div>
@@ -461,7 +463,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-100 text-green-600">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-brand-green/10 text-brand-green">
                       <Share className="w-4 h-4" />
                     </div>
                     <div>
@@ -486,7 +488,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
             </span>
           </div>
 
-          {/* Progress List - Mobile Optimized */}
+          {/* Progress List - Mobile Optimized - BRAND COLORS FIXED */}
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {filteredProgress.length === 0 ? (
               <div className="text-center py-8">
@@ -494,7 +496,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
                 <p className="text-gray-500 font-medium">No tidbits match this filter</p>
                 <button
                   onClick={() => setFilter('all')}
-                  className="text-[#60A875] hover:text-green-600 text-sm mt-2 flex items-center gap-1 mx-auto"
+                  className="text-brand-green hover:text-brand-greenDark text-sm mt-2 flex items-center gap-1 mx-auto"
                 >
                   <RotateCcw className="w-4 h-4" />
                   Show all tidbits
@@ -508,9 +510,9 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
                 >
                   {/* Mobile-First Layout */}
                   <div className="p-4">
-                    {/* Header Row - Day Badge + Title */}
+                    {/* Header Row - Day Badge + Title - BRAND COLORS FIXED */}
                     <div className="flex items-start gap-3 mb-3">
-                      <span className="text-sm font-bold bg-[#59B1E3] text-white px-3 py-1 rounded-full whitespace-nowrap">
+                      <span className="text-sm font-bold bg-brand-blue text-white px-3 py-1 rounded-full whitespace-nowrap">
                         Day {item.tidbit_number}
                       </span>
                       <h4 className="font-semibold text-gray-900 text-sm leading-tight flex-1 min-w-0">
@@ -531,9 +533,9 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
                           {getTidbitStatusText(item.completed_steps)}
                         </span>
                         
-                        {/* Completion Badge - Mobile Friendly */}
+                        {/* Completion Badge - Mobile Friendly - BRAND COLORS FIXED */}
                         {item.completed_steps === 3 && (
-                          <div className="flex items-center gap-1 text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                          <div className="flex items-center gap-1 text-brand-green bg-brand-green/10 px-2 py-1 rounded-full">
                             <Trophy className="w-3 h-3" />
                             <span className="text-xs font-bold hidden sm:inline">Complete!</span>
                             <span className="text-xs font-bold sm:hidden">✓</span>
@@ -541,21 +543,18 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
                         )}
                       </div>
                       
-                      {/* Action Button - Compact on Mobile */}
+                      {/* Action Button - Compact on Mobile - BRAND COLORS FIXED */}
                       <div className="flex flex-col items-end gap-1">
                         <a
                           href={`/day/${item.tidbit_number}`}
-                          className="inline-flex items-center gap-1 bg-[#60A875] hover:bg-green-600 text-white text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-colors duration-200 whitespace-nowrap"
+                          className="inline-flex items-center gap-1 bg-brand-green hover:bg-brand-greenDark text-white text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-colors duration-200 whitespace-nowrap"
                         >
                           {item.completed_steps === 0 ? 'Start' : 'Continue'}
                         </a>
-                        {/* Date - Smaller on Mobile */}
+                        {/* Date - Smaller on Mobile - HYDRATION SAFE */}
                         {item.tidbit_created_at && (
                           <div className="text-xs text-gray-500">
-                            {new Date(item.tidbit_created_at).toLocaleDateString(undefined, {
-                              month: 'short',
-                              day: 'numeric'
-                            })}
+                            {formatDateSafe(item.tidbit_created_at).replace(/\d{4}/, '').trim()}
                           </div>
                         )}
                       </div>

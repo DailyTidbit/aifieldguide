@@ -4,7 +4,7 @@
 import Script from 'next/script'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { pageview, GA_TRACKING_ID } from '../lib/gtag'
+import { pageview, GA_TRACKING_ID } from '../lib/analytics'
 
 interface GoogleAnalyticsProps {
   hasConsent: boolean

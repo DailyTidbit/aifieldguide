@@ -1,7 +1,7 @@
 // src/app/lib/field-guide-api.ts - HYDRATION SAFE VERSION
 'use client'
 
-import { getSupabaseBrowserClientSafe, getSupabaseBrowserClient } from './supabaseClient'
+import { getSupabaseBrowserClient } from './supabaseClient'
 import { FieldGuideSection, AITool } from './field-guide-types'
 
 // ✅ Add hydration safety to the Field Guide API
@@ -12,7 +12,7 @@ export class FieldGuideAPI {
   // ✅ Safe Supabase client getter
   private static getClient() {
     try {
-      return getSupabaseBrowserClientSafe()
+      return getSupabaseBrowserClient()
     } catch (error) {
       console.warn('Supabase client not available:', error)
       return null

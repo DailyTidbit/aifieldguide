@@ -1,9 +1,10 @@
-// src/app/components/PostForm.tsx - Hydration safety fixed
+// src/app/components/PostForm.tsx - HYDRATION SAFE: Fixed Date.now() issue
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { supabase } from '../lib/supabaseClient'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { safeRandom } from '../lib/clientUtils'
 import { Lock, Globe, Eye, EyeOff } from 'lucide-react'
 
 export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void }) {
@@ -13,37 +14,64 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [isPrivate, setIsPrivate] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [mounted, setMounted] = useState(false) // HYDRATION FIX
+  const [mounted, setMounted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  // ✅ HYDRATION SAFE: Generate stable file identifier only after mount
+  const [fileIdentifier, setFileIdentifier] = useState<string>('')
 
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  // HYDRATION FIX: Set mounted state
+  // Hydration safety
   useEffect(() => {
     setMounted(true)
+    // ✅ HYDRATION SAFE: Generate stable identifier after mount using safeRandom
+    const timestamp = Date.now()
+    const randomComponent = safeRandom.number().toString(36).substring(2, 15)
+    setFileIdentifier(`${timestamp}_${randomComponent}`)
   }, [])
 
   useEffect(() => {
-    // Only run on client-side after mounted
     if (!mounted) return
 
-    // Get logged-in user
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
+    const initializeComponent = async () => {
+      try {
+        const supabase = getSupabaseBrowserClient()
+        
+        // CRITICAL FIX: Handle null supabase client
+        if (!supabase) {
+          throw new Error('Supabase client not available')
+        }
+        
+        // Get logged-in user
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError) {
+          console.error('Auth error:', authError)
+          return
+        }
+        setUser(user)
 
-    // Get tidbit number from URL
-    const tidbitParam = searchParams.get('tidbit')
-    if (tidbitParam) {
-      setTidbit(Number(tidbitParam))
+        // Get tidbit number from URL
+        const tidbitParam = searchParams?.get('tidbit')
+        if (tidbitParam) {
+          setTidbit(Number(tidbitParam))
+        }
+
+        // Pre-fill content from URL params
+        const contentParam = searchParams?.get('content')
+        if (contentParam) {
+          setContent(decodeURIComponent(contentParam))
+        }
+      } catch (err: any) {
+        console.error('Error initializing PostForm:', err)
+        setError('Failed to initialize form')
+      }
     }
 
-    // Pre-fill content from URL params (from walkthrough)
-    const contentParam = searchParams.get('content')
-    if (contentParam) {
-      setContent(decodeURIComponent(contentParam))
-    }
+    initializeComponent()
   }, [searchParams, mounted])
 
-  // HYDRATION FIX: Show loading state during hydration
   if (!mounted) {
     return (
       <div className="max-w-2xl mx-auto bg-white border rounded-xl shadow p-6">
@@ -58,12 +86,19 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
     )
   }
 
-  // Direct progress tracking function
   const markPostCreated = async (tidbitNumber: number, postId: string) => {
     if (!user) return
 
     try {
       console.log(`Tracking BitBoard post for Tidbit ${tidbitNumber}, Post ID: ${postId}`)
+      
+      const supabase = getSupabaseBrowserClient()
+      
+      // CRITICAL FIX: Handle null supabase client
+      if (!supabase) {
+        console.warn('Supabase client not available')
+        return
+      }
       
       const { error } = await supabase
         .from('user_tidbit_progress')
@@ -71,7 +106,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
           user_id: user.id,
           tidbit_number: tidbitNumber,
           posted_at: new Date().toISOString(),
-          bitboard_post_id: postId // Link to the actual post
+          bitboard_post_id: postId
         }, {
           onConflict: 'user_id,tidbit_number'
         })
@@ -88,75 +123,90 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !tidbit) return
+    if (!user || !tidbit || !mounted || !fileIdentifier) return
 
     setSubmitting(true)
+    setError(null)
 
-    let media_url = null
-    if (mediaFile) {
-      const fileExt = mediaFile.name.split('.').pop()
-      const filePath = `public/${Date.now()}.${fileExt}`
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(filePath, mediaFile)
-
-      if (uploadError) {
-        console.error(uploadError)
-      } else {
-        const { data } = supabase.storage.from('media').getPublicUrl(filePath)
-        media_url = data.publicUrl
-      }
-    }
-
-    // Get the inserted post data back with .select().single()
-    const { data: postData, error } = await supabase.from('posts').insert({
-      user_id: user.id,
-      content,
-      media_url,
-      tidbit,
-      type: 'text',
-      is_private: isPrivate,
-    }).select().single()
-
-    if (error) {
-      alert('Error submitting post')
-      console.error(error)
-    } else {
-      console.log('Post created successfully:', postData)
+    try {
+      const supabase = getSupabaseBrowserClient()
       
-      // Track posting immediately with post ID
-      await markPostCreated(tidbit, postData.id)
-      
-      // Success handling
-      const successMessage = isPrivate 
-        ? 'Private post saved successfully!' 
-        : 'Posted to BitBoard successfully!'
-      
-      if (isPrivate) {
-        // For private posts, offer to view profile
-        const viewProfile = confirm(`${successMessage}\n\nWant to see it in your private collection?`)
-        if (viewProfile) {
-          window.open('/profile', '_blank')
-        }
-      } else {
-        // For public posts, offer to view BitBoard
-        const viewBitBoard = confirm(`${successMessage}\n\nWant to see it on BitBoard?`)
-        if (viewBitBoard) {
-          window.open('/bitboard', '_blank')
-        }
+      // CRITICAL FIX: Handle null supabase client
+      if (!supabase) {
+        throw new Error('Supabase client not available')
       }
       
-      // Reset form
-      setContent('')
-      setMediaFile(null)
-      setIsPrivate(false)
-      
-      // Close the modal/form (calls parent component)
-      onPostSubmit()
-    }
+      let media_url = null
+      if (mediaFile && fileIdentifier) {
+        const fileExt = mediaFile.name.split('.').pop()
+        // ✅ HYDRATION SAFE: Use stable file identifier generated after mount
+        const filePath = `public/${fileIdentifier}.${fileExt}`
 
-    setSubmitting(false)
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('media')
+          .upload(filePath, mediaFile)
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw new Error('Failed to upload media')
+        }
+
+        if (uploadData) {
+          const { data } = supabase.storage.from('media').getPublicUrl(filePath)
+          media_url = data.publicUrl
+        }
+      }
+
+      const { data: postData, error } = await supabase.from('posts').insert({
+        user_id: user.id,
+        content,
+        media_url,
+        tidbit,
+        type: 'text',
+        is_private: isPrivate,
+      }).select().single()
+
+      if (error) {
+        console.error('Post creation error:', error)
+        throw new Error('Failed to create post')
+      }
+
+      if (postData) {
+        console.log('Post created successfully:', postData)
+        
+        await markPostCreated(tidbit, postData.id)
+        
+        const successMessage = isPrivate 
+          ? 'Private post saved successfully!' 
+          : 'Posted to BitBoard successfully!'
+        
+        if (typeof window !== 'undefined') {
+          if (isPrivate) {
+            const viewProfile = window.confirm(`${successMessage}\n\nWant to see it in your private collection?`)
+            if (viewProfile) {
+              window.open('/profile', '_blank')
+            }
+          } else {
+            const viewBitBoard = window.confirm(`${successMessage}\n\nWant to see it on BitBoard?`)
+            if (viewBitBoard) {
+              window.open('/bitboard', '_blank')
+            }
+          }
+        }
+        
+        // Reset form
+        setContent('')
+        setMediaFile(null)
+        setIsPrivate(false)
+        
+        onPostSubmit()
+      }
+    } catch (err: any) {
+      console.error('Error in handleSubmit:', err)
+      setError(err.message || 'Failed to submit post')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (!user || tidbit === null) return null
@@ -166,26 +216,30 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
       onSubmit={handleSubmit}
       className="max-w-2xl mx-auto bg-white border rounded-xl shadow p-6 space-y-4"
     >
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+          {error}
+        </div>
+      )}
+
       <h2 className="text-xl font-bold text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>
         Share your creation
       </h2>
 
-      {/* Tidbit display with progress indication */}
-      <div className="bg-gradient-to-r from-[#60A875]/10 to-[#59B1E3]/10 rounded-lg p-4 border border-[#60A875]/20">
+      <div className="bg-gradient-to-r from-brand-green/10 to-brand-blue/10 rounded-lg p-4 border border-brand-green/20">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-gray-600">
               Posting to <strong>Tidbit #{tidbit}</strong>
             </div>
-            <div className="text-xs text-[#60A875] font-medium mt-1">
+            <div className="text-xs text-brand-green font-medium mt-1">
               Complete your learning journey by sharing!
             </div>
           </div>
-          <div className="text-2xl">📝</div>
+          <div className="text-2xl">🎯</div>
         </div>
       </div>
 
-      {/* Privacy Toggle - Prominent placement */}
       <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -193,7 +247,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
               {isPrivate ? (
                 <Lock className="w-5 h-5 text-orange-600" />
               ) : (
-                <Globe className="w-5 h-5 text-green-600" />
+                <Globe className="w-5 h-5 text-brand-greenDark" />
               )}
             </div>
             <div>
@@ -215,7 +269,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
               isPrivate 
                 ? 'bg-orange-500 focus:ring-orange-500' 
-                : 'bg-green-500 focus:ring-green-500'
+                : 'bg-brand-green focus:ring-brand-green'
             }`}
           >
             <span
@@ -226,14 +280,13 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
           </button>
         </div>
         
-        {/* Privacy explanation */}
         <div className="mt-3 text-xs text-gray-500 bg-white rounded-md p-3">
           <div className="flex items-start gap-2">
             <div className="flex-shrink-0">
               {isPrivate ? (
                 <EyeOff className="w-4 h-4 text-orange-500 mt-0.5" />
               ) : (
-                <Eye className="w-4 h-4 text-green-500 mt-0.5" />
+                <Eye className="w-4 h-4 text-brand-green mt-0.5" />
               )}
             </div>
             <div>
@@ -245,7 +298,7 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
               ) : (
                 <div>
                   <div className="font-medium text-green-700">Public posts help the community:</div>
-                  <div className="text-green-600">Share your creativity, inspire others, and get feedback from the Daily Tidbit community.</div>
+                  <div className="text-brand-greenDark">Share your creativity, inspire others, and get feedback from the Daily Tidbit community.</div>
                 </div>
               )}
             </div>
@@ -253,11 +306,10 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
         </div>
       </div>
 
-      {/* Single Content Field */}
       <label className="block">
         <span className="text-sm text-gray-600 font-medium">What did you create?</span>
         <textarea
-          className="border w-full mt-1 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#60A875]/20 focus:border-[#60A875] transition-colors font-mono text-sm"
+          className="border w-full mt-1 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors font-mono text-sm"
           rows={8}
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -269,24 +321,22 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
         </div>
       </label>
 
-      {/* Media Upload */}
       <label className="block">
         <span className="text-sm text-gray-600 font-medium">Upload image, video, or audio (optional)</span>
         <input
           type="file"
           accept="image/*,video/mp4,video/webm,audio/mpeg"
           onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
-          className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#60A875]/10 file:text-[#60A875] hover:file:bg-[#60A875]/20 transition-colors"
+          className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-green/10 file:text-brand-green hover:file:bg-brand-green/20 transition-colors"
         />
       </label>
 
-      {/* Submit Button */}
       <button
         type="submit"
         className={`w-full px-6 py-3 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
           isPrivate 
             ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-            : 'bg-[#60A875] hover:bg-green-600 text-white'
+            : 'bg-brand-green hover:bg-brand-greenDark text-white'
         }`}
         disabled={submitting}
       >
@@ -303,10 +353,9 @@ export default function PostForm({ onPostSubmit }: { onPostSubmit: () => void })
         )}
       </button>
 
-      {/* Progress completion note */}
       {!isPrivate && (
         <div className="text-center text-xs text-gray-500 bg-green-50 rounded-lg p-3 border border-green-200">
-          🏆 Sharing this post will complete your Day {tidbit} learning journey!
+          🎉 Sharing this post will complete your Day {tidbit} learning journey!
         </div>
       )}
     </form>

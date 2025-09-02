@@ -1,7 +1,7 @@
-// app/components/CRTSectionDisplay.tsx - Hydration-safe with FIXED HOOKS
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
+import { formatTime, formatDate } from '../lib/clientUtils'
 
 interface FieldGuideSection {
   id: string
@@ -43,17 +43,17 @@ export default function CRTSectionDisplay({
   currentChannel = 'summary',
   onChannelChange 
 }: CRTSectionDisplayProps) {
-  // ✅ FIXED: All hooks BEFORE any conditional returns
+  // ✅ HYDRATION SAFETY: All hooks BEFORE any conditional returns
+  const [mounted, setMounted] = useState(false)
   const [activeChannel, setActiveChannel] = useState<string>(currentChannel)
   const [isBooting, setIsBooting] = useState(true)
   const [tvOn, setTvOn] = useState(false)
   const [scanlines, setScanlines] = useState(true)
   const [volumeClickCount, setVolumeClickCount] = useState(0)
   const [showEasterEgg, setShowEasterEgg] = useState(false)
-  const [currentTime, setCurrentTime] = useState(new Date())
-  const [mounted, setMounted] = useState(false)
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
-  // Hydration safety
+  // ✅ HYDRATION SAFETY: Mount detection
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -63,12 +63,16 @@ export default function CRTSectionDisplay({
     setActiveChannel(currentChannel)
   }, [currentChannel])
 
-  // Update time every second when easter egg is shown - only after mounted
+  // ✅ HYDRATION SAFE: Update time only after mounted
   useEffect(() => {
     if (!mounted) return
 
     let interval: NodeJS.Timeout
     if (showEasterEgg) {
+      // Set initial time
+      setCurrentTime(new Date())
+      
+      // Update every second
       interval = setInterval(() => {
         setCurrentTime(new Date())
       }, 1000)
@@ -194,7 +198,7 @@ export default function CRTSectionDisplay({
     setTimeout(() => setScanlines(true), 100)
   }, [activeChannel, tvOn, isBooting, onChannelChange, crtMode, mounted])
 
-  // ✅ FIXED: Safety check AFTER all hooks
+  // ✅ HYDRATION SAFETY: Safety check AFTER all hooks
   if (!section) {
     return (
       <div className="max-w-6xl mx-auto text-center py-20">
@@ -231,7 +235,7 @@ export default function CRTSectionDisplay({
     {
       id: 'limitations',
       label: 'Limitations',
-      icon: '📝',
+      icon: '🔒',
       content: section?.limitations || 'Important considerations...'
     },
     {
@@ -247,7 +251,7 @@ export default function CRTSectionDisplay({
     ? { id: 'summary', label: 'Overview', icon: '📺', content: summaryContent }
     : channels.find(ch => ch.id === activeChannel) || { id: 'summary', label: 'Overview', icon: '📺', content: summaryContent }
 
-  // Don't render until mounted to prevent hydration mismatch
+  // ✅ HYDRATION SAFETY: Show loading skeleton until mounted
   if (!mounted) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -267,9 +271,8 @@ export default function CRTSectionDisplay({
 
   return (
     <div className="max-w-6xl mx-auto">
-
-      {/* Mobile Navigation - ALWAYS show on mobile */}
-      <div className="md:hidden sticky top-16 left-0 right-0 z-30 bg-gradient-to-br from-green-50 to-green-100 shadow-lg -mx-6 px-6 py-4 mb-8" style={{ marginTop: '0px' }}>
+      {/* Mobile Navigation - BRAND COLORS FIXED */}
+      <div className="md:hidden sticky top-16 left-0 right-0 z-30 bg-gradient-to-br from-brand-green/10 to-brand-green/20 shadow-lg -mx-6 px-6 py-4 mb-8" style={{ marginTop: '0px' }}>
         <div className="flex overflow-x-auto gap-3 scrollbar-hide">
           {/* Summary tab first */}
           <button
@@ -277,14 +280,11 @@ export default function CRTSectionDisplay({
             className={`
               flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full font-semibold transition-all duration-300
               ${activeChannel === 'summary'
-                ? 'text-white shadow-lg' 
-                : 'bg-white/80 text-gray-700 shadow-md'
+                ? 'bg-brand-green text-white shadow-lg' 
+                : 'bg-white/80 text-gray-700 shadow-md hover:bg-white'
               }
             `}
-            style={{
-              backgroundColor: activeChannel === 'summary' ? sectionColor : undefined,
-              fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
-            }}
+            style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
           >
             <span className="text-base">📺</span>
             <span className="text-xs font-bold whitespace-nowrap">Overview</span>
@@ -298,14 +298,11 @@ export default function CRTSectionDisplay({
               className={`
                 flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full font-semibold transition-all duration-300
                 ${activeChannel === channel.id 
-                  ? 'text-white shadow-lg' 
-                  : 'bg-white/80 text-gray-700 shadow-md'
+                  ? 'bg-brand-green text-white shadow-lg' 
+                  : 'bg-white/80 text-gray-700 shadow-md hover:bg-white'
                 }
               `}
-              style={{
-                backgroundColor: activeChannel === channel.id ? sectionColor : undefined,
-                fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
-              }}
+              style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
             >
               <span className="text-base">{channel.icon}</span>
               <span className="text-xs font-bold whitespace-nowrap">{channel.label}</span>
@@ -314,7 +311,7 @@ export default function CRTSectionDisplay({
         </div>
       </div>
 
-      {/* Desktop Channel Selection */}
+      {/* Desktop Channel Selection - BRAND COLORS FIXED */}
       {!crtMode && (
         <div className="hidden md:block mb-12 max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -325,14 +322,11 @@ export default function CRTSectionDisplay({
                 className={`
                   px-6 py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-[1.02] shadow-lg
                   ${activeChannel === channel.id 
-                    ? 'text-white shadow-xl' 
+                    ? 'bg-brand-green text-white shadow-xl' 
                     : 'bg-white/80 hover:bg-white text-gray-700 hover:shadow-xl'
                   }
                 `}
-                style={{
-                  backgroundColor: activeChannel === channel.id ? sectionColor : undefined,
-                  fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
-                }}
+                style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
               >
                 <div className="flex items-center justify-center gap-3">
                   <span className="text-xl">{channel.icon}</span>
@@ -378,7 +372,7 @@ export default function CRTSectionDisplay({
   )
 }
 
-// Modern Text Display Component
+// Modern Text Display Component - BRAND COLORS PRESERVED
 function ModernTextDisplay({ 
   activeChannelData, 
   section, 
@@ -435,7 +429,7 @@ function ModernTextDisplay({
   )
 }
 
-// CRT TV Display Component (existing - no hydration issues here)
+// CRT TV Display Component - HYDRATION SAFE CLOCK
 function CRTTVDisplay({ 
   activeChannelData, 
   section, 
@@ -465,7 +459,7 @@ function CRTTVDisplay({
   scanlines: boolean
   setScanlines: (scanlines: boolean) => void
   showEasterEgg: boolean
-  currentTime: Date
+  currentTime: Date | null
   volumeClickCount: number
   handleVolumeClick: (direction: 'up' | 'down') => void
   handleChannelChange: (channelId: string) => void
@@ -502,7 +496,7 @@ function CRTTVDisplay({
 
           {/* Power LED */}
           <div className="absolute top-8 right-12">
-            <div className={`w-3 h-3 rounded-full ${tvOn ? 'bg-green-400' : 'bg-red-600'} opacity-80 transition-all duration-300`}></div>
+            <div className={`w-3 h-3 rounded-full ${tvOn ? 'bg-brand-green' : 'bg-red-600'} opacity-80 transition-all duration-300`}></div>
           </div>
 
           {/* Screen */}
@@ -513,14 +507,14 @@ function CRTTVDisplay({
               {isBooting && tvOn && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black">
                   <div className="text-center">
-                    <div className="text-green-400 text-2xl mb-6 animate-pulse" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
+                    <div className="text-brand-green text-2xl mb-6 animate-pulse" style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}>
                       DAILY TIDBITRON v2.0
                     </div>
-                    <div className="text-green-300 text-lg mb-4" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
+                    <div className="text-brand-greenLight text-lg mb-4" style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}>
                       Loading {section?.section_name || 'Content'}...
                     </div>
                     <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden mx-auto">
-                      <div className="h-full bg-green-400 animate-pulse w-full"></div>
+                      <div className="h-full bg-brand-green animate-pulse w-full"></div>
                     </div>
                   </div>
                 </div>
@@ -535,8 +529,8 @@ function CRTTVDisplay({
                 </div>
               )}
 
-              {/* Easter Egg Screen */}
-              {showEasterEgg && tvOn && !isBooting && (
+              {/* ✅ HYDRATION SAFE: Easter Egg Screen with proper time formatting */}
+              {showEasterEgg && tvOn && !isBooting && currentTime && (
                 <div className="absolute inset-0 bg-black flex items-center justify-center z-20">
                   <div className="relative">
                     <img 
@@ -546,31 +540,23 @@ function CRTTVDisplay({
                     />
                     
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-green-400 text-center mt-8" style={{fontFamily: 'monospace'}}>
+                      <div className="text-brand-green text-center mt-8" style={{fontFamily: 'monospace'}}>
+                        {/* ✅ FIXED: Use safe time formatting */}
                         <div className="text-5xl font-bold mb-1 tracking-wider">
-                          {currentTime.toLocaleTimeString('en-US', { 
-                            hour12: false, 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                          {formatTime(currentTime).replace(/[^\d:]/g, '')}
                         </div>
                         
                         <div className="text-xl mb-6">
-                          {currentTime.toLocaleTimeString('en-US', { 
-                            hour12: true 
-                          }).split(' ')[1]}
+                          {formatTime(currentTime).includes('PM') ? 'PM' : 'AM'}
                         </div>
                         
                         <div className="text-xl font-bold">
-                          {currentTime.toLocaleDateString('en-US', { 
-                            month: 'numeric', 
-                            day: '2-digit' 
-                          })} {currentTime.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
+                          {formatDate(currentTime)}
                         </div>
                       </div>
                     </div>
                     
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-green-400 text-sm opacity-60" style={{fontFamily: 'monospace'}}>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-brand-green text-sm opacity-60" style={{fontFamily: 'monospace'}}>
                       CHEAT ACTIVATED - PRESS ANY BUTTON TO CONTINUE
                     </div>
                   </div>
@@ -651,7 +637,7 @@ function CRTTVDisplay({
                   className="w-10 h-6 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-sm flex items-center justify-center transition-colors text-white text-sm font-bold"
                   title="Previous Section"
                 >
-                  ⏪
+                  ⪸
                 </button>
                 
                 <button 
@@ -667,7 +653,7 @@ function CRTTVDisplay({
                   className="w-10 h-6 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-sm flex items-center justify-center transition-colors text-white text-sm font-bold"
                   title="Next Section"
                 >
-                  ⏩
+                  ⪷
                 </button>
                 
                 <button 
@@ -682,7 +668,7 @@ function CRTTVDisplay({
               {/* VHS Display */}
               <div className="flex items-center gap-3 bg-black px-3 py-1 rounded border border-gray-700">
                 <div className="text-xs text-gray-300">CH</div>
-                <div className="text-sm text-green-400 font-mono min-w-[20px] text-center">
+                <div className="text-sm text-brand-green font-mono min-w-[20px] text-center">
                   {activeChannel === 'summary' ? '00' : String(channels.findIndex((ch: Channel) => ch.id === activeChannel) + 1).padStart(2, '0')}
                 </div>
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
@@ -721,7 +707,7 @@ function CRTTVDisplay({
                   className="w-10 h-10 bg-gray-900 hover:bg-gray-800 border border-gray-600 rounded-full flex items-center justify-center transition-colors relative ml-2"
                   title="Power"
                 >
-                  <div className={`absolute inset-2 rounded-full transition-colors ${tvOn ? 'bg-green-400' : 'bg-red-600'}`}></div>
+                  <div className={`absolute inset-2 rounded-full transition-colors ${tvOn ? 'bg-brand-green' : 'bg-red-600'}`}></div>
                 </button>
               </div>
             </div>
@@ -736,9 +722,9 @@ function CRTTVDisplay({
           </div>
         </div>
 
-        {/* TV Glow */}
+        {/* TV Glow - BRAND COLOR */}
         {tvOn && (
-          <div className="absolute inset-0 bg-blue-400/5 rounded-lg blur-3xl scale-110 pointer-events-none"></div>
+          <div className="absolute inset-0 bg-brand-blue/5 rounded-lg blur-3xl scale-110 pointer-events-none"></div>
         )}
       </div>
     </div>

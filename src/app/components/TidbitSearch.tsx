@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Clock, Eye, ArrowRight, Loader2, AlertCircle, Book } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useDebounce } from '../hooks/useDebounce'
+import { formatDate } from '../lib/clientUtils' // ✅ Use safe date formatter
 
 interface Tidbit {
   id: number
@@ -39,23 +40,50 @@ interface SearchState {
   hasSearched: boolean
 }
 
+// ✅ HYDRATION SAFE: Analytics helper
 const trackSearchEvent = (eventName: string, parameters: Record<string, any>) => {
   if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
-    ; (window as any).gtag('event', eventName, {
-      event_category: 'search',
-      ...parameters
-    })
+    try {
+      ;(window as any).gtag('event', eventName, {
+        event_category: 'search',
+        ...parameters
+      })
+    } catch (error) {
+      console.warn('Analytics tracking failed:', error)
+    }
   }
 }
 
+// ✅ HYDRATION SAFE: Generate stable timestamp only after mount
+const getStableStartTime = (): number => {
+  if (typeof window === 'undefined') return 0
+  return Date.now()
+}
+
 const loadTidbitsFromSupabase = async (): Promise<Tidbit[]> => {
-  const supabase = getSupabaseBrowserClient()
-  const { data, error } = await supabase
-    .from('tidbits')
-    .select('*')
-    .order('day_number', { ascending: true })
-  if (error) throw error
-  return data || []
+  try {
+    const supabase = getSupabaseBrowserClient()
+    
+    // CRITICAL FIX: Handle null supabase client
+    if (!supabase) {
+      throw new Error('Supabase client not available')
+    }
+    
+    const { data, error } = await supabase
+      .from('tidbits')
+      .select('*')
+      .order('day_number', { ascending: true })
+    
+    if (error) {
+      console.error('Error loading tidbits:', error)
+      throw error
+    }
+    
+    return data || []
+  } catch (error) {
+    console.error('Failed to load tidbits:', error)
+    throw error
+  }
 }
 
 export default function TidbitSearch() {
@@ -63,10 +91,9 @@ export default function TidbitSearch() {
   const searchParams = useSearchParams()
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Hydration safety
+  // ✅ HYDRATION SAFETY: Mount protection
   const [mounted, setMounted] = useState(false)
 
-  const initialQuery = searchParams?.get('q') || ''
   const [searchState, setSearchState] = useState<SearchState>({
     tidbits: [],
     loading: true,
@@ -75,15 +102,29 @@ export default function TidbitSearch() {
     hasSearched: false
   })
 
-  const [searchQuery, setSearchQuery] = useState(initialQuery)
+  const [searchQuery, setSearchQuery] = useState('')
   const [numberQuery, setNumberQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  
+  // ✅ HYDRATION SAFE: Timing states only after mount
+  const [searchStartTime, setSearchStartTime] = useState<number>(0)
+  
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
-  // Hydration fix
+  // ✅ HYDRATION SAFETY: Mount detection
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // ✅ HYDRATION SAFE: Initialize search query from URL after hydration
+  useEffect(() => {
+    if (mounted && searchParams) {
+      const queryParam = searchParams.get('q')
+      if (queryParam) {
+        setSearchQuery(queryParam)
+      }
+    }
+  }, [mounted, searchParams])
 
   useEffect(() => {
     if (mounted) {
@@ -91,6 +132,7 @@ export default function TidbitSearch() {
     }
   }, [mounted])
 
+  // ✅ HYDRATION SAFE: Update URL only after mounted
   useEffect(() => {
     if (!mounted || typeof window === 'undefined') return
     
@@ -101,7 +143,7 @@ export default function TidbitSearch() {
   }, [debouncedSearchQuery, mounted])
 
   const loadTidbits = async () => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return
     
     try {
       setSearchState(prev => ({ ...prev, loading: true, error: null }))
@@ -113,7 +155,7 @@ export default function TidbitSearch() {
         loading: false
       }))
       trackSearchEvent('search_data_loaded', { tidbit_count: data.length })
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading tidbits:', err)
       setSearchState(prev => ({
         ...prev,
@@ -125,10 +167,11 @@ export default function TidbitSearch() {
 
   const performKeywordSearch = useCallback(
     (query: string) => {
-      if (!mounted) return // Hydration guard
+      if (!mounted) return
       
       setIsSearching(true)
-      const startTime = Date.now()
+      // ✅ HYDRATION SAFE: Set timestamp after mount using stable method
+      setSearchStartTime(getStableStartTime())
 
       if (!query.trim()) {
         setSearchState(prev => ({
@@ -173,19 +216,23 @@ export default function TidbitSearch() {
       }))
 
       setIsSearching(false)
-      const searchTime = Date.now() - startTime
-      trackSearchEvent('search_performed', {
-        query,
-        results_count: sortedResults.length,
-        search_time_ms: searchTime
-      })
+      
+      // ✅ HYDRATION SAFE: Calculate search time only if start time was set
+      if (searchStartTime > 0) {
+        const searchTime = getStableStartTime() - searchStartTime
+        trackSearchEvent('search_performed', {
+          query,
+          results_count: sortedResults.length,
+          search_time_ms: searchTime
+        })
+      }
     },
-    [searchState.tidbits, mounted]
+    [searchState.tidbits, mounted, searchStartTime]
   )
 
   const performNumberSearch = useCallback(
     (num: string) => {
-      if (!mounted) return // Hydration guard
+      if (!mounted) return
       
       if (!num.trim()) {
         setSearchState(prev => ({
@@ -225,31 +272,32 @@ export default function TidbitSearch() {
   }, [numberQuery, searchState.loading, performNumberSearch, mounted])
 
   const navigateToTidbit = (tidbit: Tidbit) => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return
     router.push(`/day/${tidbit.day_number}`)
   }
 
+  // ✅ BRAND COLOR FIX: Use brand colors instead of generic ones
   const getDifficultyColor = (level: number): string => {
     const colors: Record<number, string> = {
-      1: 'bg-green-100 text-green-800',
-      2: 'bg-blue-100 text-blue-800',
-      3: 'bg-yellow-100 text-yellow-800',
-      4: 'bg-orange-100 text-orange-800',
-      5: 'bg-red-100 text-red-800'
+      1: 'bg-brand-green/10 text-brand-green border-brand-green/20',
+      2: 'bg-brand-blue/10 text-brand-blue border-brand-blue/20', 
+      3: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      4: 'bg-orange-100 text-orange-800 border-orange-200',
+      5: 'bg-red-100 text-red-800 border-red-200'
     }
     return colors[level] || colors[1]
   }
 
   const getStatusColor = (status: string): string => {
     const colors: Record<string, string> = {
-      published: 'bg-green-100 text-green-800',
-      draft: 'bg-yellow-100 text-yellow-800',
-      archived: 'bg-gray-100 text-gray-800'
+      published: 'bg-brand-green/10 text-brand-green border-brand-green/20',
+      draft: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      archived: 'bg-gray-100 text-gray-800 border-gray-200'
     }
     return colors[status] || colors['draft']
   }
 
-  // Hydration safety - show loading state during hydration
+  // ✅ HYDRATION SAFE: Loading skeleton during hydration
   if (!mounted) {
     return (
       <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-gray-50 min-h-screen">
@@ -267,13 +315,12 @@ export default function TidbitSearch() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-gray-50 min-h-screen">
-      {/* Top bar: link to Library (mobile only) */}
       <nav className="mb-4 sm:mb-6 flex items-center justify-between sm:hidden">
         <a
           href="/TidbitLibrary"
           className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg 
-                     bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white font-semibold
-                     shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#60A875]"
+                     bg-gradient-to-r from-brand-green to-brand-blue text-white font-semibold
+                     shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green"
         >
           <span role="img" aria-label="Conch shell" className="text-lg">
             🐚
@@ -282,7 +329,6 @@ export default function TidbitSearch() {
         </a>
       </nav>
 
-      {/* Header */}
       <header className="mb-4 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2">
           Search Daily Tidbits
@@ -292,9 +338,7 @@ export default function TidbitSearch() {
         </p>
       </header>
 
-      {/* Two Search Boxes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Keyword Search */}
         <div>
           <label htmlFor="tidbit-search" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
             Search by keyword
@@ -307,8 +351,9 @@ export default function TidbitSearch() {
               placeholder="Search tidbits by keyword, title, or tag"
               value={searchQuery}
               onChange={(e) => {
+                if (!mounted) return
                 setSearchQuery(e.target.value)
-                setNumberQuery('') // clear number query if typing keyword
+                setNumberQuery('')
               }}
               className="w-full pl-9 sm:pl-12 pr-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green bg-white shadow-sm"
             />
@@ -318,7 +363,6 @@ export default function TidbitSearch() {
           </div>
         </div>
 
-        {/* Tidbit Number Search */}
         <div>
           <label htmlFor="tidbit-number" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
             Search by Tidbit number
@@ -332,8 +376,9 @@ export default function TidbitSearch() {
               placeholder="Enter day number..."
               value={numberQuery}
               onChange={(e) => {
+                if (!mounted) return
                 setNumberQuery(e.target.value)
-                setSearchQuery('') // clear keyword query if typing number
+                setSearchQuery('')
               }}
               className="w-full pl-9 sm:pl-12 pr-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green bg-white shadow-sm"
             />
@@ -341,7 +386,6 @@ export default function TidbitSearch() {
         </div>
       </div>
 
-      {/* Loading */}
       {searchState.loading && (
         <div className="flex items-center justify-center py-10 sm:py-12" role="status">
           <Loader2 className="animate-spin h-6 w-6 sm:h-8 sm:w-8 text-brand-green mr-3" />
@@ -349,7 +393,6 @@ export default function TidbitSearch() {
         </div>
       )}
 
-      {/* Error */}
       {searchState.error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-5 mb-6">
           <div className="flex items-start">
@@ -362,7 +405,6 @@ export default function TidbitSearch() {
         </div>
       )}
 
-      {/* Results */}
       {!searchState.loading && !searchState.error && (
         <div ref={resultsRef} className="space-y-4 sm:space-y-5" role="list">
           {searchState.searchResults.map((tidbit) => (
@@ -371,15 +413,14 @@ export default function TidbitSearch() {
               className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
               role="listitem"
             >
-              {/* Card header becomes column on mobile, row on larger screens */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                     <span className="text-xs sm:text-sm font-semibold text-brand-green">Day #{tidbit.day_number}</span>
-                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-full ${getStatusColor(tidbit.status)}`}>
+                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-full border ${getStatusColor(tidbit.status)}`}>
                       {tidbit.status}
                     </span>
-                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-full ${getDifficultyColor(tidbit.difficulty_level)}`}>
+                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-semibold rounded-full border ${getDifficultyColor(tidbit.difficulty_level)}`}>
                       Level {tidbit.difficulty_level}
                     </span>
                     <div className="flex items-center gap-1 text-gray-500">
@@ -406,20 +447,20 @@ export default function TidbitSearch() {
                     </div>
                   )}
 
+                  {/* ✅ HYDRATION SAFE: Use formatDate instead of toLocaleDateString */}
                   <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-500">
-                    Updated {new Date(tidbit.updated_at).toLocaleDateString()}
+                    Updated {formatDate(tidbit.updated_at)}
                   </p>
                 </div>
 
-                {/* Mobile: full-width button below; Desktop: pill on the right */}
                 <div className="sm:ml-4">
                   <button
                     onClick={() => navigateToTidbit(tidbit)}
-                    className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 bg-brand-green text-black font-semibold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2"
+                    className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-greenDark focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2"
                   >
-                    <Eye className="w-4 h-4 text-black" />
+                    <Eye className="w-4 h-4" />
                     View Tidbit
-                    <ArrowRight className="w-4 h-4 text-black" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>

@@ -6,7 +6,7 @@ import TidbitTutor from '../../components/TidbitTutor'
 import RotatingWord from '../../components/RotatingWord'
 import TryOtherAITools from '../../components/TryOtherAITools'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
-import { enhancedAnalytics } from '../../lib/enhancedAnalytics'
+import { analytics, useAnalytics, logEvent } from '../../lib/analytics'
 
 interface TidbitStep {
   id: string
@@ -49,10 +49,14 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    if (typeof window !== 'undefined' && enhancedAnalytics) {
-      enhancedAnalytics.trackError('react_error_boundary', error.message, {
-        stack: error.stack,
-        componentStack: errorInfo.componentStack
+    if (typeof window !== 'undefined' && analytics) {
+      analytics.trackEvent({
+        event_type: 'react_error_boundary',
+        event_data: {
+          error_message: error.message,
+          stack: error.stack,
+          componentStack: errorInfo.componentStack
+        }
       })
     }
   }
@@ -121,15 +125,16 @@ const StepsLoadingSkeleton = () => (
   </div>
 )
 
-// Social Sharing Component - Hydration Safe
+// Social Sharing Component - HYDRATION SAFE + BRAND COLORS
 const SocialShare = ({ tidbit }: { tidbit: any }) => {
   const [mounted, setMounted] = useState(false)
+  const { analytics: analyticsInstance } = useAnalytics()
   
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Hydration-safe values - only available after mounting
+  // HYDRATION SAFE: Only available after mounting
   const shareUrl = mounted && typeof window !== 'undefined' ? window.location.href : ''
   const shareText = `Check out Day ${tidbit.day_number}: ${tidbit.title} on Daily Tidbit!`
 
@@ -166,17 +171,24 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
     }
   ]
 
+  // HYDRATION SAFE: Fixed clipboard access pattern
   const copyToClipboard = async () => {
-    // Hydration-safe clipboard access
-    if (!mounted || typeof window === 'undefined' || !navigator?.clipboard) {
+    if (!mounted || typeof window === 'undefined' || !window.navigator?.clipboard) {
       alert('Clipboard not available')
       return
     }
 
     try {
-      await navigator.clipboard.writeText(shareUrl)
-      if (enhancedAnalytics) {
-        enhancedAnalytics.trackUserEngagement('click', 'copy_link_button')
+      await window.navigator.clipboard.writeText(shareUrl)
+      if (analyticsInstance) {
+        await analyticsInstance.trackEvent({
+          event_type: 'user_engagement',
+          event_data: {
+            engagement_type: 'click',
+            target: 'copy_link_button',
+            tidbit_number: tidbit.day_number
+          }
+        })
       }
       alert('Link copied to clipboard!')
     } catch (err) {
@@ -185,12 +197,20 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
     }
   }
 
-  const handleSocialShare = (platform: string, url: string) => {
-    // Hydration-safe window access
+  const handleSocialShare = async (platform: string, url: string) => {
+    // HYDRATION SAFE: Window access
     if (!mounted || typeof window === 'undefined') return
     
-    if (enhancedAnalytics) {
-      enhancedAnalytics.trackUserEngagement('click', `share_${platform.toLowerCase()}_button`)
+    if (analyticsInstance) {
+      await analyticsInstance.trackEvent({
+        event_type: 'user_engagement',
+        event_data: {
+          engagement_type: 'click',
+          target: `share_${platform.toLowerCase()}_button`,
+          tidbit_number: tidbit.day_number,
+          platform: platform.toLowerCase()
+        }
+      })
     }
     window.open(url, '_blank', 'noopener,noreferrer')
   }
@@ -245,7 +265,7 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
         
         <button
           onClick={copyToClipboard}
-          className="flex items-center gap-2 px-4 py-3 bg-brand-green hover:bg-brand-green/90 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg body-bold shadow-md border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          className="flex items-center gap-2 px-4 py-3 bg-brand-green hover:bg-brand-greenDark text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg body-bold shadow-md border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
           title="Copy link"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -258,15 +278,21 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
   )
 }
 
-// Enhanced Video Component - Hydration Safe
+// Enhanced Video Component - HYDRATION SAFE + BRAND COLORS
 const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
   const [mounted, setMounted] = useState(false)
   const [videoError, setVideoError] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const { analytics: analyticsInstance } = useAnalytics()
+  
+  // ✅ HYDRATION SAFE: Timestamp generation only after mount
+  const [analyticsTimestamp, setAnalyticsTimestamp] = useState<number>(0)
 
   useEffect(() => {
     setMounted(true)
+    // ✅ HYDRATION SAFE: Generate timestamp after mount for analytics
+    setAnalyticsTimestamp(Date.now())
   }, [])
 
   const handleVideoLoad = () => {
@@ -275,30 +301,39 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
 
   const handleVideoError = () => {
     setVideoError(true)
-    if (mounted && enhancedAnalytics) {
-      enhancedAnalytics.trackError('video_load_error', `Failed to load video for tidbit ${tidbit.day_number}`)
+    if (mounted && analyticsInstance) {
+      analyticsInstance.trackEvent({
+        event_type: 'video_error',
+        event_data: {
+          error_type: 'video_load_error',
+          video_id: `tidbit_${tidbit.day_number}_video`,
+          tidbit_number: tidbit.day_number
+        }
+      })
     }
   }
 
-  const handlePlay = () => {
+  const handlePlay = async () => {
     setIsPlaying(true)
-    if (mounted && enhancedAnalytics) {
-      enhancedAnalytics.trackVideoInteraction({
+    // ✅ HYDRATION SAFE: Only use timestamp after it's been set
+    if (mounted && analyticsInstance && analyticsTimestamp > 0) {
+      await analyticsInstance.trackVideoInteraction({
         video_id: `tidbit_${tidbit.day_number}_video`,
         action: 'play',
-        timestamp: Date.now(),
+        timestamp: analyticsTimestamp, // Use pre-generated timestamp
         duration: 0
       })
     }
   }
 
-  const handlePause = () => {
+  const handlePause = async () => {
     setIsPlaying(false)
-    if (mounted && enhancedAnalytics) {
-      enhancedAnalytics.trackVideoInteraction({
+    // ✅ HYDRATION SAFE: Only use timestamp after it's been set
+    if (mounted && analyticsInstance && analyticsTimestamp > 0) {
+      await analyticsInstance.trackVideoInteraction({
         video_id: `tidbit_${tidbit.day_number}_video`,
         action: 'pause',
-        timestamp: Date.now()
+        timestamp: Date.now() // This is fine as it's in a user interaction handler
       })
     }
   }
@@ -350,7 +385,7 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
   )
 }
 
-// Progress Analytics Component - Hydration Safe
+// Progress Analytics Component - HYDRATION SAFE + BRAND COLORS
 const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
   const [mounted, setMounted] = useState(false)
   
@@ -405,6 +440,7 @@ const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
 export default function DayPage({ params }: DayPageProps) {
   // CRITICAL: Mount guard for hydration safety
   const [mounted, setMounted] = useState(false)
+  const { analytics: analyticsInstance } = useAnalytics()
   
   // Component state
   const [resolvedParams, setResolvedParams] = useState<{ day: string } | null>(null)
@@ -417,10 +453,15 @@ export default function DayPage({ params }: DayPageProps) {
   const [latestConversation, setLatestConversation] = useState<TutorConversation | null>(null)
   const [user, setUser] = useState<any>(null)
   const [userProgress, setUserProgress] = useState<UserProgress>({})
+  
+  // ✅ HYDRATION SAFE: Analytics timestamp generated only after mount
+  const [conversationIdTimestamp, setConversationIdTimestamp] = useState<number>(0)
 
   // Initialize mounted state
   useEffect(() => {
     setMounted(true)
+    // ✅ HYDRATION SAFE: Generate timestamp for conversation IDs after mount
+    setConversationIdTimestamp(Date.now())
   }, [])
 
   // Memoized processed steps
@@ -431,13 +472,15 @@ export default function DayPage({ params }: DayPageProps) {
     })), [tidbitSteps]
   )
 
-  // Enhanced progress tracking - hydration safe
+  // Enhanced progress tracking - HYDRATION SAFE: Fixed Supabase null handling
   const markTidbitViewed = async (tidbitNumber: number) => {
     if (!mounted || !user) return
 
     setProgressLoading(true)
     try {
       const supabase = getSupabaseBrowserClient()
+      
+      // CRITICAL FIX: Handle null supabase client
       if (!supabase) {
         console.warn('Supabase client not available')
         return
@@ -457,8 +500,8 @@ export default function DayPage({ params }: DayPageProps) {
         console.error('Error marking tidbit viewed:', error)
       } else {
         setUserProgress(prev => ({ ...prev, viewedAt: new Date().toISOString() }))
-        if (mounted && enhancedAnalytics) {
-          enhancedAnalytics.trackTidbitViewed(tidbitNumber)
+        if (mounted && analyticsInstance) {
+          await analyticsInstance.trackTidbitViewed(tidbitNumber)
         }
       }
     } catch (error) {
@@ -473,7 +516,12 @@ export default function DayPage({ params }: DayPageProps) {
 
     try {
       const supabase = getSupabaseBrowserClient()
-      if (!supabase) return
+      
+      // CRITICAL FIX: Handle null supabase client
+      if (!supabase) {
+        console.warn('Supabase client not available')
+        return
+      }
       
       const { error } = await supabase
         .from('user_tidbit_progress')
@@ -489,9 +537,10 @@ export default function DayPage({ params }: DayPageProps) {
         console.error('Error marking tutor used:', error)
       } else {
         setUserProgress(prev => ({ ...prev, practicedWithAI: true }))
-        if (mounted && enhancedAnalytics) {
-          enhancedAnalytics.trackAIPracticed(tidbitNumber, {
-            conversation_id: `conv_${Date.now()}`,
+        // ✅ HYDRATION SAFE: Only use timestamp after it's been set
+        if (mounted && analyticsInstance && conversationIdTimestamp > 0) {
+          await analyticsInstance.trackAIPracticed(tidbitNumber, {
+            conversation_id: `conv_${conversationIdTimestamp}`, // Use pre-generated timestamp
             message_count: 1,
             session_duration: 0,
             topics_discussed: [tidbit?.title || 'AI Practice']
@@ -503,13 +552,18 @@ export default function DayPage({ params }: DayPageProps) {
     }
   }
 
-  // Load user progress - hydration safe
+  // Load user progress - HYDRATION SAFE: Fixed Supabase null handling
   const loadUserProgress = async (userId: string, tidbitNumber: number) => {
     if (!mounted) return
     
     try {
       const supabase = getSupabaseBrowserClient()
-      if (!supabase) return
+      
+      // CRITICAL FIX: Handle null supabase client
+      if (!supabase) {
+        console.warn('Supabase client not available')
+        return
+      }
       
       const { data: tidbitProgress } = await supabase
         .from('user_tidbit_progress')
@@ -556,7 +610,7 @@ export default function DayPage({ params }: DayPageProps) {
     }
   }
 
-  // Resolve params and fetch data - ONLY after mounting
+  // Resolve params and fetch data - HYDRATION SAFE: Only after mounting
   useEffect(() => {
     if (!mounted) return
 
@@ -568,10 +622,11 @@ export default function DayPage({ params }: DayPageProps) {
         const { day } = resolvedParams
         console.log('Day param:', day)
 
-        // Hydration-safe Supabase client access
+        // CRITICAL FIX: Handle null supabase client
         const supabase = getSupabaseBrowserClient()
         if (!supabase) {
           setError('Database connection unavailable')
+          setLoading(false)
           return
         }
         
@@ -584,6 +639,7 @@ export default function DayPage({ params }: DayPageProps) {
 
         if (error || !data) {
           setError(error?.message || 'Tidbit not found')
+          setLoading(false)
           return
         }
 
@@ -615,8 +671,14 @@ export default function DayPage({ params }: DayPageProps) {
       } catch (err) {
         setError('Failed to load tidbit')
         console.error(err)
-        if (mounted && enhancedAnalytics) {
-          enhancedAnalytics.trackError('tidbit_fetch_error', String(err))
+        if (mounted && analyticsInstance) {
+          await analyticsInstance.trackEvent({
+            event_type: 'tidbit_fetch_error',
+            event_data: {
+              error_message: String(err),
+              attempted_day: resolvedParams?.day
+            }
+          })
         }
       } finally {
         setLoading(false)
@@ -624,14 +686,16 @@ export default function DayPage({ params }: DayPageProps) {
     }
 
     fetchData()
-  }, [mounted, params])
+  }, [mounted, params, analyticsInstance])
 
-  // Check for user auth and load progress - ONLY after mounting and tidbit loaded
+  // Check for user auth and load progress - HYDRATION SAFE: Only after mounting and tidbit loaded
   useEffect(() => {
     if (!mounted || !tidbit) return
     
     const initializeUser = async () => {
       const supabase = getSupabaseBrowserClient()
+      
+      // CRITICAL FIX: Handle null supabase client
       if (!supabase) {
         console.warn('Supabase client not available for user initialization')
         return
@@ -649,7 +713,7 @@ export default function DayPage({ params }: DayPageProps) {
     initializeUser()
   }, [mounted, tidbit])
 
-  // Loading state - show until mounted AND data loaded
+  // HYDRATION SAFETY: Show loading until mounted AND data loaded
   if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50/30 to-blue-50/30 flex items-center justify-center">
@@ -672,7 +736,7 @@ export default function DayPage({ params }: DayPageProps) {
               window.location.href = '/'
             }
           }}
-          className="mt-4 px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-green/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          className="mt-4 px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
         >
           Back to Home
         </button>
@@ -710,7 +774,7 @@ export default function DayPage({ params }: DayPageProps) {
             <ProgressAnalytics progress={userProgress} />
           )}
 
-          {/* What You'll Learn & What You Need - Combined White Box */}
+          {/* What You'll Learn & What You Need - Combined White Box with BRAND COLORS */}
           <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
             <div className="space-y-8">
               {/* What You'll Learn */}
@@ -741,7 +805,7 @@ export default function DayPage({ params }: DayPageProps) {
             </div>
           </section>
 
-          {/* Timeline Walkthrough Steps */}
+          {/* Timeline Walkthrough Steps with BRAND COLORS */}
           <section className="sm:bg-white/95 sm:backdrop-blur-sm sm:rounded-2xl sm:p-6 lg:p-8 sm:border sm:border-emerald-200/50 sm:shadow-lg overflow-hidden relative">
             <ErrorBoundary fallback={StepsErrorFallback}>
               <Suspense fallback={<StepsLoadingSkeleton />}>
@@ -764,7 +828,7 @@ export default function DayPage({ params }: DayPageProps) {
                     <div className="relative space-y-4 sm:space-y-8 mb-12">
                       {processedSteps.map((step, index) => (
                         <div key={step.id} className="relative group">
-                          {/* Step Number Badge */}
+                          {/* Step Number Badge with BRAND COLORS */}
                           <div className={`
                             absolute top-2 left-2 sm:-left-6 sm:top-1/2 sm:-translate-y-1/2 flex items-center justify-center 
                             w-10 h-10 sm:w-20 sm:h-20 
@@ -859,7 +923,7 @@ export default function DayPage({ params }: DayPageProps) {
   )
 }
 
-// Rich Content Component - keeping original functionality
+// Rich Content Component - keeping original functionality with BRAND COLORS
 function RichContent({ children }: { children: string }) {
   // Clean up content - handle \r\n, multiple spaces, etc.
   const cleanContent = children
@@ -910,7 +974,7 @@ function RichContent({ children }: { children: string }) {
                 } else if (part.startsWith('http')) {
                   return (
                     <a key={i} href={part} target="_blank" rel="noopener noreferrer" 
-                       className="text-brand-blue hover:text-blue-700 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2">
+                       className="text-brand-blue hover:text-brand-blueDark underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2">
                       {part}
                     </a>
                   )

@@ -1,4 +1,4 @@
-/* === Tailwind v4 single import === */
+﻿/* === Tailwind v4 single import === */
 @import "tailwindcss";
 
 /* === Root Theme Variables === */
@@ -6,9 +6,13 @@
   --background: #ffffff;
   --foreground: #171717;
   
-  /* Daily Tidbit Brand Colors */
+  /* Daily Tidbit Brand Colors - FIXED: Use actual hex values */
   --brand-green: #60A875;
+  --brand-green-dark: #4e8e61;
+  --brand-green-light: #7bc190;
   --brand-blue: #59B1E3;
+  --brand-blue-dark: #4791bf;
+  --brand-blue-light: #7cc4eb;
   
   /* Typography Variables */
   --font-space-grotesk: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -20,14 +24,6 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
-
-/* Optional: map tokens into Tailwind v4 theme */
-@theme {
-  --color-brand-green: var(--brand-green);
-  --color-brand-blue: var(--brand-blue);
-  --font-sans: var(--font-space-grotesk);
-  --font-serif: var(--font-playfair);
 }
 
 /* === Base Styles === */
@@ -120,23 +116,6 @@ textarea::placeholder {
   color: #6b7280;
 }
 
-/* === Brand Utilities === */
-.text-brand-green {
-  color: var(--brand-green);
-}
-
-.text-brand-blue {
-  color: var(--brand-blue);
-}
-
-.bg-brand-green {
-  background-color: var(--brand-green);
-}
-
-.bg-brand-blue {
-  background-color: var(--brand-blue);
-}
-
 /* === Layout Utilities === */
 .container-custom {
   max-width: 1200px;
@@ -205,74 +184,6 @@ textarea::placeholder {
   display: none;
 }
 
-/* === Animation Keyframes === */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* === Animation Classes === */
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-.animate-slide-up {
-  animation: slide-up 0.5s ease-out;
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
 /* === Interactive States === */
 .hover-scale {
   transition: transform 0.2s ease;
@@ -308,14 +219,6 @@ select:focus-visible {
 
 .backdrop-blur-md {
   backdrop-filter: blur(12px);
-}
-
-.shadow-brand {
-  box-shadow: 0 4px 14px 0 rgba(96, 168, 117, 0.15);
-}
-
-.shadow-brand-lg {
-  box-shadow: 0 10px 28px 0 rgba(96, 168, 117, 0.2);
 }
 
 .glass-effect {

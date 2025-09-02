@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { Search, Plus, Edit, Trash2, Eye, Calendar, Tag, Clock, BarChart3, Filter } from 'lucide-react'
+import { formatDateSafe } from '../lib/clientUtils'
 
 // Define the Tidbit type
 interface Tidbit {
@@ -62,6 +63,8 @@ const mockTidbits: Tidbit[] = [
 ]
 
 export default function AdminDashboard() {
+  // ✅ HYDRATION SAFETY: Primary mounted state
+  const [mounted, setMounted] = useState(false)
   const [tidbits, setTidbits] = useState<Tidbit[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft' | 'archived'>('all')
@@ -69,16 +72,14 @@ export default function AdminDashboard() {
   const [selectedTidbit, setSelectedTidbit] = useState<Tidbit | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
-  // Hydration safety
   useEffect(() => {
     setMounted(true)
     // Load data only after mounted
     setTidbits(mockTidbits)
   }, [])
 
-  // Filter tidbits based on search and filters - only after mounted
+  // ✅ HYDRATION SAFE: Filter tidbits only after mounted
   const filteredTidbits = mounted ? tidbits.filter(tidbit => {
     const matchesSearch = tidbit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tidbit.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -88,7 +89,7 @@ export default function AdminDashboard() {
     return matchesSearch && matchesStatus && matchesDifficulty
   }) : []
 
-  // Stats for dashboard overview - only calculate after mounted
+  // ✅ HYDRATION SAFE: Calculate stats only after mounted
   const stats = mounted ? {
     total: tidbits.length,
     published: tidbits.filter(t => t.status === 'published').length,
@@ -102,9 +103,10 @@ export default function AdminDashboard() {
   }
 
   const getDifficultyColor = (level: number): string => {
+    // ✅ BRAND COLORS FIXED - Keep status colors as semantic
     const colors: Record<number, string> = {
-      1: 'bg-green-100 text-green-800',
-      2: 'bg-blue-100 text-blue-800', 
+      1: 'bg-brand-green/10 text-brand-green',
+      2: 'bg-brand-blue/10 text-brand-blue', 
       3: 'bg-yellow-100 text-yellow-800',
       4: 'bg-orange-100 text-orange-800',
       5: 'bg-red-100 text-red-800'
@@ -113,6 +115,7 @@ export default function AdminDashboard() {
   }
 
   const getStatusColor = (status: string): string => {
+    // Keep semantic status colors
     const colors: Record<string, string> = {
       published: 'bg-green-100 text-green-800',
       draft: 'bg-yellow-100 text-yellow-800',
@@ -122,14 +125,14 @@ export default function AdminDashboard() {
   }
 
   const handleDelete = (tidbitId: number) => {
-    if (!mounted) return
+    if (!mounted) return // ✅ HYDRATION SAFETY: Guard callback
     
     if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this tidbit?')) {
       setTidbits(tidbits.filter(t => t.id !== tidbitId))
     }
   }
 
-  // Show loading state during hydration
+  // ✅ HYDRATION SAFETY: Show loading skeleton during hydration
   if (!mounted) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -178,11 +181,11 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        {/* Stats Overview */}
+        {/* Stats Overview - BRAND COLORS FIXED */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#60A875] rounded-lg">
+              <div className="p-2 bg-brand-green rounded-lg">
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -194,7 +197,7 @@ export default function AdminDashboard() {
           
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500 rounded-lg">
+              <div className="p-2 bg-brand-green rounded-lg">
                 <Eye className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -218,7 +221,7 @@ export default function AdminDashboard() {
           
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#59B1E3] rounded-lg">
+              <div className="p-2 bg-brand-blue rounded-lg">
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -229,7 +232,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Controls - BRAND COLORS FIXED */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             {/* Search */}
@@ -240,7 +243,7 @@ export default function AdminDashboard() {
                 placeholder="Search tidbits or tags..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green"
               />
             </div>
 
@@ -249,7 +252,7 @@ export default function AdminDashboard() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | 'published' | 'draft' | 'archived')}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green"
               >
                 <option value="all">All Status</option>
                 <option value="published">Published</option>
@@ -260,7 +263,7 @@ export default function AdminDashboard() {
               <select
                 value={difficultyFilter}
                 onChange={(e) => setDifficultyFilter(e.target.value as 'all' | '1' | '2' | '3' | '4' | '5')}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875]"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green"
               >
                 <option value="all">All Difficulty</option>
                 <option value="1">Beginner (1)</option>
@@ -272,7 +275,7 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => setShowNewModal(true)}
-                className="bg-[#60A875] text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                className="bg-brand-green text-white px-4 py-2 rounded-lg hover:bg-brand-greenDark transition-colors flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 New Tidbit
@@ -281,7 +284,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Tidbits Table */}
+        {/* Tidbits Table - BRAND COLORS FIXED */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -301,7 +304,7 @@ export default function AdminDashboard() {
                 {filteredTidbits.map((tidbit) => (
                   <tr key={tidbit.id} className="hover:bg-gray-50">
                     <td className="py-4 px-6">
-                      <span className="font-semibold text-[#60A875]">#{tidbit.day_number}</span>
+                      <span className="font-semibold text-brand-green">#{tidbit.day_number}</span>
                     </td>
                     <td className="py-4 px-6">
                       <div>
@@ -340,7 +343,8 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                      {new Date(tidbit.updated_at).toLocaleDateString()}
+                      {/* ✅ HYDRATION SAFE: Use safe date formatting */}
+                      {formatDateSafe(tidbit.updated_at)}
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
@@ -350,7 +354,7 @@ export default function AdminDashboard() {
                               window.open(`/day/${tidbit.day_number}`, '_blank')
                             }
                           }}
-                          className="p-1 text-gray-400 hover:text-[#59B1E3] transition-colors"
+                          className="p-1 text-gray-400 hover:text-brand-blue transition-colors"
                           title="View"
                         >
                           <Eye className="w-4 h-4" />
@@ -360,7 +364,7 @@ export default function AdminDashboard() {
                             setSelectedTidbit(tidbit)
                             setShowEditModal(true)
                           }}
-                          className="p-1 text-gray-400 hover:text-[#60A875] transition-colors"
+                          className="p-1 text-gray-400 hover:text-brand-green transition-colors"
                           title="Edit"
                         >
                           <Edit className="w-4 h-4" />
@@ -393,7 +397,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Modals - BRAND COLORS FIXED */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
@@ -408,7 +412,7 @@ export default function AdminDashboard() {
               </button>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors"
+                className="px-4 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors"
               >
                 Save Changes
               </button>
@@ -431,7 +435,7 @@ export default function AdminDashboard() {
               </button>
               <button
                 onClick={() => setShowNewModal(false)}
-                className="px-4 py-2 bg-[#60A875] text-white rounded-lg hover:bg-green-600 transition-colors"
+                className="px-4 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors"
               >
                 Create Tidbit
               </button>
