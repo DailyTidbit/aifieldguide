@@ -227,7 +227,7 @@ export function isValidRawTool(tool: any): tool is AIToolRaw {
       tool.name.length > 0 &&
       tool.category.length > 0 &&
       tool.description.length > 0
-      // Don't validate detailed_description length since it can be very long
+      // don&apos;t validate detailed_description length since it can be very long
     )
   } catch (error) {
     console.warn('Error validating tool:', error)

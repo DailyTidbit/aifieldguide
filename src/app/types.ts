@@ -99,7 +99,7 @@ export interface UseAuthReturn {
   // Methods (these will be memoized in the hook implementation)
   signIn: (email: string, password?: string) => Promise<void>;
   signInWithOAuth: (provider: 'google' | 'apple') => Promise<void>;
-  signInWithMagicLink: (email: string, options?: any) => Promise<void>;
+  signInWithMagicLink: (email: string, options?: { redirectTo?: string }) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;

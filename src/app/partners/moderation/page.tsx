@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAuth } from '../../../hooks/useAuth'
+import { useAuth } from '../../hooks/useAuth'
 import { 
   CheckCircle, 
   XCircle, 
@@ -16,7 +16,7 @@ import {
   Send,
   Eye
 } from 'lucide-react'
-import { SafeDate } from '../../../lib/clientUtils' // ✅ FIXED: Import SafeDate
+import { SafeDate } from '../../lib/clientUtils' // ✅ FIXED: Import SafeDate
 
 type PartnerRequest = {
   id: string

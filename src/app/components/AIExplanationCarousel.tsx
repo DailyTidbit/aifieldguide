@@ -146,13 +146,13 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            It's trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
+            it&apos;s trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
           </p>
           <p className="mb-3 sm:mb-4">
             Some models write, some generate images, others make music, synthesize voices, or even help with code.
           </p>
           <p className="mb-3 sm:mb-4">
-            You don't see the model — and you don't have to.
+            You don&apos;t see the model — and you don&apos;t have to.
           </p>
           <p className="font-bold text-brand-green text-base sm:text-lg">
             It all happens in the background, but that's where the magic lives.
@@ -167,7 +167,7 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            Most people don't interact with the model directly. Instead, they use websites or apps that make it easy.
+            Most people don&apos;t interact with the model directly. Instead, they use websites or apps that make it easy.
           </p>
           <p className="mb-3 sm:mb-4">
             These tools give you a simple interface — like a chat box, design screen, or form.
@@ -191,7 +191,7 @@ const AIExplanationCarousel: React.FC = () => {
             One smart tip a day to help you write better, create faster, and save time with free tools anyone can use.
           </p>
           <p className="mb-4 sm:mb-6">
-            You don't need to be technical. <span className="font-bold text-purple-600">You just need to show up.</span>
+            You don&apos;t need to be technical. <span className="font-bold text-purple-600">You just need to show up.</span>
           </p>
         </>
       ),

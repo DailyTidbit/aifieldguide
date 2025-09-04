@@ -397,7 +397,7 @@ export default function WalkthroughBitBoardCTA({
           {/* Hint about what will be shared */}
           {latestConversation && (
             <div className="mt-6 text-sm text-gray-600 bg-white/50 rounded-lg p-4">
-              <p className="font-medium mb-2">Preview of what you'll share:</p>
+              <p className="font-medium mb-2">Preview of what you&apos;ll share:</p>
               <div className="text-left space-y-2">
                 <div className="text-red-700">
                   <strong>Before:</strong> "{latestConversation.userInput.slice(0, 50)}..."

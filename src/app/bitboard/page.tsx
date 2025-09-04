@@ -201,7 +201,7 @@ const parseSearchQuery = (query: string) => {
     }
   }
 
-  // Only treat bare numbers as tidbit days if they're complete and reasonable
+  // Only treat bare numbers as tidbit days if they&apos;re complete and reasonable
   const bareNumberMatch = remainingQuery.match(/^(\d{1,2})$/)
   if (bareNumberMatch) {
     const dayNum = parseInt(bareNumberMatch[1])
@@ -540,7 +540,7 @@ function BitBoardContent() {
 
   // ✅ HYDRATION SAFE: Enhanced filtered posts with safe date handling
   const filteredPosts = useMemo(() => {
-    if (!mounted) return [] // Don't filter until mounted
+    if (!mounted) return [] // don&apos;t filter until mounted
 
     let filtered = [...posts]
 
@@ -1159,13 +1159,13 @@ function BitBoardContent() {
                 </h3>
                 <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">
                   {filterOption === 'private' 
-                    ? "Private posts you create will appear here. They're only visible to you!"
+                    ? "Private posts you create will appear here. they&apos;re only visible to you!"
                     : debouncedSearchQuery 
                       ? `No posts match "${debouncedSearchQuery}". Try a different search.`
                       : selectedTidbit 
                         ? `No posts for Day ${selectedTidbit} yet. Be the first to create one!`
                         : filterOption === 'commented'
-                          ? "You haven't commented on any posts yet. Start engaging with the community!"
+                          ? "You haven&apos;t commented on any posts yet. Start engaging with the community!"
                           : "Be the first to share your AI creation and inspire the community!"
                   }
                 </p>

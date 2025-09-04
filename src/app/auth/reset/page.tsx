@@ -172,7 +172,7 @@ function PasswordResetContent() {
     }
   }
 
-  // Don't render anything until mounted
+  // don&apos;t render anything until mounted
   if (!mounted) {
     return null
   }

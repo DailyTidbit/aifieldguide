@@ -182,7 +182,7 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
                 <div className="w-16 h-16 bg-gradient-to-br from-[brand-green] to-[brand-blue] rounded-full mx-auto mb-4 flex items-center justify-center">
                   <User className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Let's get to know you!</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">let&apos;s get to know you!</h3>
                 <p className="text-gray-600">Tell us your name and choose a username</p>
               </div>
               <div className="space-y-4">
@@ -295,7 +295,7 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Tell your story</h3>
-                <p className="text-gray-600">Share what you're passionate about (optional)</p>
+                <p className="text-gray-600">Share what you&apos;re passionate about (optional)</p>
               </div>
               <div className="space-y-4">
                 <div>
@@ -307,7 +307,7 @@ export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone 
                     onChange={(e) => setFormData((p) => ({ ...p, bio: e.target.value }))} 
                     rows={4} 
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-green] focus:border-[brand-green]" 
-                    placeholder="Tell us about yourself, your interests in AI, or what you're working on..." 
+                    placeholder="Tell us about yourself, your interests in AI, or what you&apos;re working on..." 
                   />
                   <p className="text-sm text-gray-500 mt-1">{formData.bio.length}/160 characters</p>
                 </div>

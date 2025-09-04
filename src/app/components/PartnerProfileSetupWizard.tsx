@@ -709,7 +709,7 @@ export default function PartnerProfileSetupWizard({
                 <div className="w-16 h-16 bg-gradient-to-br from-[brand-green] to-[brand-blue] rounded-full mx-auto mb-4 flex items-center justify-center">
                   <CheckCircle2 className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">You're All Set!</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">you&apos;re All Set!</h3>
                 <p className="text-gray-600">Review your information and complete setup</p>
               </div>
 

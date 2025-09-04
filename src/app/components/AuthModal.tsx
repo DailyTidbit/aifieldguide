@@ -1,4 +1,4 @@
-// src/app/components/AuthModal.tsx - COMPLETE HYDRATION SAFE + BRAND COLOR FIX
+// src/app/components/AuthModal.tsx - COMPLETE HYDRATION FIX
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -15,29 +15,6 @@ interface AuthModalProps {
   subtitle?: string
 }
 
-// ✅ HYDRATION SAFE: Loading component
-const AuthModalSkeleton = () => (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-    <div 
-      className="absolute inset-0 bg-black/50" 
-      aria-hidden="true"
-    />
-
-    <div className="relative z-[71] w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-      <div className="text-center space-y-4">
-        <div className="h-6 bg-gray-200 animate-pulse rounded w-48 mx-auto"></div>
-        <div className="h-4 bg-gray-200 animate-pulse rounded w-32 mx-auto"></div>
-        
-        <div className="space-y-3 mt-6">
-          <div className="h-12 bg-gray-200 animate-pulse rounded-lg"></div>
-          <div className="h-12 bg-gray-200 animate-pulse rounded-lg"></div>
-          <div className="h-10 bg-gray-200 animate-pulse rounded-lg"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-)
-
 export default function AuthModal({ 
   isOpen, 
   onClose, 
@@ -51,12 +28,12 @@ export default function AuthModal({
   const [clientMounted, setClientMounted] = useState(false)
   const dialogRef = useRef<HTMLDivElement | null>(null)
 
-  // ✅ HYDRATION FIX: Wait for component to mount before any DOM manipulation
+  // CRITICAL: Component must be mounted before any DOM operations
   useEffect(() => {
     setClientMounted(true)
   }, [])
 
-  // ✅ HYDRATION SAFE: Focus trap + ESC + body scroll lock - Only after mounted
+  // HYDRATION SAFE: Focus trap + ESC + body scroll lock - Only after both mounted states
   useEffect(() => {
     if (!clientMounted || !mounted || !isOpen) return
     
@@ -89,7 +66,7 @@ export default function AuthModal({
     first?.focus()
     document.addEventListener('keydown', handleKeyDown)
     
-    // ✅ HYDRATION FIX: Guard body class manipulation
+    // Body scroll lock - guard against SSR
     if (typeof document !== 'undefined') {
       document.body.classList.add('overflow-hidden')
     }
@@ -102,7 +79,7 @@ export default function AuthModal({
     }
   }, [isOpen, onClose, clientMounted, mounted])
 
-  // ✅ HYDRATION SAFE: Handle auth state changes - Wait for both mounted states
+  // HYDRATION SAFE: Handle auth state changes - Wait for all mounted states
   useEffect(() => {
     if (!clientMounted || !mounted || !isOpen || loading) return
 
@@ -130,13 +107,14 @@ export default function AuthModal({
     onClose()
   }
 
-  // ✅ HYDRATION SAFETY: Show skeleton during SSR or unmounted state
-  if (!clientMounted) {
-    return isOpen ? <AuthModalSkeleton /> : null
+  // CRITICAL: Don't render anything until both client and auth are mounted
+  if (!clientMounted || !mounted) {
+    // Return null during hydration to prevent mismatch
+    return null
   }
 
-  // Don't render modal until both client and auth are mounted
-  if (!mounted || !isOpen) return null
+  // Don't render modal until it's supposed to be open
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -160,7 +138,7 @@ export default function AuthModal({
           <p className="mb-3 text-center text-sm text-gray-600">{subtitle}</p>
         )}
 
-        {/* ✅ HYDRATION FIX: All auth-dependent rendering gated by mounted states */}
+        {/* All auth-dependent rendering gated by mounted states */}
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin h-6 w-6 border-2 border-brand-green border-t-transparent rounded-full"></div>

@@ -217,7 +217,7 @@ export default async function FieldGuidePage() {
             </div>
             <h1 className="heading-section text-gray-900 mb-4">Field Guide Temporarily Unavailable</h1>
             <p className="body-large text-gray-700 mb-6 max-w-2xl mx-auto">
-              We're having trouble loading the field guide. Please try refreshing the page or check back in a few moments.
+              we&apos;re having trouble loading the field guide. Please try refreshing the page or check back in a few moments.
             </p>
             <a 
               href="/field-guide"

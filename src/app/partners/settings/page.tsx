@@ -231,7 +231,7 @@ export default function VendorSettings() {
     }
   }, [mounted, company, member])
 
-  const updateCompany = useCallback((field: keyof CompanyProfile, value: any) => {
+  const updateCompany = useCallback((field: keyof CompanyProfile, value: string | null) => {
     if (!mounted) return
     setCompany(prev => ({ ...prev, [field]: value }))
     setUnsavedChanges(true)
@@ -531,7 +531,7 @@ export default function VendorSettings() {
                         <div>
                           <div className="font-medium text-blue-900">Important Account Updates</div>
                           <div className="text-sm text-blue-800 mt-1">
-                            We'll always email you about billing issues, security alerts, and major changes to our partner program, regardless of these settings.
+                            we&apos;ll always email you about billing issues, security alerts, and major changes to our partner program, regardless of these settings.
                           </div>
                         </div>
                       </div>

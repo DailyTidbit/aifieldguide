@@ -82,7 +82,7 @@ function CarouselErrorFallback({
         Something went wrong
       </h3>
       <p className="text-lg text-gray-600 mb-4">
-        We're having trouble loading this section.
+        we&apos;re having trouble loading this section.
       </p>
       <button
         onClick={resetErrorBoundary}
@@ -167,20 +167,20 @@ const calculateEngagementScore = (
 // Value Props with brand colors
 const valuePropsCards: ValuePropCardProps[] = [
   {
-    title: "Why You'll Love Daily Tidbit",
+    title: "Why you&apos;ll Love Daily Tidbit",
     description: 'Quick. 60-second videos, no fluff. Clear. Easy walkthroughs for real results. Free. No catch, just good vibes.',
     icon: 'Heart',
     accent: 'green',
   },
   {
     title: 'Why People Keep Coming Back',
-    description: "It's fast. One smart tidbit a day. It's real. Actual tools, real-life tasks. It's fun. Like a mini win, every time.",
+    description: "it&apos;s fast. One smart tidbit a day. it&apos;s real. Actual tools, real-life tasks. it&apos;s fun. Like a mini win, every time.",
     icon: 'Zap',
     accent: 'blue',
   },
   {
-    title: "Why You'll Actually Use This",
-    description: "Short & sweet. Watch it, try it, done. Super useful. Stuff you'll *actually* use. No pressure. Just show up and learn.",
+    title: "Why you&apos;ll Actually Use This",
+    description: "Short & sweet. Watch it, try it, done. Super useful. Stuff you&apos;ll *actually* use. No pressure. Just show up and learn.",
     icon: 'BookOpen',
     accent: 'orange',
   },
@@ -192,7 +192,7 @@ const valuePropsCards: ValuePropCardProps[] = [
   },
   {
     title: 'Daily Tidbit = Fast, Useful, Actually Fun',
-    description: "60-second videos. With walkthroughs if you want 'em. From emails to ideas. Quick wins and big moves. And yeah — it's free.",
+    description: "60-second videos. With walkthroughs if you want 'em. From emails to ideas. Quick wins and big moves. And yeah — it&apos;s free.",
     icon: 'Gift',
     accent: 'pink',
   },
@@ -500,8 +500,8 @@ export default function StartHereClient() {
                         <span aria-hidden="true">✨</span> You Belong Here
                       </h4>
                       <p className="text-sm text-gray-700 leading-relaxed">
-                        Whether you're writing, dreaming, planning — or just
-                        curious — you're in the right place to learn AI that
+                        Whether you&apos;re writing, dreaming, planning — or just
+                        curious — you&apos;re in the right place to learn AI that
                         helps.
                       </p>
                     </div>
@@ -531,7 +531,7 @@ export default function StartHereClient() {
               <div className="space-y-6 text-xl md:text-2xl text-gray-800 leading-relaxed animate-fade-in-up delay-300">
                 <p>
                   <strong>
-                    Kick off your shoes, put up your feet — you're in the right
+                    Kick off your shoes, put up your feet — you&apos;re in the right
                     place.
                   </strong>
                 </p>
@@ -542,9 +542,9 @@ export default function StartHereClient() {
                 </p>
                 <p>
                   From writing better emails to making music, planning dinner to
-                  chasing big ideas — it's all easier than you think.
+                  chasing big ideas — it&apos;s all easier than you think.
                 </p>
-                <p>We'll show you how, one smart tip a day. Simple. Fast. Useful.</p>
+                <p>we&apos;ll show you how, one smart tip a day. Simple. Fast. Useful.</p>
               </div>
 
               {/* Value Props Carousel */}
@@ -642,7 +642,7 @@ export default function StartHereClient() {
 
           <div className="text-center mt-12">
             <p className="text-lg text-gray-600 italic">
-              And don't worry 'bout a thing — every little tip's gonna be
+              And don&apos;t worry 'bout a thing — every little tip's gonna be
               alright. <span aria-hidden="true">🎶</span>
             </p>
           </div>

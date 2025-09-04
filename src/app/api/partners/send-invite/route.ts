@@ -536,7 +536,7 @@ async function sendPartnerInvitationEmail({
         <ul style="color: #6b7280; font-size: 14px; padding-left: 20px;">
           <li style="margin-bottom: 8px;">This invitation expires in 24 hours</li>
           <li style="margin-bottom: 8px;">Only click this link if you requested partner access</li>
-          <li style="margin-bottom: 8px;">You'll be asked to create a secure password</li>
+          <li style="margin-bottom: 8px;">you&apos;ll be asked to create a secure password</li>
           <li style="margin-bottom: 8px;">Never share your login credentials with anyone</li>
         </ul>
       </div>

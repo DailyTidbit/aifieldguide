@@ -52,10 +52,10 @@ export default function AccessibilityPage() {
 
                 <h2 className="heading-subsection text-brand-blue mt-8 mb-4">Our Commitment to Accessibility</h2>
                 <p className="body-medium text-gray-700 mb-6">
-                  We are working to ensure that Daily Tidbit complies with the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA, as well as applicable accessibility regulations such as the Americans with Disabilities Act (ADA) and Section 508. Accessibility is not just a legal requirement — it's part of our mission to make AI approachable and helpful for real people.
+                  We are working to ensure that Daily Tidbit complies with the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA, as well as applicable accessibility regulations such as the Americans with Disabilities Act (ADA) and Section 508. Accessibility is not just a legal requirement — it&apos;s part of our mission to make AI approachable and helpful for real people.
                 </p>
 
-                <h2 className="heading-subsection text-brand-blue mt-8 mb-4">What We're Doing</h2>
+                <h2 className="heading-subsection text-brand-blue mt-8 mb-4">What we&apos;re Doing</h2>
                 <p className="body-medium text-gray-700 mb-4">
                   We continue to test and refine our site to ensure it meets — and exceeds — industry standards. Accessibility is an ongoing effort, and we are committed to continual improvement. Our current accessibility features include:
                 </p>
@@ -85,7 +85,7 @@ export default function AccessibilityPage() {
 
                 <h2 className="heading-subsection text-brand-blue mt-8 mb-4">A Note on Our Values</h2>
                 <p className="body-medium text-gray-700 mb-6">
-                  Daily Tidbit is designed for real people — and that means everyone. Accessibility is not a checklist for us — it's a core part of how we build, communicate, and serve our community.
+                  Daily Tidbit is designed for real people — and that means everyone. Accessibility is not a checklist for us — it&apos;s a core part of how we build, communicate, and serve our community.
                 </p>
               </div>
 

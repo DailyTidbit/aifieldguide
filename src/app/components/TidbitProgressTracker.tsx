@@ -233,7 +233,7 @@ export default function TidbitProgressTracker({ userId, isOwnProfile }: TidbitPr
   }
 
   if (!isOwnProfile && completedTidbits === 0) {
-    return null // Don't show tracker for other users with no progress
+    return null // don&apos;t show tracker for other users with no progress
   }
 
   return (

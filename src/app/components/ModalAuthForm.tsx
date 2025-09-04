@@ -327,7 +327,7 @@ export default function ModalAuthForm({
       <div className="text-center">
         {mode === 'signin' ? (
           <p className="body-medium text-gray-600">
-            Don't have an account?{' '}
+            don&apos;t have an account?{' '}
             <button
               type="button"
               onClick={() => {

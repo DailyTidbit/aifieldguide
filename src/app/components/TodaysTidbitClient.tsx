@@ -282,7 +282,7 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
         >
           <h3 className="text-base sm:text-lg font-bold text-gray-700 mb-2 sm:mb-3 flex items-center gap-2">
             <Brain className="w-4 sm:w-5 h-4 sm:h-5" />
-            What You'll Learn
+            What you&apos;ll Learn
           </h3>
           <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
             {todaysTip.walkthrough_intro.length > 120

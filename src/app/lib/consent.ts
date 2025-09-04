@@ -1,9 +1,8 @@
-// lib/consent.ts - Simple, reliable consent management (compatible with gtag.ts)
+// lib/consent.ts - FIXED VERSION
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useMounted } from './clientUtils'
-import { isGoogleAnalyticsLoaded } from './gtag'
 
 const CONSENT_KEY = 'dt_cookie_consent'
 const CONSENT_TIMESTAMP_KEY = 'dt_cookie_consent_ts'
@@ -42,7 +41,7 @@ export function getStoredConsent(): { consent: ConsentState; isExpired: boolean 
     
     return { consent: isExpired ? null : consent, isExpired }
   } catch (error) {
-    console.warn('Error reading consent:', error)
+    console.warn('Error reading consent (localStorage blocked?):', error)
     // Clean up corrupted data
     try {
       localStorage.removeItem(CONSENT_KEY)
@@ -54,34 +53,6 @@ export function getStoredConsent(): { consent: ConsentState; isExpired: boolean 
   }
 }
 
-// Queued consent updates to handle gtag loading delays
-let consentUpdateQueue: ConsentState[] = []
-let gtagCheckInterval: NodeJS.Timeout | null = null
-
-const processConsentQueue = () => {
-  // Use the gtag checker from gtag.ts
-  if (isGoogleAnalyticsLoaded() && consentUpdateQueue.length > 0) {
-    const latestConsent = consentUpdateQueue[consentUpdateQueue.length - 1]
-    consentUpdateQueue = []
-    
-    try {
-      if (typeof window !== 'undefined' && window.gtag) {
-        window.gtag('consent', 'update', {
-          analytics_storage: latestConsent === 'accepted' ? 'granted' : 'denied'
-        })
-      }
-    } catch (error) {
-      console.warn('Failed to update gtag consent:', error)
-    }
-    
-    // Clear interval once processed
-    if (gtagCheckInterval) {
-      clearInterval(gtagCheckInterval)
-      gtagCheckInterval = null
-    }
-  }
-}
-
 export function storeConsent(consent: ConsentState): void {
   if (typeof window === 'undefined' || !consent) return
   
@@ -89,29 +60,18 @@ export function storeConsent(consent: ConsentState): void {
     localStorage.setItem(CONSENT_KEY, consent)
     localStorage.setItem(CONSENT_TIMESTAMP_KEY, Date.now().toString())
     
-    // Queue consent update for when gtag is available
-    consentUpdateQueue.push(consent)
-    
-    if (isGoogleAnalyticsLoaded()) {
-      // gtag is available now, process immediately
-      processConsentQueue()
-    } else {
-      // gtag not available yet, check periodically
-      if (!gtagCheckInterval) {
-        gtagCheckInterval = setInterval(processConsentQueue, 100)
-        
-        // Stop checking after 10 seconds to prevent infinite intervals
-        setTimeout(() => {
-          if (gtagCheckInterval) {
-            clearInterval(gtagCheckInterval)
-            gtagCheckInterval = null
-            consentUpdateQueue = [] // Clear queue if gtag never loads
-          }
-        }, 10000)
+    // Update gtag if available (check for gtag from gtag.ts)
+    if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
+      try {
+        (window as any).gtag('consent', 'update', {
+          analytics_storage: consent === 'accepted' ? 'granted' : 'denied'
+        })
+      } catch (gtagError) {
+        console.warn('Failed to update gtag consent:', gtagError)
       }
     }
   } catch (error) {
-    console.warn('Error storing consent:', error)
+    console.warn('Error storing consent (localStorage blocked?):', error)
   }
 }
 
@@ -123,10 +83,14 @@ export function clearConsent(): void {
     localStorage.removeItem(CONSENT_TIMESTAMP_KEY)
     
     // Update gtag to deny consent if available
-    if (isGoogleAnalyticsLoaded() && window.gtag) {
-      window.gtag('consent', 'update', {
-        analytics_storage: 'denied'
-      })
+    if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
+      try {
+        (window as any).gtag('consent', 'update', {
+          analytics_storage: 'denied'
+        })
+      } catch (gtagError) {
+        console.warn('Failed to update gtag consent:', gtagError)
+      }
     }
   } catch (error) {
     console.warn('Error clearing consent:', error)
@@ -165,11 +129,15 @@ export function useConsent() {
     setIsExpired(true)
   }, [mounted])
 
+  // FIXED: Critical bug fix - banner should show when consent is null OR expired
+  // But NOT when user has made a recent decision (accepted or declined)
+  const needsConsent = mounted ? (consent === null || isExpired) : false
+  
   return {
     mounted,
     consent: mounted ? consent : null,
     isExpired: mounted ? isExpired : true,
-    needsConsent: mounted ? (!consent || isExpired) : false,
+    needsConsent, // Fixed logic: only show banner if no decision made or expired
     hasConsent: mounted ? consent === 'accepted' : false,
     setConsent,
     clearConsent: clearStoredConsent

@@ -47,7 +47,7 @@ export function TutorChatArea({
   const messageCount = mounted ? messages.length : 0;
   const isAuthenticated = mounted ? !!user : false;
 
-  // Don't render anything until mounted
+  // don&apos;t render anything until mounted
   if (!mounted) {
     return null;
   }

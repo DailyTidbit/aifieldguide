@@ -51,7 +51,7 @@ const FEATURED_SECTIONS = [
 ] as const
 
 export default function TryOtherAITools() {
-  // Hook provides every tool; we'll derive counts by category
+  // Hook provides every tool; we&apos;ll derive counts by category
   const { allTools, loading } = useToolSearch()
 
   // Build counts by category once

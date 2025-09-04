@@ -55,11 +55,11 @@ export class FieldGuideServerAPI {
         lastError = error as Error
         console.error(`${context} - Attempt ${attempt}/${maxRetries} failed:`, error)
         
-        // Don't retry on certain errors
+        // don&apos;t retry on certain errors
         if (error && typeof error === 'object' && 'code' in error) {
           const supabaseError = error as any
           if (supabaseError.code === 'PGRST116' || supabaseError.code === '42P01') {
-            // Table doesn't exist or similar structural issues
+            // Table doesn&apos;t exist or similar structural issues
             break
           }
         }

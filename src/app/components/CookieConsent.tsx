@@ -65,7 +65,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
     return <CookieConsentSkeleton />
   }
 
-  // Don't show banner if consent not needed
+  // don&apos;t show banner if consent not needed
   if (!needsConsent) {
     return null
   }

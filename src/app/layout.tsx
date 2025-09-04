@@ -98,20 +98,15 @@ export const metadata: Metadata = {
   },
   category: "Education",
   classification: "AI Education Platform",
-  // Modern favicon configuration
   icons: {
-    // Core favicon
     icon: [
       { url: '/96.png', sizes: '96x96', type: 'image/png' },
       { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' }
     ],
-    // Apple devices
     apple: [
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
     ],
-    // Legacy ICO fallback
     shortcut: '/favicon.ico',
-    // PWA and Android icons
     other: [
       {
         rel: 'icon',
@@ -127,7 +122,6 @@ export const metadata: Metadata = {
       }
     ]
   },
-  // Web app manifest
   manifest: '/manifest.json',
 };
 
@@ -143,16 +137,22 @@ export default function RootLayout({ children }: RootLayoutProps) {
       suppressHydrationWarning
     >
       <head>
-        {/* Theme prevention script to prevent flash - MUST be first */}
+        {/* CRITICAL FIX: Theme prevention script with proper hydration safety */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
-                  const theme = localStorage.getItem('theme') || 
-                    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                  document.documentElement.classList.add(theme);
-                } catch (e) {}
+                  if (typeof localStorage !== 'undefined') {
+                    const theme = localStorage.getItem('theme') || 
+                      (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                    if (theme && document.documentElement) {
+                      document.documentElement.classList.add(theme);
+                    }
+                  }
+                } catch (e) {
+                  // Silent fail for localStorage blocking
+                }
               })()
             `,
           }}
@@ -181,7 +181,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Daily Tidbit" />
         
-        {/* Theme colors with dark mode support - Using actual hex values */}
+        {/* Theme colors - using actual hex values to prevent hydration mismatch */}
         <meta name="theme-color" content="#60A875" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#60A875" />
         
@@ -193,7 +193,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         {/* Safari specific */}
         <link rel="mask-icon" href="/96.png" color="#60A875" />
 
-        {/* Structured data - static version to prevent hydration issues */}
+        {/* HYDRATION SAFE: Static structured data to prevent hydration issues */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -215,8 +215,11 @@ export default function RootLayout({ children }: RootLayoutProps) {
           }}
         />
       </head>
-      <body className="antialiased min-h-screen bg-white flex flex-col font-sans" suppressHydrationWarning>
-        {/* Skip to main content link - Using actual hex value */}
+      <body 
+        className="antialiased min-h-screen bg-white flex flex-col font-sans" 
+        suppressHydrationWarning
+      >
+        {/* Skip to main content link */}
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 px-4 py-2 rounded-md z-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
@@ -234,27 +237,28 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <Footer />
         <CookieConsentManager />
 
-        {/* Hydration-safe service worker registration */}
+        {/* HYDRATION SAFE: Service worker registration with better guards */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                if (typeof window !== 'undefined') {
-                  // Wait for mount to ensure hydration safety
+                if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
                   window.addEventListener('load', function() {
-                    // Check environment and service worker support
-                    const isProduction = typeof process !== 'undefined' 
-                      ? process.env.NODE_ENV === 'production'
-                      : !window.location.hostname.includes('localhost');
-                    
-                    if (isProduction && 'serviceWorker' in navigator) {
-                      navigator.serviceWorker.register('/sw.js')
-                        .then(function(registration) {
-                          console.log('SW registered: ', registration);
-                        })
-                        .catch(function(registrationError) {
-                          console.log('SW registration failed: ', registrationError);
-                        });
+                    try {
+                      const isProduction = !window.location.hostname.includes('localhost') && 
+                                          !window.location.hostname.includes('127.0.0.1');
+                      
+                      if (isProduction && 'serviceWorker' in navigator) {
+                        navigator.serviceWorker.register('/sw.js')
+                          .then(function(registration) {
+                            console.log('SW registered: ', registration);
+                          })
+                          .catch(function(registrationError) {
+                            console.log('SW registration failed: ', registrationError);
+                          });
+                      }
+                    } catch (e) {
+                      console.warn('Service worker registration failed:', e);
                     }
                   });
                 }

@@ -186,11 +186,18 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
   // FIXED: Only run effects after mount - refetch when sort/filters change
   useEffect(() => {
     if (!mounted) return
-    fetchPage(1, true)
-    track('filter_apply', { sort, filters })
-    setShowCTA(false)
-    // Reset image errors when filters change
-    setImageErrors({})
+    
+    // Only refetch if we're not on the initial state
+    // Check if sort/filters have changed from initial values
+    const isInitialState = sort === 'newest' && filters.length === 0
+    
+    if (!isInitialState) {
+      fetchPage(1, true)
+      track('filter_apply', { sort, filters })
+      setShowCTA(false)
+      // Reset image errors when filters change
+      setImageErrors({})
+    }
   }, [sort, filters, fetchPage, mounted, track])
 
   // FIXED: Intersection observer with mount check - infinite scroll + CTA

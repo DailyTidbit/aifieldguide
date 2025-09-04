@@ -409,7 +409,7 @@ export default function PrivacyPolicyPage() {
                   <li><strong>Right to Know:</strong> Categories and specific pieces of personal information collected</li>
                   <li><strong>Right to Delete:</strong> Request deletion of personal information (with exceptions)</li>
                   <li><strong>Right to Correct:</strong> Request correction of inaccurate information</li>
-                  <li><strong>Right to Opt-Out:</strong> We don't sell data, but you can opt-out if this changes</li>
+                  <li><strong>Right to Opt-Out:</strong> We don&apos;t sell data, but you can opt-out if this changes</li>
                   <li><strong>Right to Limit:</strong> Opt-out of sensitive personal information processing for certain purposes</li>
                   <li><strong>Non-Discrimination:</strong> No discrimination for exercising privacy rights</li>
                 </ul>

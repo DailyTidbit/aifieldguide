@@ -283,7 +283,7 @@ const SectionCard = React.memo(function SectionCard({
 }) {
   const delayClass = `delay-${Math.min(index * 100 + 300, 1200)}`
   
-  // Memoize these calculations since they won't change during render
+  // Memoize these calculations since they won&apos;t change during render
   const sectionColor = useMemo(() => getSectionColor(section.section_name), [section.section_name])
   const sectionEmoji = useMemo(() => getSectionEmoji(section.section_name), [section.section_name])
   

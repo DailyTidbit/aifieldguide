@@ -160,7 +160,7 @@ export async function logPartnerAction(entry: AuditLogEntry): Promise<void> {
     }
   } catch (error) {
     console.error('Audit log error:', error)
-    // Don't throw - audit log failure shouldn't break operations
+    // don&apos;t throw - audit log failure shouldn't break operations
   }
 }
 
@@ -373,7 +373,7 @@ export function logAdminAction(action: string, details?: any) {
   console.log(`Admin action: ${action}`, details)
 }
 
-// ✅ Utility function to check if we're in server environment
+// ✅ Utility function to check if we&apos;re in server environment
 export function isServerEnvironment(): boolean {
   return typeof window === 'undefined'
 }

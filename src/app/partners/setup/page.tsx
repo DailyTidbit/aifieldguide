@@ -94,7 +94,7 @@ const SuccessDisplay = ({ companyInfo }: { companyInfo: CompanyInfo | null }) =>
       
       <p className="text-gray-600 mb-6">
         {companyInfo?.isFirstUser 
-          ? `You're the first person from ${companyInfo.name} to join our partner program. You have admin access to manage your company's presence.`
+          ? `you&apos;re the first person from ${companyInfo.name} to join our partner program. You have admin access to manage your company's presence.`
           : `You now have access to ${companyInfo?.name}'s partner dashboard and can start managing your AI tool listings.`
         }
       </p>
@@ -519,7 +519,7 @@ export default function PartnerPasswordSetupPage() {
                   ) : (
                     <>
                       <AlertCircle className="h-4 w-4" />
-                      Passwords don't match
+                      Passwords don&apos;t match
                     </>
                   )}
                 </div>
@@ -546,7 +546,7 @@ export default function PartnerPasswordSetupPage() {
 
           <div className="mt-8 pt-6 border-t border-gray-200 text-center">
             <p className="text-xs text-gray-500">
-              By setting up your password, you agree to Daily Tidbit's{' '}
+              By setting up your password, you agree to Daily Tidbit&apos;s{' '}
               <Link href="/terms" className="text-brand-green hover:underline">Terms of Service</Link>
               {' '}and{' '}
               <Link href="/privacy" className="text-brand-green hover:underline">Privacy Policy</Link>

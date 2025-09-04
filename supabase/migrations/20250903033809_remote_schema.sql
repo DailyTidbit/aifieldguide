@@ -154,7 +154,7 @@ BEGIN
   RETURN NEW;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Don't fail user creation if profile creation fails
+    -- don&apos;t fail user creation if profile creation fails
     RAISE WARNING 'Could not create profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;

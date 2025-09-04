@@ -108,7 +108,7 @@ const StatusMessage = ({ authState, company, mounted }: {
       icon: Building2,
       className: 'bg-green-50 border-green-200 text-green-800',
       title: 'Welcome back!',
-      message: `You're part of the ${company?.name || 'company'} team on Daily Tidbit.`
+      message: `you&apos;re part of the ${company?.name || 'company'} team on Daily Tidbit.`
     }
   }
 
@@ -514,7 +514,7 @@ export default function PartnersLanding() {
               Ready to amplify your AI tool?
             </h3>
             <p className="text-gray-600 mb-8">
-              Contact our team to get started with Daily Tidbit's partner program and reach thousands of engaged AI learners.
+              Contact our team to get started with Daily Tidbit&apos;s partner program and reach thousands of engaged AI learners.
             </p>
             <Link
               href="/partners/request-access"
@@ -523,7 +523,7 @@ export default function PartnersLanding() {
               Request Partner Access <ArrowRight className="w-5 h-5" />
             </Link>
             <p className="text-sm text-gray-500 mt-4">
-              We'll send you a secure login link via email
+              we&apos;ll send you a secure login link via email
             </p>
           </div>
         </section>
