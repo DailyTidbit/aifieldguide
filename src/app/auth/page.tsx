@@ -2,7 +2,7 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { getSupabaseBrowserClient } from '../lib/supabaseClient' // ✅ UPDATED: Use consolidated client
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -20,6 +20,10 @@ import {
 type AuthMode = 'signin' | 'password-setup' | 'redirecting'
 
 function AuthContent() {
+  // ✅ HYDRATION SAFETY: Mount state first
+  const [mounted, setMounted] = useState(false)
+  const [supabaseReady, setSupabaseReady] = useState(false)
+  
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,13 +31,9 @@ function AuthContent() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // ✅ UPDATED: Add mounted state for hydration safety
-  const [mounted, setMounted] = useState(false)
   
   const router = useRouter()
   const searchParams = useSearchParams()
-  // ✅ UPDATED: Use hydration-safe client getter
-  const supabase = getSupabaseBrowserClient()
   
   const isVendorFlow = searchParams.get('vendor') === 'true'
   const returnTo = searchParams.get('next') || (isVendorFlow ? '/partners/dashboard' : '/')
@@ -45,9 +45,37 @@ function AuthContent() {
     setMounted(true)
   }, [])
 
+  // ✅ HYDRATION SAFETY: Check Supabase client availability
+  useEffect(() => {
+    if (!mounted) return
+
+    const checkSupabaseClient = () => {
+      try {
+        const supabase = getSupabaseBrowserClient()
+        setSupabaseReady(!!supabase)
+      } catch (error) {
+        console.warn('Supabase client not available:', error)
+        setSupabaseReady(false)
+      }
+    }
+
+    checkSupabaseClient()
+    // Retry if not ready
+    if (!supabaseReady) {
+      const interval = setInterval(checkSupabaseClient, 2000)
+      return () => clearInterval(interval)
+    }
+  }, [mounted, supabaseReady])
+
   useEffect(() => {
     // ✅ HYDRATION SAFETY: Only run after mounted and if supabase client is available
-    if (!mounted || !supabase) return
+    if (!mounted || !supabaseReady) return
+
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      console.warn('Supabase client not available for auth check')
+      return
+    }
 
     // Pre-fill email if domain suggested
     if (suggestedDomain && !email) {
@@ -86,11 +114,17 @@ function AuthContent() {
     })
 
     return () => subscription.unsubscribe()
-  }, [router, isVendorFlow, returnTo, suggestedDomain, email, supabase, mounted])
+  }, [router, isVendorFlow, returnTo, suggestedDomain, email, mounted, supabaseReady])
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !supabase) return
+    if (!email || !mounted || !supabaseReady) return
+    
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setError('Database connection unavailable')
+      return
+    }
     
     setLoading(true)
     setError(null)
@@ -120,7 +154,13 @@ function AuthContent() {
   }
 
   const handlePasswordSetup = async () => {
-    if (!supabase) return
+    if (!mounted || !supabaseReady) return
+    
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setError('Database connection unavailable')
+      return
+    }
     
     setLoading(true)
     setError(null)
@@ -144,7 +184,14 @@ function AuthContent() {
   }
 
   const handleOAuthSignIn = async (provider: 'google') => {
-    if (!supabase) return
+    // ✅ HYDRATION SAFETY: Check mount state first
+    if (!mounted || !supabaseReady) return
+    
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setError('Database connection unavailable')
+      return
+    }
     
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({ 
@@ -190,10 +237,15 @@ function AuthContent() {
   const emailInfo = getEmailDomainInfo(email)
 
   // ✅ HYDRATION SAFETY: Show loading state during hydration
-  if (!mounted) {
+  if (!mounted || !supabaseReady) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-green mx-auto mb-4" />
+          <p className="text-gray-600">
+            {!mounted ? 'Initializing...' : 'Connecting to authentication service...'}
+          </p>
+        </div>
       </div>
     )
   }
@@ -371,7 +423,7 @@ function AuthContent() {
 
           <button
             type="submit"
-            disabled={!email || loading}
+            disabled={!email || loading || !supabaseReady}
             className="w-full bg-brand-green text-white py-3 rounded-lg hover:bg-brand-green/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
@@ -401,7 +453,7 @@ function AuthContent() {
 
           <button
             onClick={() => handleOAuthSignIn('google')}
-            disabled={loading}
+            disabled={loading || !supabaseReady}
             className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

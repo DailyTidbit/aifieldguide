@@ -8,8 +8,8 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
 });
 
-// ⚠️ Emergency build switches – flip to false after cleanup
-const EMERGENCY_IGNORE = true;
+// ⚠️ Emergency build switches — flip to false after cleanup
+const EMERGENCY_IGNORE = false;
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -67,6 +67,14 @@ const nextConfig: NextConfig = {
           chunks: "all",
           cacheGroups: {
             ...(config.optimization?.splitChunks?.cacheGroups ?? {}),
+            // ✅ ADD: Admin route chunk separation
+            admin: {
+              test: /[\\/]admin[\\/]/,
+              name: "admin",
+              chunks: "all",
+              priority: 35,
+              enforce: true,
+            },
             supabase: {
               test: /[\\/]node_modules[\\/]@supabase[\\/]/,
               name: "supabase",
@@ -123,6 +131,7 @@ const nextConfig: NextConfig = {
     poweredByHeader: false,
   }),
 
+  // ✅ ENHANCED: Headers with admin route protection
   async headers() {
     return [
       {
@@ -132,6 +141,15 @@ const nextConfig: NextConfig = {
       {
         source: "/api/:path*",
         headers: [{ key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" }],
+      },
+      // ✅ ADD: Admin route headers
+      {
+        source: "/admin/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
       },
     ];
   },

@@ -1,39 +1,41 @@
-// src/components/CookieConsentManager.tsx - Hydration-safe
+// components/CookieConsentManager.tsx - Compatibility wrapper
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMounted } from '../lib/clientUtils'
 import CookieConsent from './CookieConsent'
 import GoogleAnalytics from './GoogleAnalytics'
-import { useConsentManagement } from '../lib/analytics'
+import { useConsent } from '../lib/consent'
 
-export default function CookieConsentManager() {
-  const [mounted, setMounted] = useState(false)
-  
-  // Use the analytics consent management hook
-  const { consent, needsConsent, mounted: consentMounted } = useConsentManagement()
+// Keep the same interface for backward compatibility
+interface CookieConsentManagerProps {
+  onConsentChange?: (consented: boolean) => void
+}
 
-  // Hydration safety
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+function CookieConsentManagerSkeleton() {
+  return null
+}
 
-  const handleConsentChange = () => {
-    // The CookieConsent component handles the actual consent logic
-    // This callback is just for any additional cleanup if needed
+export default function CookieConsentManager({ onConsentChange }: CookieConsentManagerProps = {}) {
+  const mounted = useMounted()
+  const { consent, needsConsent } = useConsent()
+
+  if (!mounted) {
+    return <CookieConsentManagerSkeleton />
   }
-
-  // Don't render anything until both this component and consent management are mounted
-  if (!mounted || !consentMounted) return null
 
   const hasConsent = consent === 'accepted'
   const showBanner = needsConsent
 
+  const handleConsentChange = () => {
+    // Call the optional callback if provided
+    if (onConsentChange) {
+      onConsentChange(hasConsent)
+    }
+  }
+
   return (
     <>
-      {/* Google Analytics - only loads if consent given */}
       <GoogleAnalytics hasConsent={hasConsent} />
-      
-      {/* Cookie Consent Banner - only show if needed */}
       {showBanner && (
         <CookieConsent onConsentChange={handleConsentChange} />
       )}

@@ -1,24 +1,24 @@
-﻿// src/app/components/ToolModal.tsx - SIMPLIFIED WITHOUT SWIPE GESTURES
+﻿// src/app/components/ToolModal.tsx - FIXED CUT-OFF ISSUES
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { AITool } from '../lib/field-guide-types'
 
 interface ToolModalProps {
-  tool: AITool | null // Allow null for loading states
+  tool: AITool | null
   sectionColor: string
   isOpen: boolean
   onClose: () => void
-  isLoading?: boolean // Loading state
+  isLoading?: boolean
 }
 
-// Smart loading skeleton component
+// Loading skeleton component
 function ToolModalSkeleton({ sectionColor }: { sectionColor: string }) {
   return (
-    <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full h-full md:max-w-6xl relative animate-pulse">
+    <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-6xl mx-auto relative animate-pulse h-full flex flex-col">
       {/* Header Skeleton */}
       <div 
-        className="px-6 md:px-8 py-6 border-b border-gray-200 relative"
+        className="px-6 md:px-8 py-6 border-b border-gray-200 relative flex-shrink-0"
         style={{ backgroundColor: `${sectionColor}10` }}
       >
         <div 
@@ -28,47 +28,29 @@ function ToolModalSkeleton({ sectionColor }: { sectionColor: string }) {
         
         <div className="flex items-start justify-between">
           <div className="flex-1 pr-4">
-            {/* Title skeleton */}
             <div className="h-8 md:h-10 bg-gray-200 rounded-lg w-3/4 mb-3" />
-            
-            {/* Company skeleton */}
             <div className="h-5 bg-gray-200 rounded w-1/2 mb-4" />
-            
-            {/* Tags skeleton */}
             <div className="flex gap-2">
               <div className="h-6 bg-gray-200 rounded-full w-20" />
               <div className="h-6 bg-gray-200 rounded-full w-24" />
             </div>
           </div>
-          
-          {/* Close button skeleton */}
           <div className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0" />
         </div>
       </div>
 
       {/* Content skeleton */}
-      <div className="p-6 md:p-8">
+      <div className="p-6 md:p-8 flex-1 overflow-auto">
         <div className="grid lg:grid-cols-4 gap-8">
-          {/* Main content skeleton */}
           <div className="lg:col-span-3 space-y-4">
             <div className="h-4 bg-gray-200 rounded w-full" />
             <div className="h-4 bg-gray-200 rounded w-5/6" />
             <div className="h-4 bg-gray-200 rounded w-4/5" />
             <div className="h-4 bg-gray-200 rounded w-full" />
             <div className="h-4 bg-gray-200 rounded w-3/4" />
-            
-            <div className="mt-8 space-y-3">
-              <div className="h-6 bg-gray-200 rounded w-1/3" />
-              <div className="h-20 bg-gray-200 rounded-xl" />
-            </div>
           </div>
-          
-          {/* Sidebar skeleton */}
           <div className="lg:col-span-1 space-y-6">
-            {/* CTA button skeleton */}
             <div className="h-12 bg-gray-200 rounded-xl" />
-            
-            {/* Quick facts skeleton */}
             <div className="bg-gray-50 rounded-xl p-6">
               <div className="h-5 bg-gray-200 rounded w-1/2 mb-4" />
               <div className="space-y-3">
@@ -91,41 +73,28 @@ export default function ToolModal({
   onClose,
   isLoading = false
 }: ToolModalProps) {
+  const [mounted, setMounted] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
   const [isClosing, setIsClosing] = useState(false)
-  const [modalHeight, setModalHeight] = useState('auto')
 
-  // Handle viewport height on mobile
+  // Mount detection
   useEffect(() => {
-    const updateHeight = () => {
-      // Use visual viewport API if available, fallback to window.innerHeight
-      const height = window.visualViewport?.height || window.innerHeight
-      setModalHeight(`${height}px`)
-    }
-
-    updateHeight()
-    
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateHeight)
-      return () => window.visualViewport?.removeEventListener('resize', updateHeight)
-    } else {
-      window.addEventListener('resize', updateHeight)
-      return () => window.removeEventListener('resize', updateHeight)
-    }
+    setMounted(true)
   }, [])
 
   // Enhanced close with animation
   const handleClose = useCallback(() => {
+    if (!mounted) return
     setIsClosing(true)
     setTimeout(() => {
       onClose()
       setIsClosing(false)
     }, 200)
-  }, [onClose])
+  }, [onClose, mounted])
 
-  // Keyboard navigation (ESC only)
+  // Keyboard navigation
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || !mounted) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -135,20 +104,24 @@ export default function ToolModal({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, handleClose])
+  }, [isOpen, handleClose, mounted])
 
   // Prevent body scroll when modal is open
   useEffect(() => {
-    if (isOpen) {
-      const originalStyle = window.getComputedStyle(document.body).overflow
-      document.body.style.overflow = 'hidden'
-      
-      return () => {
-        document.body.style.overflow = originalStyle
-      }
+    if (!mounted || !isOpen) return
+    
+    if (typeof document === 'undefined') return
+    
+    const originalStyle = window.getComputedStyle(document.body).overflow
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.body.style.overflow = originalStyle
     }
-  }, [isOpen])
+  }, [isOpen, mounted])
 
+  // Don't render until mounted
+  if (!mounted) return null
   if (!isOpen) return null
 
   return (
@@ -158,37 +131,36 @@ export default function ToolModal({
         transition-all duration-300 ease-out
         ${isClosing ? 'opacity-0' : 'opacity-100'}
       `}
-      style={{ height: modalHeight }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleClose()
         }
       }}
     >
-      {/* Mobile-optimized modal container */}
-      <div 
-        className={`
-          h-full flex flex-col md:items-center md:justify-center md:p-4
-          transition-all duration-300 ease-out
-          ${isClosing ? 'translate-y-full md:translate-y-0 md:scale-95' : 'translate-y-0 md:scale-100'}
-        `}
-      >
+      {/* FIXED: Simplified container with proper height constraints */}
+      <div className="h-full w-full flex items-center justify-center p-2 sm:p-4">
         <div 
           ref={modalRef}
           className={`
-            bg-white w-full h-full md:h-auto md:max-w-6xl md:max-h-[90vh] 
-            md:rounded-3xl shadow-2xl relative
-            flex flex-col overflow-hidden
+            bg-white w-full max-w-6xl rounded-3xl shadow-2xl
+            flex flex-col relative overflow-hidden
+            transition-all duration-300 ease-out
+            ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}
           `}
+          style={{
+            maxHeight: 'calc(100vh - 1rem)', // Leave 0.5rem top and bottom
+            height: 'auto',
+            minHeight: '400px'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
 
-          {/* Loading state */}
+          {/* Loading or actual content */}
           {(isLoading || !tool) ? (
             <ToolModalSkeleton sectionColor={sectionColor} />
           ) : (
             <>
-              {/* Header */}
+              {/* Header - Fixed height */}
               <div 
                 className="px-6 md:px-8 py-6 border-b border-gray-200 relative flex-shrink-0"
                 style={{ backgroundColor: `${sectionColor}10` }}
@@ -238,10 +210,10 @@ export default function ToolModal({
                     </div>
                   </div>
                   
-                  {/* Close button with improved touch target */}
+                  {/* Close button */}
                   <button
                     onClick={handleClose}
-                    className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0 touch-manipulation"
+                    className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
                     aria-label="Close modal"
                   >
                     <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,12 +223,12 @@ export default function ToolModal({
                 </div>
               </div>
 
-              {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto">
+              {/* FIXED: Scrollable Content with proper overflow */}
+              <div className="flex-1 overflow-y-auto min-h-0">
                 <div className="p-6 md:p-8">
                   <div className="grid lg:grid-cols-4 gap-8">
                     
-                    {/* Main Article Content */}
+                    {/* Main Content */}
                     <div className="lg:col-span-3">
                       {tool.detailed_description ? (
                         <div className="prose prose-lg max-w-none">
@@ -267,19 +239,16 @@ export default function ToolModal({
                               fontSize: "1.125rem",
                               lineHeight: "1.7"
                             }}
-                          >
-                            <div 
-                              dangerouslySetInnerHTML={{
-                                __html: tool.detailed_description
-                                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                  .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                                  .replace(/\n\*/g, '<br/>• ')
-                                  .replace(/^\*/g, '• ')
-                                  .replace(/\n(Pricing|Login & Model|Features|Enterprise|Overview):/g, '<br/><strong>$1:</strong>')
-                                  .replace(/\n/g, '<br/>')
-                              }}
-                            />
-                          </div>
+                            dangerouslySetInnerHTML={{
+                              __html: tool.detailed_description
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                .replace(/\n\*/g, '<br/>• ')
+                                .replace(/^\*/g, '• ')
+                                .replace(/\n(Pricing|Login & Model|Features|Enterprise|Overview):/g, '<br/><strong>$1:</strong>')
+                                .replace(/\n/g, '<br/>')
+                            }}
+                          />
                         </div>
                       ) : (
                         <div className="prose prose-lg max-w-none">
@@ -327,7 +296,7 @@ export default function ToolModal({
                             href={tool.website}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full text-white px-6 py-4 rounded-xl font-bold text-center transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl touch-manipulation"
+                            className="w-full text-white px-6 py-4 rounded-xl font-bold text-center transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
                             style={{
                               background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
                             }}

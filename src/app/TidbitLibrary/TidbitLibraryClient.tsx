@@ -1,9 +1,10 @@
-﻿// app/TidbitLibrary/TidbitLibraryClient.tsx - Fixed image loading and Tailwind v4 compatibility
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Filter, X, ChevronDown, Loader2, Search } from 'lucide-react'
 import CTASection from '../components/CTASection'
+// FIXED: Import hydration-safe utilities
+import { isBrowser, useMounted } from '../lib/clientUtils'
 
 type Sort = 'newest' | 'oldest' | 'alphabetical' | 'reverse-alphabetical'
 
@@ -15,6 +16,7 @@ interface Tidbit {
   tags?: string[]
   estimated_time?: number
 }
+
 interface TidbitResponse {
   data: Tidbit[]
   count: number
@@ -23,9 +25,45 @@ interface TidbitResponse {
   hasMore: boolean
 }
 
+// Loading Skeleton Component
+function TidbitLibrarySkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 pb-24">
+      <div className="animate-pulse">
+        {/* Controls skeleton */}
+        <section className="p-4">
+          <div className="max-w-[1100px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="grid grid-cols-2 gap-3 md:flex md:gap-3 md:shrink-0">
+              <div className="h-10 w-full md:w-44 bg-gray-200 rounded-xl"></div>
+              <div className="h-10 w-full md:w-auto bg-gray-200 rounded-xl md:w-24"></div>
+            </div>
+            <div className="h-10 w-full md:w-32 bg-gray-200 rounded-xl"></div>
+          </div>
+        </section>
+        
+        {/* Grid skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="rounded-2xl bg-white border border-black/5 shadow-sm overflow-hidden">
+              <div className="aspect-square bg-gray-200"></div>
+              <div className="p-4">
+                <div className="h-3 bg-gray-200 rounded w-16 mb-2"></div>
+                <div className="h-5 bg-gray-200 rounded w-full mb-1"></div>
+                <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TidbitLibraryClient({ initialData }: { initialData: TidbitResponse }) {
+  // FIXED: Use established hydration safety pattern
+  const mounted = useMounted()
+  
   // refs
-  const mounted = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const filterButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -44,7 +82,8 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const [showCTA, setShowCTA] = useState<boolean>(false)
-  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set())
+  // FIXED: Using object pattern for hydration safety
+  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({})
 
   const filterCategories = useMemo(
     () => [
@@ -73,29 +112,49 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
     []
   )
 
-  const track = (name: string, data?: Record<string, any>) => {
+  // Safe analytics tracking function
+  const track = useCallback((name: string, data?: Record<string, any>) => {
+    if (!mounted) return
     console.log(`GA Event: ${name}`, data || {})
-  }
+  }, [mounted])
 
+  // Image error handlers
   const handleImageError = useCallback((itemId: number) => {
-    setImageErrors(prev => new Set([...prev, itemId]))
+    setImageErrors(prev => ({ ...prev, [itemId]: true }))
   }, [])
 
+  const handleImageLoad = useCallback((itemId: number) => {
+    setImageErrors(prev => {
+      const { [itemId]: _, ...rest } = prev
+      return rest
+    })
+  }, [])
+
+  // FIXED: Safe URL building with mount check
   const buildUrl = useCallback((nextPage: number) => {
+    if (!mounted || !isBrowser) {
+      // Return a fallback URL that works server-side
+      return `/api/tidbits?page=${nextPage}&perPage=${perPage}&sort=${sort}${filters.map(f => `&filters=${f}`).join('')}`
+    }
+    
     const u = new URL('/api/tidbits', window.location.origin)
     u.searchParams.set('sort', sort)
     u.searchParams.set('page', String(nextPage))
     u.searchParams.set('perPage', String(perPage))
     filters.forEach(f => u.searchParams.append('filters', f))
     return u.toString()
-  }, [sort, filters, perPage])
+  }, [sort, filters, perPage, mounted])
 
   const fetchPage = useCallback(
     async (nextPage: number, replace = false) => {
+      // FIXED: Add mount check
+      if (!mounted) return
+      
       if (abortRef.current) abortRef.current.abort()
       const controller = new AbortController()
       abortRef.current = controller
       setIsLoading(true)
+      
       try {
         const res = await fetch(buildUrl(nextPage), { signal: controller.signal })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -106,35 +165,38 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
         setPage(json.page)
         setItems(prev => (replace ? json.data : [...prev, ...json.data]))
 
-        if (!replace && nextPage > 1) track('infinite_scroll_load', { page: nextPage })
+        // FIXED: Safe analytics tracking
+        if (!replace && nextPage > 1) {
+          track('infinite_scroll_load', { page: nextPage })
+        }
       } catch (e: any) {
         if (e?.name !== 'AbortError') console.error(e)
       } finally {
         setIsLoading(false)
       }
     },
-    [buildUrl]
+    [buildUrl, mounted, track]
   )
 
-  // lifecycle
-  useEffect(() => { 
-    mounted.current = true
+  // FIXED: Cleanup on unmount
+  useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
 
-  // refetch when sort/filters change (page 1 replace)
+  // FIXED: Only run effects after mount - refetch when sort/filters change
   useEffect(() => {
-    if (!mounted.current) return
+    if (!mounted) return
     fetchPage(1, true)
     track('filter_apply', { sort, filters })
     setShowCTA(false)
     // Reset image errors when filters change
-    setImageErrors(new Set())
-  }, [sort, filters, fetchPage])
+    setImageErrors({})
+  }, [sort, filters, fetchPage, mounted, track])
 
-  // infinite scroll + CTA
+  // FIXED: Intersection observer with mount check - infinite scroll + CTA
   useEffect(() => {
-    if (!sentinelRef.current) return
+    if (!mounted || !sentinelRef.current) return
+    
     const el = sentinelRef.current
     const io = new IntersectionObserver(
       ([entry]) => {
@@ -151,13 +213,18 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [page, hasMore, isLoading, fetchPage, showCTA, items.length])
+  }, [page, hasMore, isLoading, fetchPage, showCTA, items.length, mounted, track])
 
-  // filter helpers
+  // Filter helpers
   const toggleFilter = (key: string) => {
     setFilters(prev => (prev.includes(key) ? prev.filter(t => t !== key) : [...prev, key]))
   }
   const clearFilters = () => setFilters([])
+
+  // FIXED: Show loading skeleton until mounted
+  if (!mounted) {
+    return <TidbitLibrarySkeleton />
+  }
 
   return (
     <main className="max-w-7xl mx-auto px-4 pb-24">
@@ -232,21 +299,14 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
                   className="block focus:outline-none focus:ring-2 focus:ring-brand-green/30"
                 >
                   <div className="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden p-2">
-                    {item.image_url && !imageErrors.has(item.id) ? (
+                    {item.image_url && !imageErrors[item.id] ? (
                       <img
                         src={item.image_url}
                         alt={item.title}
                         className="max-w-full max-h-full object-contain transition-transform duration-500 ease-out group-hover:scale-105"
                         loading="lazy"
                         onError={() => handleImageError(item.id)}
-                        onLoad={() => {
-                          // Remove from error set if it loads successfully after an error
-                          setImageErrors(prev => {
-                            const newSet = new Set(prev)
-                            newSet.delete(item.id)
-                            return newSet
-                          })
-                        }}
+                        onLoad={() => handleImageLoad(item.id)}
                       />
                     ) : (
                       <div className="h-full w-full flex flex-col items-center justify-center text-gray-400 text-center p-4">
@@ -288,7 +348,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
       {/* Infinite scroll sentinel */}
       <div ref={sentinelRef} aria-hidden="true" className="h-1" />
 
-      {/* Filter dialog */}
+      {/* Filter dialog - only render when open to avoid hydration issues */}
       {filtersOpen && (
         <div role="dialog" aria-modal="true" aria-label="Filter categories" id="filters-dialog" className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/30" onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} />

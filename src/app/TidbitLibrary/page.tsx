@@ -1,4 +1,4 @@
-﻿// app/TidbitLibrary/page.tsx - Fixed to use Tailwind v4 classes
+﻿// app/TidbitLibrary/page.tsx - Fixed to use Tailwind v4 classes with brand colors
 import { Metadata } from 'next'
 import { getTidbits } from '../lib/tidbits'
 import TidbitLibraryClient from './TidbitLibraryClient'
@@ -38,7 +38,7 @@ export default async function TidbitLibraryPage() {
     const initialData = await getTidbits({ page: 1, perPage: 24, sort: 'newest' })
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
+      <div className="min-h-screen bg-gradient-to-br from-brand-green/10 to-brand-blue/10">
         {/* Clean, minimal header */}
         <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
           <div className="max-w-7xl mx-auto px-4 py-12 sm:py-16">
@@ -74,7 +74,7 @@ export default async function TidbitLibraryPage() {
   } catch (error) {
     console.error('Server-side fetch error:', error)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
+      <div className="min-h-screen bg-gradient-to-br from-brand-green/10 to-brand-blue/10">
         <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
           <div className="max-w-7xl mx-auto px-4 py-12 sm:py-16">
             <div className="text-center">

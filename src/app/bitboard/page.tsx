@@ -9,7 +9,7 @@ import UserProfile from '../components/UserProfile'
 import ProfileSetupWizard from '../components/ProfileSetupWizard'
 import PostModal from '../components/PostModal'
 import PostCard from '../components/PostCard'
-import { formatDate, formatDateTime } from '../lib/clientUtils' // ✅ Use safe date formatter
+import { formatDate, formatDateTime } from '../lib/clientUtils' // ✅ FIXED: Use safe date formatters
 import { 
   Loader2, 
   RefreshCw, 
@@ -94,42 +94,45 @@ interface PostData {
 type FilterOption = 'all' | 'trending' | 'recent' | 'popular' | 'liked' | 'commented' | 'private'
 type ViewMode = 'masonry' | 'grid' | 'list'
 
-// ✅ HYDRATION SAFE: Helper function to parse search dates with consistent timezone
+// ✅ HYDRATION SAFE: Fixed date parsing with consistent timezone
 const parseSearchDate = (dateString: string): Date => {
-  // Use fixed timezone to prevent SSR/CSR mismatches
+  // Use UTC for consistent server/client behavior
   const tryFormats = [
-    // Try standard Date constructor first
-    () => new Date(dateString),
-    // Try MM/DD/YYYY format
+    // Try ISO format first (most reliable)
+    () => {
+      const isoDate = new Date(dateString + 'T00:00:00.000Z')
+      return isNaN(isoDate.getTime()) ? new Date(NaN) : isoDate
+    },
+    // Try MM/DD/YYYY format with UTC
     () => {
       const match = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
       if (match) {
         const month = parseInt(match[1]) - 1
         const day = parseInt(match[2])
         const year = parseInt(match[3])
-        return new Date(year, month, day)
+        return new Date(Date.UTC(year, month, day))
       }
       return new Date(NaN)
     },
-    // Try MM-DD-YYYY format
+    // Try MM-DD-YYYY format with UTC
     () => {
       const match = dateString.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
       if (match) {
         const month = parseInt(match[1]) - 1
         const day = parseInt(match[2])
         const year = parseInt(match[3])
-        return new Date(year, month, day)
+        return new Date(Date.UTC(year, month, day))
       }
       return new Date(NaN)
     },
-    // Try YYYY/MM/DD format
+    // Try YYYY/MM/DD format with UTC
     () => {
       const match = dateString.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
       if (match) {
         const year = parseInt(match[1])
         const month = parseInt(match[2]) - 1
         const day = parseInt(match[3])
-        return new Date(year, month, day)
+        return new Date(Date.UTC(year, month, day))
       }
       return new Date(NaN)
     }
@@ -465,6 +468,10 @@ function MobileOptimizedMasonry({
 }
 
 function BitBoardContent() {
+  // ✅ HYDRATION SAFETY: Add mounted state first
+  const [mounted, setMounted] = useState(false)
+  const [supabaseReady, setSupabaseReady] = useState(false)
+  
   const [posts, setPosts] = useState<Post[]>([])
   const [selectedTidbit, setSelectedTidbit] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -483,16 +490,33 @@ function BitBoardContent() {
   const [showUserProfile, setShowUserProfile] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
-  
-  // ✅ HYDRATION SAFETY: Add mounted state to prevent hydration mismatches
-  const [mounted, setMounted] = useState(false)
-
-  const supabase = getSupabaseBrowserClient()
 
   // ✅ HYDRATION SAFETY: Set mounted after component mounts
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // ✅ HYDRATION SAFETY: Check Supabase client availability
+  useEffect(() => {
+    if (!mounted) return
+
+    const checkSupabaseClient = () => {
+      try {
+        const supabase = getSupabaseBrowserClient()
+        setSupabaseReady(!!supabase)
+      } catch (error) {
+        console.warn('Supabase client not available:', error)
+        setSupabaseReady(false)
+      }
+    }
+
+    checkSupabaseClient()
+    // Retry every few seconds if not ready
+    if (!supabaseReady) {
+      const interval = setInterval(checkSupabaseClient, 3000)
+      return () => clearInterval(interval)
+    }
+  }, [mounted, supabaseReady])
 
   // Enhanced debounced search
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
@@ -503,17 +527,21 @@ function BitBoardContent() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Mobile scroll to top functionality
+  // Mobile scroll to top functionality - ✅ HYDRATION SAFE
   useEffect(() => {
+    if (!mounted) return
+    
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500)
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [mounted])
 
-  // Enhanced filtered posts with better search
+  // ✅ HYDRATION SAFE: Enhanced filtered posts with safe date handling
   const filteredPosts = useMemo(() => {
+    if (!mounted) return [] // Don't filter until mounted
+
     let filtered = [...posts]
 
     // Apply tidbit filter
@@ -521,7 +549,7 @@ function BitBoardContent() {
       filtered = filtered.filter(post => post.tidbit === selectedTidbit)
     }
 
-    // ✅ HYDRATION SAFE: Enhanced search filter with safe date handling
+    // Enhanced search filter with safe date handling
     if (debouncedSearchQuery.trim()) {
       const searchParts = parseSearchQuery(debouncedSearchQuery)
       
@@ -535,7 +563,7 @@ function BitBoardContent() {
           }
         }
         
-        // ✅ HYDRATION SAFE: Date filters using safe parsing
+        // ✅ HYDRATION SAFE: Date filters using consistent parsing
         if (searchParts.afterDate || searchParts.beforeDate) {
           const postDate = new Date(post.created_at)
           
@@ -548,7 +576,7 @@ function BitBoardContent() {
           
           if (searchParts.beforeDate) {
             const searchDate = parseSearchDate(searchParts.beforeDate)
-            searchDate.setHours(23, 59, 59, 999)
+            searchDate.setUTCHours(23, 59, 59, 999) // Use UTC for consistency
             if (isNaN(searchDate.getTime()) || postDate > searchDate) {
               return false
             }
@@ -569,9 +597,6 @@ function BitBoardContent() {
           }
           
           if (searchParts.textQuery) {
-            // ✅ HYDRATION SAFE: Use formatDate for consistent date strings
-            const displayDate = formatDate(post.created_at)
-            
             const searchableText = [
               post.content || '',
               post.description || '',
@@ -579,7 +604,6 @@ function BitBoardContent() {
               post.after_text || '',
               post.username || '',
               post.user_full_name || '',
-              displayDate,
               post.created_at || ''
             ].join(' ').toLowerCase()
             
@@ -615,10 +639,13 @@ function BitBoardContent() {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
     }
-  }, [posts, selectedTidbit, debouncedSearchQuery, filterOption, userLikedPosts, userCommentedPosts, user?.id])
+  }, [posts, selectedTidbit, debouncedSearchQuery, filterOption, userLikedPosts, userCommentedPosts, user?.id, mounted])
 
-  // Single batched fetchPosts function
+  // Single batched fetchPosts function with enhanced safety
   const fetchPosts = useCallback(async () => {
+    if (!mounted || !supabaseReady) return
+
+    const supabase = getSupabaseBrowserClient()
     if (!supabase) {
       console.warn('Supabase client not available')
       setLoading(false)
@@ -737,11 +764,17 @@ function BitBoardContent() {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [mounted, supabaseReady])
 
-  // Simplified fetchUserAndLikes
+  // Simplified fetchUserAndLikes with enhanced safety
   const fetchUserAndLikes = useCallback(async () => {
-    if (!supabase) return
+    if (!mounted || !supabaseReady) return
+
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      console.warn('Supabase client not available')
+      return
+    }
 
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
@@ -770,12 +803,18 @@ function BitBoardContent() {
       const commentedPostIds = [...new Set((commentsData as CommentData[]).map((c: CommentData) => c.post_id))]
       setUserCommentedPosts(commentedPostIds)
     }
-  }, [supabase])
+  }, [mounted, supabaseReady])
 
-  // Like handling
+  // Like handling with enhanced safety
   const handleLike = useCallback(async (postId: string) => {
-    if (!user || !supabase) {
+    if (!user || !mounted || !supabaseReady) {
       alert('Please log in to like posts.')
+      return
+    }
+
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      console.warn('Supabase client not available')
       return
     }
     
@@ -803,24 +842,28 @@ function BitBoardContent() {
     } catch (error) {
       console.error('Error updating like:', error)
     }
-  }, [user, userLikedPosts, supabase])
+  }, [user, userLikedPosts, mounted, supabaseReady])
 
-  // Mobile scroll to top
+  // ✅ HYDRATION SAFE: Mobile scroll to top
   const scrollToTop = () => {
+    if (!mounted || typeof window === 'undefined') return
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // ✅ HYDRATION SAFETY: Initial setup only after mounted
+  // ✅ HYDRATION SAFETY: Initial setup only after mounted and Supabase ready
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !supabaseReady) return
     
     fetchUserAndLikes()
     fetchPosts()
-  }, [fetchUserAndLikes, fetchPosts, mounted])
+  }, [fetchUserAndLikes, fetchPosts, mounted, supabaseReady])
 
-  // Real-time subscriptions
+  // Real-time subscriptions with enhanced safety
   useEffect(() => {
-    if (!mounted || !supabase) return
+    if (!mounted || !supabaseReady) return
+
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) return
 
     let timer: NodeJS.Timeout | null = null
     const channel = supabase
@@ -839,7 +882,7 @@ function BitBoardContent() {
       if (timer) clearTimeout(timer)
       supabase.removeChannel(channel)
     }
-  }, [fetchPosts, supabase, mounted])
+  }, [fetchPosts, mounted, supabaseReady])
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([fetchPosts(), fetchUserAndLikes()])
@@ -867,11 +910,16 @@ function BitBoardContent() {
     return count
   }, [mounted, selectedTidbit, debouncedSearchQuery, filterOption])
 
-  // ✅ HYDRATION SAFETY: Show loading screen during hydration
-  if (!mounted) {
+  // ✅ HYDRATION SAFETY: Show loading screen during hydration and Supabase setup
+  if (!mounted || !supabaseReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-12 w-12 animate-spin text-brand-green" />
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-brand-green mb-4" />
+          <p className="body-medium text-gray-600">
+            {!mounted ? 'Initializing...' : 'Connecting to database...'}
+          </p>
+        </div>
       </div>
     )
   }

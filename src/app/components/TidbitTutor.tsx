@@ -81,8 +81,9 @@ export default function TidbitTutor({
   dayNumber,
   embedded = false,
 }: TidbitTutorProps) {
-  // PRIMARY HYDRATION SAFETY - Critical first state
+  // ✅ CRITICAL: Primary hydration safety - must be first
   const [mounted, setMounted] = useState(false);
+  const [clientReady, setClientReady] = useState(false);
 
   // Core state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -111,10 +112,33 @@ export default function TidbitTutor({
   // Use safe auth hook
   const { user, loading: authLoading, mounted: authMounted } = useAuth();
 
-  // Mount detection - Critical for hydration safety
+  // ✅ CRITICAL: Mount detection - must be first useEffect
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // ✅ CRITICAL: Client readiness check with retry logic
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const checkClient = () => {
+      try {
+        const client = getSupabaseBrowserClient();
+        setClientReady(!!client);
+      } catch (error) {
+        console.warn('Supabase client not ready:', error);
+        setClientReady(false);
+      }
+    };
+    
+    checkClient();
+    
+    // Retry every second until client is ready
+    if (!clientReady) {
+      const interval = setInterval(checkClient, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [mounted, clientReady]);
 
   // OAuth redirect target - HYDRATION SAFE: Only after mounted
   const redirectTo = useMemo(() => {
@@ -134,17 +158,17 @@ export default function TidbitTutor({
       ? `${getCurrentProvider().name} is processing...`
       : "Type your message...");
 
-  // Load tidbit from Supabase - HYDRATION SAFE: Only after mounted
+  // Load tidbit from Supabase - HYDRATION SAFE: Only after both mounted and client ready
   useEffect(() => {
     const loadTidbitData = async () => {
-      if (!autoLoadFromSupabase || !mounted) return;
+      if (!autoLoadFromSupabase || !mounted || !clientReady) return;
 
       setLoadingState("loading_tidbit");
 
       try {
         const supabase = getSupabaseBrowserClient();
         
-        // CRITICAL FIX: Handle null supabase client
+        // ✅ CRITICAL FIX: Handle null supabase client properly
         if (!supabase) {
           throw new Error('Supabase client not available');
         }
@@ -192,11 +216,11 @@ export default function TidbitTutor({
     };
 
     loadTidbitData();
-  }, [autoLoadFromSupabase, dayNumber, tidbitNumber, mounted]);
+  }, [autoLoadFromSupabase, dayNumber, tidbitNumber, mounted, clientReady]);
 
-  // Set initial prefill/provider from tidbit - HYDRATION SAFE: Only after both mounted
+  // Set initial prefill/provider from tidbit - HYDRATION SAFE: Only after all states ready
   useEffect(() => {
-    if (!mounted || !authMounted) return;
+    if (!mounted || !authMounted || !clientReady) return;
     
     if (tidbitData && messages.length === 0) {
       if (tidbitData.tutor_prefill && shouldShowStarterText) {
@@ -207,7 +231,7 @@ export default function TidbitTutor({
         if (valid) setSelectedProvider(valid.id);
       }
     }
-  }, [tidbitData, messages.length, shouldShowStarterText, mounted, authMounted]);
+  }, [tidbitData, messages.length, shouldShowStarterText, mounted, authMounted, clientReady]);
 
   // Starter text behavior on provider change - HYDRATION SAFE: Only after mounted
   useEffect(() => {
@@ -254,9 +278,9 @@ export default function TidbitTutor({
     setShowAuthModal(false);
   };
 
-  // Chat - HYDRATION SAFE: Only after both mounted
+  // Chat - HYDRATION SAFE: Only after all states ready
   async function sendMessage() {
-    if (!mounted || !authMounted) return;
+    if (!mounted || !authMounted || !clientReady) return;
     
     // Block send when not logged in - show modal instead
     if (!user) {
@@ -365,8 +389,8 @@ export default function TidbitTutor({
     clearError();
 
     try {
-      // HYDRATION FIX: Safe clipboard access
-      if (!window.navigator?.clipboard) {
+      // ✅ HYDRATION FIX: Safe clipboard access with proper feature detection
+      if (!mounted || typeof window === 'undefined' || !window.navigator?.clipboard) {
         throw new Error("Clipboard not supported in this browser");
       }
 
@@ -376,14 +400,10 @@ export default function TidbitTutor({
       setTimeout(() => setCopiedMessageIndex(null), 2000);
     } catch (err) {
       console.error("Copy failed:", err);
-      handleError(
-        "network",
-        "Failed to copy to clipboard. You can manually select and copy the text."
-      );
-
-      // HYDRATION SAFE: Fallback copy method
+      
+      // ✅ HYDRATION SAFE: Fallback copy method only after mount
       try {
-        if (typeof document !== 'undefined') {
+        if (mounted && typeof document !== 'undefined') {
           const textArea = document.createElement("textarea");
           textArea.value = content;
           document.body.appendChild(textArea);
@@ -394,15 +414,19 @@ export default function TidbitTutor({
         }
       } catch (fallbackErr) {
         console.error("Fallback copy failed:", fallbackErr);
+        handleError(
+          "network",
+          "Failed to copy to clipboard. You can manually select and copy the text."
+        );
       }
     } finally {
       setLoadingState("idle");
     }
   };
 
-  // Share a specific exchange - HYDRATION SAFE: Only after both mounted
+  // Share a specific exchange - HYDRATION SAFE: Only after all states ready
   const shareSpecificConversation = async (userMsgIndex: number) => {
-    if (!mounted || !authMounted || loadingState === "posting") return;
+    if (!mounted || !authMounted || !clientReady || loadingState === "posting") return;
 
     if (!user) {
       setShowAuthModal(true);
@@ -423,7 +447,7 @@ export default function TidbitTutor({
     try {
       const supabase = getSupabaseBrowserClient();
       
-      // CRITICAL FIX: Handle null supabase client  
+      // ✅ CRITICAL FIX: Handle null supabase client properly
       if (!supabase) {
         throw new Error('Supabase client not available');
       }
@@ -449,7 +473,7 @@ export default function TidbitTutor({
 
       setTimeout(() => setLastSharedIndex(null), 3000);
 
-      // HYDRATION SAFE: Window access
+      // ✅ HYDRATION SAFE: Window access only after mount
       if (mounted && typeof window !== 'undefined') {
         setTimeout(() => {
           const viewPost = window.confirm("View your post on BitBoard?");
@@ -479,7 +503,7 @@ export default function TidbitTutor({
     setShouldShowStarterText(false);
   };
 
-  // Input area click handler - HYDRATION SAFE: Only after both mounted
+  // Input area click handler - HYDRATION SAFE: Only after all states ready
   const handleInputAreaClick = () => {
     if (!mounted || !authMounted) return;
     if (!user) {
@@ -487,8 +511,8 @@ export default function TidbitTutor({
     }
   };
 
-  // HYDRATION SAFETY: Show skeleton during any loading state
-  if (!mounted || !authMounted) {
+  // ✅ HYDRATION SAFETY: Show skeleton during any loading state
+  if (!mounted || !authMounted || !clientReady) {
     return <TidbitTutorSkeleton embedded={embedded} />;
   }
 

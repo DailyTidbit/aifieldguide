@@ -143,6 +143,21 @@ export default function RootLayout({ children }: RootLayoutProps) {
       suppressHydrationWarning
     >
       <head>
+        {/* Theme prevention script to prevent flash - MUST be first */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const theme = localStorage.getItem('theme') || 
+                    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                  document.documentElement.classList.add(theme);
+                } catch (e) {}
+              })()
+            `,
+          }}
+        />
+
         {/* Preconnections for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -166,7 +181,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Daily Tidbit" />
         
-        {/* Theme colors with dark mode support - FIXED: Use actual hex values */}
+        {/* Theme colors with dark mode support - Using actual hex values */}
         <meta name="theme-color" content="#60A875" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#60A875" />
         
@@ -178,7 +193,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         {/* Safari specific */}
         <link rel="mask-icon" href="/96.png" color="#60A875" />
 
-        {/* Structured data */}
+        {/* Structured data - static version to prevent hydration issues */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -201,7 +216,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         />
       </head>
       <body className="antialiased min-h-screen bg-white flex flex-col font-sans" suppressHydrationWarning>
-        {/* Skip to main content link - FIXED: Use actual hex value */}
+        {/* Skip to main content link - Using actual hex value */}
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 px-4 py-2 rounded-md z-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
@@ -219,15 +234,21 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <Footer />
         <CookieConsentManager />
 
-        {/* Service Worker registration for PWA */}
-        {process.env.NODE_ENV === "production" && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                if ('serviceWorker' in navigator && typeof window !== 'undefined') {
+        {/* Hydration-safe service worker registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                if (typeof window !== 'undefined') {
+                  // Wait for mount to ensure hydration safety
                   window.addEventListener('load', function() {
-                    if (window.navigator?.serviceWorker) {
-                      window.navigator.serviceWorker.register('/sw.js')
+                    // Check environment and service worker support
+                    const isProduction = typeof process !== 'undefined' 
+                      ? process.env.NODE_ENV === 'production'
+                      : !window.location.hostname.includes('localhost');
+                    
+                    if (isProduction && 'serviceWorker' in navigator) {
+                      navigator.serviceWorker.register('/sw.js')
                         .then(function(registration) {
                           console.log('SW registered: ', registration);
                         })
@@ -237,10 +258,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
                     }
                   });
                 }
-              `,
-            }}
-          />
-        )}
+              })()
+            `,
+          }}
+        />
       </body>
     </html>
   );

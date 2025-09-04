@@ -1,38 +1,22 @@
-// app/components/HomeClient.tsx - UPDATED WITH ANALYTICS SYSTEM
+// app/components/HomeClient.tsx - Fixed runtime error in incognito mode
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import CTASection from './CTASection'
-import { 
-  analytics,
-  pageview,
-  logEvent,
-  useAnalytics
-} from '../lib/analytics'
+import { useMounted } from '../lib/clientUtils'
+import { useAnalytics } from '../lib/analytics'
 
 interface HomeClientProps {
   children: React.ReactNode
 }
 
-// ✅ HYDRATION SAFE: Loading skeleton component
+// Loading skeleton component
 const HomeClientSkeleton = ({ children }: HomeClientProps) => (
   <>{children}</>
 )
 
-// ✅ HYDRATION SAFE: Generate stable timestamp after mount
-const getStableStartTime = (): number => {
-  if (typeof window === 'undefined') return 0
-  return Date.now()
-}
-
-// Helper function to detect device type
-const getDeviceType = (): 'mobile' | 'tablet' | 'desktop' => {
-  if (typeof window === 'undefined') return 'desktop'
-  const width = window.innerWidth
-  if (width < 768) return 'mobile'
-  if (width < 1024) return 'tablet'
-  return 'desktop'
-}
+// Device type state management for hydration safety
+type DeviceType = 'mobile' | 'tablet' | 'desktop'
 
 // Helper function to calculate engagement score
 const calculateEngagementScore = (
@@ -49,78 +33,120 @@ const calculateEngagementScore = (
 
 // Client Component wrapper for homepage analytics and interactive elements
 export default function HomeClient({ children }: HomeClientProps) {
-  // ✅ HYDRATION SAFETY: Component-level mounted state
-  const [mounted, setMounted] = useState(false)
-  const { analytics: analyticsInstance, trackPageView } = useAnalytics()
+  const mounted = useMounted()
+  const analytics = useAnalytics()
   
-  const pageStartTime = useRef<number>(0) // Will be set after mount
-  const scrollDepthTracked = useRef<Set<number>>(new Set())
+  // State management for hydration safety
+  const [deviceType, setDeviceType] = useState<DeviceType>('desktop')
   const [interactions, setInteractions] = useState(0)
+  
+  // Refs for tracking (avoid state to prevent unnecessary re-renders)
+  const pageStartTime = useRef<number>(0)
+  const maxScrollDepth = useRef<number>(0)
+  const scrollMilestones = useRef<Set<number>>(new Set())
+  const cleanupFunctions = useRef<Array<() => void>>([])
 
-  // ✅ HYDRATION SAFETY: Wait for mount before any browser-dependent operations
-  useEffect(() => {
-    setMounted(true)
-    pageStartTime.current = getStableStartTime() // Set start time after mount
+  // Device type detection with hydration safety
+  const updateDeviceType = useCallback(() => {
+    if (typeof window === 'undefined') return
+    
+    const width = window.innerWidth
+    let newDeviceType: DeviceType = 'desktop'
+    
+    if (width < 768) {
+      newDeviceType = 'mobile'
+    } else if (width < 1024) {
+      newDeviceType = 'tablet'
+    }
+    
+    setDeviceType(newDeviceType)
   }, [])
 
-  // ✅ HYDRATION SAFE: Track pageview on mount - only after mounted
+  // Initialize after mount - NO ANALYTICS DEPENDENCIES
   useEffect(() => {
-    if (!mounted || !analyticsInstance) return
+    if (!mounted) return
     
-    // Guard against missing analytics functions
-    try {
-      trackPageView('/')
-      
-      // Track homepage hero section view
-      analyticsInstance.trackEvent({
-        event_type: 'user_engagement',
-        event_data: {
+    pageStartTime.current = Date.now()
+    updateDeviceType()
+
+    // Add resize listener for device type updates
+    window.addEventListener('resize', updateDeviceType, { passive: true })
+    cleanupFunctions.current.push(() => {
+      window.removeEventListener('resize', updateDeviceType)
+    })
+  }, [mounted, updateDeviceType]) // Removed analytics dependencies
+
+  // Track pageview and initial section view - SEPARATE EFFECT WITH SAFE CHECKS
+  useEffect(() => {
+    if (!mounted || !analytics.hasConsent) return
+    
+    // Double-check functions exist and are callable
+    if (analytics.trackPageView && typeof analytics.trackPageView === 'function') {
+      try {
+        analytics.trackPageView('/')
+      } catch (error) {
+        console.warn('Page view tracking error:', error)
+      }
+    }
+    
+    // Track homepage hero section view with safety checks
+    if (analytics.track && typeof analytics.track === 'function') {
+      try {
+        analytics.track('user_engagement', {
           engagement_type: 'section_view',
           section: 'homepage_hero',
-          device_type: getDeviceType()
-        }
-      })
-    } catch (error) {
-      console.warn('Analytics tracking failed:', error)
+          device_type: deviceType
+        })
+      } catch (error) {
+        console.warn('Section view tracking error:', error)
+      }
     }
-  }, [mounted, analyticsInstance, trackPageView])
+  }, [mounted, analytics.hasConsent, analytics.trackPageView, analytics.track, deviceType])
 
-  // ✅ HYDRATION SAFE: Scroll depth tracking - only after mounted
+  // Scroll depth tracking with memory management
   useEffect(() => {
-    if (!mounted || !analyticsInstance) return
+    if (!mounted || !analytics.hasConsent || !analytics.track) return
 
     const milestones = [25, 50, 75, 90]
-    const fired = scrollDepthTracked.current
     let ticking = false
 
     const onScroll = () => {
       if (ticking) return
       ticking = true
+      
       requestAnimationFrame(() => {
         try {
           const top = window.pageYOffset
-          const doc = document.documentElement.scrollHeight - window.innerHeight
-          if (doc <= 0) { 
+          const docHeight = document.documentElement.scrollHeight - window.innerHeight
+          
+          if (docHeight <= 0) { 
             ticking = false
             return
           }
-          const pct = Math.round((top / doc) * 100)
           
-          for (const m of milestones) {
-            if (pct >= m && !fired.has(m)) {
-              fired.add(m)
-              try {
-                analyticsInstance.trackEvent({
-                  event_type: 'user_engagement',
-                  event_data: {
+          const currentScrollPercent = Math.round((top / docHeight) * 100)
+          
+          // Update max scroll depth
+          if (currentScrollPercent > maxScrollDepth.current) {
+            maxScrollDepth.current = currentScrollPercent
+          }
+          
+          // Check milestones
+          for (const milestone of milestones) {
+            if (currentScrollPercent >= milestone && !scrollMilestones.current.has(milestone)) {
+              scrollMilestones.current.add(milestone)
+              
+              if (analytics.track && typeof analytics.track === 'function') {
+                try {
+                  analytics.track('user_engagement', {
                     engagement_type: 'scroll_depth',
-                    scroll_depth_percent: m,
+                    scroll_depth_percent: milestone,
                     section_name: 'homepage',
-                    device_type: getDeviceType()
-                  }
-                })
-              } catch (error) {
-                console.warn('Analytics tracking failed:', error)
+                    device_type: deviceType
+                  })
+                } catch (error) {
+                  console.warn('Scroll tracking error:', error)
+                }
               }
             }
           }
@@ -132,30 +158,28 @@ export default function HomeClient({ children }: HomeClientProps) {
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [mounted, analyticsInstance])
+    cleanupFunctions.current.push(() => {
+      window.removeEventListener('scroll', onScroll)
+    })
+  }, [mounted, analytics.hasConsent, analytics.track, deviceType])
 
-  // ✅ HYDRATION SAFE: Time on page tracking - only log if >= 1 minute and only after mounted
+  // Time on page tracking - log periodically if >= 1 minute
   useEffect(() => {
-    if (!mounted || !analyticsInstance || pageStartTime.current === 0) return
+    if (!mounted || !analytics.hasConsent || pageStartTime.current === 0 || !analytics.track) return
 
     const trackTimeOnPage = () => {
       try {
-        // ✅ FIXED: Use stable time calculation
         const currentTime = Date.now()
         const timeOnPage = currentTime - pageStartTime.current
         const minutes = Math.floor(timeOnPage / 60000)
         
-        if (minutes >= 1) {
-          analyticsInstance.trackEvent({
-            event_type: 'user_engagement',
-            event_data: {
-              engagement_type: 'time_on_page',
-              time_minutes: minutes,
-              total_time_ms: timeOnPage,
-              section_name: 'homepage',
-              device_type: getDeviceType()
-            }
+        if (minutes >= 1 && analytics.track && typeof analytics.track === 'function') {
+          analytics.track('user_engagement', {
+            engagement_type: 'time_on_page',
+            time_minutes: minutes,
+            total_time_ms: timeOnPage,
+            section_name: 'homepage',
+            device_type: deviceType
           })
         }
       } catch (error) {
@@ -164,46 +188,48 @@ export default function HomeClient({ children }: HomeClientProps) {
     }
 
     const interval = setInterval(trackTimeOnPage, 60000) // Every minute
-    return () => clearInterval(interval)
-  }, [mounted, analyticsInstance])
+    cleanupFunctions.current.push(() => clearInterval(interval))
+  }, [mounted, analytics.hasConsent, analytics.track, deviceType])
 
-  // ✅ HYDRATION SAFE: Page engagement score tracking on visibility change - only after mounted
+  // Page engagement score tracking on visibility change
   useEffect(() => {
-    if (!mounted || !analyticsInstance || pageStartTime.current === 0) return
+    if (!mounted || !analytics.hasConsent || pageStartTime.current === 0 || !analytics.track) return
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         try {
-          // ✅ FIXED: Use stable time calculation
           const currentTime = Date.now()
           const timeOnPage = currentTime - pageStartTime.current
-          const maxScrollDepth = Math.max(...Array.from(scrollDepthTracked.current), 0)
-          const engagementScore = calculateEngagementScore(timeOnPage, maxScrollDepth / 100, interactions)
+          const engagementScore = calculateEngagementScore(
+            timeOnPage, 
+            maxScrollDepth.current / 100, 
+            interactions
+          )
           
-          // Track device-specific engagement
-          analyticsInstance.trackEvent({
-            event_type: 'device_engagement',
-            event_data: {
-              device_type: getDeviceType(),
-              engagement_score: engagementScore,
-              time_on_page_ms: timeOnPage,
-              max_scroll_depth: maxScrollDepth,
-              total_interactions: interactions,
-              page: 'homepage'
-            }
-          })
-
-          // Track funnel progress based on engagement
-          if (engagementScore >= 30) {
-            analyticsInstance.trackEvent({
-              event_type: 'conversion_funnel',
-              event_data: {
-                funnel_step: 'interested',
+          // Track device-specific engagement with safety checks
+          if (analytics.track && typeof analytics.track === 'function') {
+            try {
+              analytics.track('device_engagement', {
+                device_type: deviceType,
                 engagement_score: engagementScore,
-                page: 'homepage',
-                engagement_type: 'high_engagement'
+                time_on_page_ms: timeOnPage,
+                max_scroll_depth: maxScrollDepth.current,
+                total_interactions: interactions,
+                page: 'homepage'
+              })
+
+              // Track funnel progress based on engagement
+              if (engagementScore >= 30) {
+                analytics.track('conversion_funnel', {
+                  funnel_step: 'interested',
+                  engagement_score: engagementScore,
+                  page: 'homepage',
+                  engagement_type: 'high_engagement'
+                })
               }
-            })
+            } catch (error) {
+              console.warn('Engagement tracking error:', error)
+            }
           }
         } catch (error) {
           console.warn('Visibility tracking error:', error)
@@ -212,28 +238,61 @@ export default function HomeClient({ children }: HomeClientProps) {
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [interactions, mounted, analyticsInstance])
+    cleanupFunctions.current.push(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    })
+  }, [interactions, mounted, analytics.hasConsent, analytics.track, deviceType])
 
-  // Track user interactions (clicks, hovers, etc.)
+  // Track user interactions with throttling - NO ANALYTICS DEPENDENCIES
   useEffect(() => {
     if (!mounted) return
 
+    let interactionCount = 0
+    let lastUpdate = 0
+    const THROTTLE_MS = 100 // Throttle to prevent excessive state updates
+
     const handleInteraction = () => {
-      setInteractions(prev => prev + 1)
+      interactionCount++
+      const now = Date.now()
+      
+      if (now - lastUpdate > THROTTLE_MS) {
+        setInteractions(interactionCount)
+        lastUpdate = now
+      }
     }
 
     // Add event listeners for various interaction types
-    document.addEventListener('click', handleInteraction, { passive: true })
-    document.addEventListener('touchstart', handleInteraction, { passive: true })
-    
-    return () => {
-      document.removeEventListener('click', handleInteraction)
-      document.removeEventListener('touchstart', handleInteraction)
-    }
-  }, [mounted])
+    const events = ['click', 'touchstart'] as const
+    events.forEach(event => {
+      document.addEventListener(event, handleInteraction, { passive: true })
+    })
 
-  // ✅ HYDRATION SAFETY: Show skeleton during SSR
+    cleanupFunctions.current.push(() => {
+      events.forEach(event => {
+        document.removeEventListener(event, handleInteraction)
+      })
+    })
+  }, [mounted]) // Only depend on mounted, not analytics
+
+  // Cleanup all event listeners on unmount
+  useEffect(() => {
+    return () => {
+      cleanupFunctions.current.forEach(cleanup => {
+        try {
+          cleanup()
+        } catch (error) {
+          console.warn('Cleanup error:', error)
+        }
+      })
+      cleanupFunctions.current = []
+      
+      // Reset tracking data
+      scrollMilestones.current.clear()
+      maxScrollDepth.current = 0
+    }
+  }, [])
+
+  // Show skeleton during hydration
   if (!mounted) {
     return <HomeClientSkeleton>{children}</HomeClientSkeleton>
   }
@@ -243,7 +302,7 @@ export default function HomeClient({ children }: HomeClientProps) {
       {/* Render the server-fetched content */}
       {children}
       
-      {/* Client-side interactive sections - only after mounted */}
+      {/* Client-side interactive sections */}
       <CTASection />
     </>
   )

@@ -1,9 +1,11 @@
-// app/components/FieldGuideClient.tsx - HYDRATION SAFETY FIXED
+// app/components/FieldGuideClient.tsx - Fixed to use new analytics system
 'use client'
 
 import { useState, useEffect, useDeferredValue, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import React from 'react'
+import { useMounted } from '../lib/clientUtils'
+import { useAnalytics } from '../lib/analytics'
 
 // Types
 interface FieldGuideSection {
@@ -36,7 +38,7 @@ const getSectionEmoji = (sectionName: string): string => {
     'Video Editing': '🎞️',
     'AI Avatars': '👤',
     'Speech & Voice': '🎙️',
-    'Creative Writing & Storytelling': '✍️',
+    'Creative Writing & Storytelling': '✏️',
     'Productivity Tools': '⚡',
     'AI Search Tools': '🔍',
     'Education & Learning': '📚',
@@ -90,22 +92,15 @@ const getSectionColor = (sectionName: string): string => {
   return colorMap[sectionName] || 'var(--brand-green)'
 }
 
-// Lazy import analytics
-const loadAnalytics = () => import('../lib/gtag')
-
 export default function FieldGuideClient({ initialData }: FieldGuideClientProps) {
-  // HYDRATION FIX: Add mounted state
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
+  const { track, hasConsent } = useAnalytics()
+  
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   
   // Debounced search for better performance
   const deferredSearchQuery = useDeferredValue(searchQuery)
-
-  // HYDRATION FIX: Wait for mount before any browser operations
-  useEffect(() => {
-    setMounted(true)
-  }, [])
   
   // Memoized filtered sections for better performance
   const filteredSections = useMemo(() => {
@@ -119,52 +114,54 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
     )
   }, [deferredSearchQuery, initialData.sections])
 
-  // Track analytics with useCallback to prevent recreating function
-  const trackEvent = useCallback(async (eventName: string, params: Record<string, any>) => {
-    if (!mounted) return // HYDRATION FIX: Don't track before mount
+  // Safe analytics tracking functions
+  const trackPageView = useCallback(() => {
+    if (!mounted || !hasConsent || !track) return
+    track('page_view', { 
+      page_title: 'Field Guide', 
+      page_location: '/field-guide',
+      section_count: initialData.sectionCount,
+      total_tools: initialData.totalTools
+    })
+  }, [mounted, hasConsent, track, initialData.sectionCount, initialData.totalTools])
 
-    try {
-      const { logEvent } = await loadAnalytics()
-      logEvent(eventName, params)
-    } catch {
-      // Analytics not critical - fail silently
-    }
-  }, [mounted])
+  const trackFieldGuideSearch = useCallback((searchTerm: string, resultsCount: number) => {
+    if (!mounted || !hasConsent || !track) return
+    track('field_guide_search', {
+      search_term: searchTerm,
+      results_count: resultsCount
+    })
+  }, [mounted, hasConsent, track])
+
+  const trackSectionClick = useCallback((sectionName: string, slug: string, toolCount: number) => {
+    if (!mounted || !hasConsent || !track) return
+    track('field_guide_section_click', {
+      section_name: sectionName,
+      section_slug: slug,
+      tool_count: toolCount
+    })
+  }, [mounted, hasConsent, track])
 
   // Track page view on mount
   useEffect(() => {
     if (!mounted) return
     
     setIsVisible(true)
-    trackEvent('page_view', { 
-      page_title: 'Field Guide', 
-      page_location: '/field-guide',
-      section_count: initialData.sectionCount,
-      total_tools: initialData.totalTools
-    })
-  }, [mounted, initialData.sectionCount, initialData.totalTools, trackEvent])
+    trackPageView()
+  }, [mounted, trackPageView])
 
   // Track search with debounced query
   useEffect(() => {
-    if (!mounted) return // HYDRATION FIX: Don't track before mount
+    if (!mounted || !deferredSearchQuery.trim()) return
     
-    if (deferredSearchQuery.trim()) {
-      trackEvent('field_guide_search', {
-        search_term: deferredSearchQuery,
-        results_count: filteredSections.length
-      })
-    }
-  }, [mounted, deferredSearchQuery, filteredSections.length, trackEvent])
+    trackFieldGuideSearch(deferredSearchQuery, filteredSections.length)
+  }, [mounted, deferredSearchQuery, filteredSections.length, trackFieldGuideSearch])
 
   const handleSectionClick = useCallback((section: FieldGuideSection) => {
     if (!mounted) return
     
-    trackEvent('field_guide_section_click', {
-      section_name: section.section_name,
-      section_slug: section.slug,
-      tool_count: section.toolCount
-    })
-  }, [mounted, trackEvent])
+    trackSectionClick(section.section_name, section.slug, section.toolCount)
+  }, [mounted, trackSectionClick])
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery('')
@@ -176,7 +173,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
       <section className="bg-white px-6 md:px-12 py-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold">
+            <h2 className="text-4xl md:text-5xl text-green-600 mb-6 leading-tight font-bold">
               🔍 Loading Field Guide...
             </h2>
             <div className="animate-pulse">
@@ -199,7 +196,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 
-              className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold"
+              className="heading-section text-4xl md:text-5xl text-green-600 mb-6 leading-tight font-bold"
               style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}
             >
               🔍 Explore AI by Category
@@ -222,7 +219,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoComplete="off"
-                  className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green bg-white shadow-sm transition-all min-h-[44px]"
+                  className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 bg-white shadow-sm transition-all min-h-[44px]"
                   aria-describedby="search-results"
                 />
                 <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -262,7 +259,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
               </p>
               <button
                 onClick={handleClearSearch}
-                className="px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-brand-greenDark transition-colors"
+                className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
               >
                 Clear search
               </button>

@@ -113,7 +113,7 @@ $Issues2 = Search-And-Report `
     -Severity "High" `
     -Fix "Wrap in mounted state check or use useEffect"
 
-# 3. Math.random() Usage
+# 3. Math rand() Usage
 $Issues3 = Search-And-Report `
     -Title "RANDOM VALUE HYDRATION ISSUES" `
     -Pattern "Math\.random\(\)" `

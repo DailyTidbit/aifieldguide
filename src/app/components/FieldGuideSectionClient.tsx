@@ -1,4 +1,4 @@
-// app/components/FieldGuideSectionClient.tsx - HYDRATION SAFETY WITH FIXED HOOKS
+// app/components/FieldGuideSectionClient.tsx - Fixed to use new analytics system
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
@@ -6,6 +6,8 @@ import Link from 'next/link'
 import ToolModal from './ToolModal'
 import CRTSectionDisplay from './CRTSectionDisplay'
 import React from 'react'
+import { useMounted } from '../lib/clientUtils'
+import { useAnalytics } from '../lib/analytics'
 
 // Types
 interface FieldGuideSection {
@@ -47,14 +49,12 @@ interface SectionClientProps {
   }
 }
 
-// Lazy import analytics
-const loadAnalytics = () => import('../lib/gtag')
-
 export default function FieldGuideSectionClient({ initialData }: SectionClientProps) {
   const { section, tools, sectionColor, sectionEmoji } = initialData
+  const mounted = useMounted()
+  const { track, hasConsent } = useAnalytics()
   
-  // ✅ FIXED: ALL HOOKS BEFORE ANY CONDITIONAL RETURNS
-  const [mounted, setMounted] = useState(false)
+  // State management
   const [isDesktop, setIsDesktop] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -66,12 +66,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   const [selectedTool, setSelectedTool] = useState<AITool | null>(null)
   const [isModalLoading, setIsModalLoading] = useState(false)
 
-  // HYDRATION FIX: Wait for mount before any browser operations
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // HYDRATION FIX: Check desktop size only after mount
+  // Check desktop size only after mount
   useEffect(() => {
     if (!mounted) return
 
@@ -98,46 +93,93 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     )
   }, [searchQuery, tools])
 
-  // Track analytics with useCallback
-  const trackEvent = useCallback(async (eventName: string, params: Record<string, any>) => {
-    if (!mounted) return // HYDRATION FIX: Don't track before mount
-    
-    try {
-      const { logEvent } = await loadAnalytics()
-      logEvent(eventName, params)
-    } catch {
-      // Analytics not critical - fail silently
-    }
-  }, [mounted])
+  // Safe analytics tracking functions
+  const trackSectionView = useCallback((sectionName: string, slug: string, toolsCount: number) => {
+    if (!mounted || !hasConsent || !track) return
+    track('field_guide_section_view', {
+      section_name: sectionName,
+      section_slug: slug,
+      tools_count: toolsCount
+    })
+  }, [mounted, hasConsent, track])
+
+  const trackToolSearch = useCallback((sectionName: string, searchTerm: string, resultsCount: number) => {
+    if (!mounted || !hasConsent || !track) return
+    track('field_guide_tool_search', {
+      section_name: sectionName,
+      search_term: searchTerm,
+      results_count: resultsCount
+    })
+  }, [mounted, hasConsent, track])
+
+  const trackToolModalOpen = useCallback((toolName: string, toolId: string, sectionName: string) => {
+    if (!mounted || !hasConsent || !track) return
+    track('tool_modal_open', {
+      tool_name: toolName,
+      tool_id: toolId,
+      section_name: sectionName
+    })
+  }, [mounted, hasConsent, track])
+
+  const trackToolModalClose = useCallback((sectionName: string, toolName?: string) => {
+    if (!mounted || !hasConsent || !track) return
+    track('tool_modal_close', {
+      section_name: sectionName,
+      tool_name: toolName
+    })
+  }, [mounted, hasConsent, track])
+
+  const trackToolInteraction = useCallback((toolName: string, toolId: string, action: string, sectionName: string, hasFreeTier: boolean) => {
+    if (!mounted || !hasConsent || !track) return
+    track('tool_interaction', {
+      tool_name: toolName,
+      tool_id: toolId,
+      action: action,
+      section_name: sectionName,
+      has_free_tier: hasFreeTier
+    })
+  }, [mounted, hasConsent, track])
+
+  const trackChannelChange = useCallback((sectionName: string, channel: string, fromChannel: string) => {
+    if (!mounted || !hasConsent || !track) return
+    track('crt_channel_change', {
+      section_name: sectionName,
+      channel: channel,
+      from_channel: fromChannel
+    })
+  }, [mounted, hasConsent, track])
+
+  const trackNavigateBack = useCallback((fromSection: string) => {
+    if (!mounted || !hasConsent || !track) return
+    track('navigate_back', { from_section: fromSection })
+  }, [mounted, hasConsent, track])
+
+  const trackCrtToggle = useCallback((sectionName: string, newMode: string) => {
+    if (!mounted || !hasConsent || !track) return
+    track('crt_mode_toggle', {
+      section_name: sectionName,
+      new_mode: newMode
+    })
+  }, [mounted, hasConsent, track])
 
   // Track page view on mount
   useEffect(() => {
     if (!mounted) return
     
     setIsVisible(true)
-    trackEvent('field_guide_section_view', {
-      section_name: section.section_name,
-      section_slug: section.slug,
-      tools_count: tools.length
-    })
-  }, [mounted, section.section_name, section.slug, tools.length, trackEvent])
+    trackSectionView(section.section_name, section.slug, tools.length)
+  }, [mounted, section.section_name, section.slug, tools.length, trackSectionView])
 
   // Track search with debouncing effect
   useEffect(() => {
-    if (!mounted) return // HYDRATION FIX: Don't track before mount
+    if (!mounted || !searchQuery.trim()) return
     
-    if (searchQuery.trim()) {
-      trackEvent('field_guide_tool_search', {
-        section_name: section.section_name,
-        search_term: searchQuery,
-        results_count: filteredTools.length
-      })
-    }
-  }, [mounted, searchQuery, section.section_name, filteredTools.length, trackEvent])
+    trackToolSearch(section.section_name, searchQuery, filteredTools.length)
+  }, [mounted, searchQuery, section.section_name, filteredTools.length, trackToolSearch])
 
   // Simplified modal handlers - single tool only
   const handleOpenModal = useCallback((tool: AITool) => {
-    if (!mounted) return // HYDRATION FIX: Prevent modal before mount
+    if (!mounted) return
     
     setIsModalLoading(true)
     setSelectedTool(tool)
@@ -148,12 +190,8 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       setIsModalLoading(false)
     }, 150)
 
-    trackEvent('tool_modal_open', {
-      tool_name: tool.name,
-      tool_id: tool.id,
-      section_name: section.section_name
-    })
-  }, [mounted, trackEvent, section.section_name])
+    trackToolModalOpen(tool.name, tool.id, section.section_name)
+  }, [mounted, trackToolModalOpen, section.section_name])
 
   const handleCloseModal = useCallback(() => {
     if (!mounted) return
@@ -162,34 +200,21 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     setIsModalLoading(false)
     setSelectedTool(null)
     
-    trackEvent('tool_modal_close', {
-      section_name: section.section_name,
-      tool_name: selectedTool?.name
-    })
-  }, [mounted, trackEvent, section.section_name, selectedTool])
+    trackToolModalClose(section.section_name, selectedTool?.name)
+  }, [mounted, trackToolModalClose, section.section_name, selectedTool])
 
   const handleToolClick = useCallback((tool: AITool, action: 'modal' | 'website') => {
     if (!mounted) return
     
-    trackEvent('tool_interaction', {
-      tool_name: tool.name,
-      tool_id: tool.id,
-      action,
-      section_name: section.section_name,
-      has_free_tier: tool.free_tier
-    })
-  }, [mounted, trackEvent, section.section_name])
+    trackToolInteraction(tool.name, tool.id, action, section.section_name, tool.free_tier)
+  }, [mounted, trackToolInteraction, section.section_name])
 
   const handleChannelChange = useCallback((channel: string) => {
     if (!mounted) return
     
     setCurrentChannel(channel)
-    trackEvent('crt_channel_change', {
-      section_name: section.section_name,
-      channel: channel,
-      from_channel: currentChannel
-    })
-  }, [mounted, trackEvent, section.section_name, currentChannel])
+    trackChannelChange(section.section_name, channel, currentChannel)
+  }, [mounted, trackChannelChange, section.section_name, currentChannel])
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery('')
@@ -198,20 +223,17 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   const handleNavigateBack = useCallback(() => {
     if (!mounted) return
     
-    trackEvent('navigate_back', { from_section: section.section_name })
-  }, [mounted, trackEvent, section.section_name])
+    trackNavigateBack(section.section_name)
+  }, [mounted, trackNavigateBack, section.section_name])
 
   const handleCrtToggle = useCallback(() => {
     if (!mounted) return
     
     setCrtMode(!crtMode)
-    trackEvent('crt_mode_toggle', {
-      section_name: section.section_name,
-      new_mode: !crtMode ? 'crt' : 'modern'
-    })
-  }, [mounted, crtMode, trackEvent, section.section_name])
+    trackCrtToggle(section.section_name, !crtMode ? 'crt' : 'modern')
+  }, [mounted, crtMode, trackCrtToggle, section.section_name])
 
-  // ✅ FIXED: Safety check AFTER all hooks
+  // Safety check AFTER all hooks
   if (!section) {
     return (
       <div className="text-center py-20">

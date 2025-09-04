@@ -5,14 +5,14 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Search, User, Menu, X, Sparkles, Compass, Building2, ChevronDown } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '../hooks/useAuth'
 import AuthModal from './AuthModal'
 import UserProfile from './UserProfile'
 import PartnerProfileModal from './PartnerProfileModal'
 import type { PartnerInfo } from '../types/partner'
 
-// ✅ HYDRATION SAFE: Analytics helper with proper guards
+// HYDRATION SAFE: Analytics helper with proper guards
 const trackEvent = (eventName: string, parameters: Record<string, any> = {}) => {
   if (
     typeof window === 'undefined' || 
@@ -32,7 +32,7 @@ const trackEvent = (eventName: string, parameters: Record<string, any> = {}) => 
   }
 }
 
-// ✅ TYPE FIX: Helper function to normalize role types
+// TYPE FIX: Helper function to normalize role types
 const normalizePartnerRole = (role: string): 'company_admin' | 'company_editor' => {
   const normalizedRole = role?.toLowerCase?.() || ''
   
@@ -42,32 +42,6 @@ const normalizePartnerRole = (role: string): 'company_admin' | 'company_editor' 
   
   return 'company_editor'
 }
-
-// ✅ HYDRATION SAFE: Loading skeleton component
-const NavigationSkeleton = () => (
-  <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between h-16">
-        <div className="flex items-center">
-          <div className="w-14 h-14 bg-gray-200 animate-pulse rounded-full"></div>
-        </div>
-        
-        <nav className="hidden lg:flex items-center space-x-8">
-          <div className="h-4 bg-gray-200 animate-pulse rounded w-32"></div>
-          <div className="h-4 bg-gray-200 animate-pulse rounded w-28"></div>
-          <div className="h-10 bg-gray-200 animate-pulse rounded-full w-48"></div>
-          <div className="h-4 bg-gray-200 animate-pulse rounded w-32"></div>
-          <div className="h-4 bg-gray-200 animate-pulse rounded w-24"></div>
-        </nav>
-        
-        <div className="flex items-center gap-4">
-          <div className="hidden md:block w-48 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
-          <div className="w-16 h-9 bg-gray-200 animate-pulse rounded-lg"></div>
-        </div>
-      </div>
-    </div>
-  </header>
-)
 
 export default function Navigation() {
   const { user, authState, company, isCompanyAdmin, signOut, mounted } = useAuth()
@@ -79,20 +53,13 @@ export default function Navigation() {
   const [showUserProfile, setShowUserProfile] = useState(false)
   const [showPartnerProfile, setShowPartnerProfile] = useState(false)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
-  
-  // ✅ HYDRATION SAFETY: Component-level mounted state
-  const [navigationMounted, setNavigationMounted] = useState(false)
 
   const pathname = usePathname()
+  const router = useRouter()
 
-  // ✅ HYDRATION SAFETY: Enhanced mounting detection
-  useEffect(() => {
-    setNavigationMounted(true)
-  }, [])
-
-  // ✅ HYDRATION SAFE: Redirect URL with additional guards
+  // HYDRATION SAFE: Redirect URL with additional guards - FIXED
   const redirectTo = useMemo(() => {
-    if (!navigationMounted || !mounted || typeof window === 'undefined') {
+    if (!mounted || typeof window === 'undefined') {
       return null
     }
     
@@ -102,11 +69,11 @@ export default function Navigation() {
       console.warn('Error accessing window.location:', error)
       return null
     }
-  }, [navigationMounted, mounted])
+  }, [mounted])
 
-  // ✅ HYDRATION SAFE + TYPE FIX: Enhanced company data conversion
+  // HYDRATION SAFE + TYPE FIX: Enhanced company data conversion
   const partnerInfo: PartnerInfo | null = useMemo(() => {
-    if (!navigationMounted || !mounted || !user?.companyMembership || !company) {
+    if (!mounted || !user?.companyMembership || !company) {
       return null
     }
     
@@ -121,26 +88,27 @@ export default function Navigation() {
       console.warn('Error creating partner info:', error)
       return null
     }
-  }, [user?.companyMembership, company, navigationMounted, mounted])
+  }, [user?.companyMembership, company, mounted])
 
-  // ✅ HYDRATION SAFE: Active route checking with enhanced guards
+  // HYDRATION SAFE: Active route checking with enhanced guards - FIXED
   const isActiveRoute = useCallback((route: string) => {
-    if (!navigationMounted || !mounted) return false
+    if (!mounted) return false
     
     try {
       if (route === '/' && pathname === '/') return true
       if (route !== '/' && pathname.startsWith(route)) return true
-      if (route === `/day/${todaysTidbit}` && pathname === `/day/${todaysTidbit}`) return true
+      // CRITICAL FIX: Only check todaysTidbit route when it's actually loaded
+      if (todaysTidbit && route === `/day/${todaysTidbit}` && pathname === `/day/${todaysTidbit}`) return true
       return false
     } catch (error) {
       console.warn('Error checking active route:', error)
       return false
     }
-  }, [pathname, todaysTidbit, navigationMounted, mounted])
+  }, [pathname, todaysTidbit, mounted])
 
-  // ✅ HYDRATION SAFE: Today's tidbit fetching
+  // HYDRATION SAFE: Today's tidbit fetching
   useEffect(() => {
-    if (!navigationMounted || !mounted) return
+    if (!mounted) return
 
     let cancelled = false
     const controller = new AbortController()
@@ -184,7 +152,7 @@ export default function Navigation() {
       cancelled = true
       controller.abort()
     }
-  }, [navigationMounted, mounted])
+  }, [mounted])
 
   // Close auth modal when user signs in
   useEffect(() => {
@@ -193,10 +161,10 @@ export default function Navigation() {
     }
   }, [user, showAuthModal])
 
-  // ✅ HYDRATION SAFE: Search handling
+  // HYDRATION SAFE: Search handling - FIXED to use Next.js router
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!navigationMounted || !mounted || !searchQuery.trim()) return
+    if (!mounted || !searchQuery.trim()) return
 
     try {
       const queryTrimmed = searchQuery.trim()
@@ -205,27 +173,27 @@ export default function Navigation() {
       if (dayMatch) {
         const dayNum = parseInt(dayMatch[1], 10)
         if (isFinite(dayNum) && dayNum > 0) {
-          window.location.href = `/day/${dayNum}`
+          router.push(`/day/${dayNum}`)
           return
         }
       }
 
-      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`
+      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
     } catch (error) {
       console.error('Search navigation failed:', error)
     }
   }
 
-  // ✅ HYDRATION SAFE: Sign out handler
+  // HYDRATION SAFE: Sign out handler - FIXED to use Next.js router
   const handleSignOut = async () => {
-    if (!navigationMounted || !mounted) return
+    if (!mounted) return
     
     try {
       await signOut()
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       console.error('Sign out failed:', error)
-      window.location.reload()
+      router.push('/')
     }
   }
 
@@ -236,9 +204,9 @@ export default function Navigation() {
     setShowAuthModal(true)
   }
 
-  // ✅ HYDRATION SAFE: Outside click handler
+  // HYDRATION SAFE: Outside click handler
   useEffect(() => {
-    if (!navigationMounted || !mounted) return
+    if (!mounted) return
     
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
@@ -251,16 +219,16 @@ export default function Navigation() {
       document.addEventListener('click', handleClickOutside, true)
       return () => document.removeEventListener('click', handleClickOutside, true)
     }
-  }, [showProfileDropdown, navigationMounted, mounted])
+  }, [showProfileDropdown, mounted])
 
   // Close mobile menu when route changes
   useEffect(() => {
     setIsMenuOpen(false)
   }, [pathname])
 
-  // ✅ HYDRATION SAFE: Display name with better fallbacks
+  // HYDRATION SAFE: Display name with better fallbacks
   const getDisplayName = () => {
-    if (!navigationMounted || !mounted || !user) return ''
+    if (!mounted || !user) return ''
     
     try {
       const sources = [
@@ -284,7 +252,7 @@ export default function Navigation() {
     }
   }
 
-  // ✅ HYDRATION SAFE: User initial
+  // HYDRATION SAFE: User initial
   const getUserInitial = () => {
     try {
       const name = getDisplayName()
@@ -294,15 +262,20 @@ export default function Navigation() {
     }
   }
 
-  // ✅ HYDRATION SAFE: FIXED avatar color to prevent hydration mismatch
+  // HYDRATION SAFE: FIXED avatar color to prevent hydration mismatch - IMPROVED
   const getAvatarColor = () => {
-    // CRITICAL FIX: Return consistent brand colors using static fallback
-    if (!navigationMounted || !mounted || !user?.id) {
+    // Always return the same fallback during SSR
+    if (!mounted || !user?.id) {
       return 'from-gray-400 to-gray-500'
     }
     
     try {
-      // ✅ BRAND COLOR FIX: Use brand color classes instead of generic ones
+      // Use a more deterministic approach
+      const userId = user.id
+      const hash = userId.split('').reduce((acc, char) => {
+        return ((acc << 5) - acc + char.charCodeAt(0)) & 0xffffffff
+      }, 0)
+      
       const colors = [
         'from-brand-green to-brand-greenDark',
         'from-brand-blue to-brand-blueDark',
@@ -310,36 +283,29 @@ export default function Navigation() {
         'from-brand-blue to-brand-green'
       ]
       
-      const index = user.id.charCodeAt(0) % colors.length
-      return colors[index] || colors[0]
+      const index = Math.abs(hash) % colors.length
+      return colors[index]
     } catch (error) {
       console.warn('Error getting avatar color:', error)
       return 'from-gray-400 to-gray-500'
     }
   }
 
-  // ✅ HYDRATION SAFE: Computed rendering states
-  const isFullyMounted = navigationMounted && mounted
-  const shouldShowUserUI = isFullyMounted && user
-  const shouldShowGuestUI = isFullyMounted && !user
-  const shouldShowLoadingState = !isFullyMounted
-  const showPartnerLinks = isFullyMounted && authState === 'has-company-access'
+  // HYDRATION SAFE: Computed rendering states - SIMPLIFIED
+  const shouldShowUserUI = mounted && user
+  const shouldShowGuestUI = mounted && !user
+  const showPartnerLinks = mounted && authState === 'has-company-access'
 
-  // ✅ HYDRATION SAFETY: Show skeleton during SSR
-  if (!navigationMounted) {
-    return <NavigationSkeleton />
-  }
-
+  // CRITICAL FIX: Always render the same structure, just with different content
   return (
     <>
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             
-            {/* ✅ Left - Logo - ALWAYS show for hydration safety */}
+            {/* Left - Logo - ALWAYS show same structure */}
             <div className="flex items-center">
               <Link href="/" className="flex items-center hover:scale-105 transition-transform duration-200">
-                {/* ✅ CRITICAL FIX: Explicit loading="eager" and priority to prevent hydration mismatch */}
                 <Image
                   src="https://cdn.dailytidbit.org/Logo/logo224.png"
                   alt="Daily Tidbit Logo"
@@ -352,56 +318,52 @@ export default function Navigation() {
               </Link>
             </div>
 
-            {/* ✅ Center - Navigation Links */}
+            {/* Center - Navigation Links - ALWAYS show same structure */}
             <nav className="hidden lg:flex items-center space-x-8">
-              <Link 
-                href="/start-here" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-green relative group"
-                onClick={() => trackEvent('nav_link_clicked', { link: 'start_here', section: 'desktop' })}
-              >
-                AI FOR REAL PEOPLE
-                {/* ✅ BRAND COLOR FIX: Use bg-brand-green instead of hardcoded hex */}
-                <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-green transition-all duration-300 ${
-                  isActiveRoute('/start-here') ? 'w-full' : 'w-0 group-hover:w-full'
-                }`}></span>
-              </Link>
-
-              <Link 
-                href="/field-guide" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-blue relative group flex items-center gap-2"
-                onClick={() => trackEvent('nav_link_clicked', { link: 'field_guide', section: 'desktop' })}
-              >
-                <Compass className="w-4 h-4" />
-                FIELD GUIDE
-                {/* ✅ BRAND COLOR FIX: Use bg-brand-blue instead of hardcoded hex */}
-                <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-blue transition-all duration-300 ${
-                  isActiveRoute('/field-guide') ? 'w-full' : 'w-0 group-hover:w-full'
-                }`}></span>
-              </Link>
-
-              {/* ✅ HYDRATION SAFE: Today's Tidbit - CRITICAL FIX for element consistency */}
-              {isFullyMounted ? (
-                todaysTidbitLoading ? (
-                  // ✅ CRITICAL FIX: Use same element type (Link) with disabled state instead of div
+              {mounted ? (
+                <>
                   <Link 
-                    href="#" 
-                    className="block pointer-events-none"
-                    aria-label="Loading today's tidbit"
-                    onClick={(e) => e.preventDefault()}
+                    href="/start-here" 
+                    className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-green relative group"
+                    onClick={() => trackEvent('nav_link_clicked', { link: 'start_here', section: 'desktop' })}
                   >
-                    <div className="bg-gray-200 animate-pulse rounded-full px-6 py-2 h-10 w-48"></div>
+                    AI FOR REAL PEOPLE
+                    <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-green transition-all duration-300 ${
+                      isActiveRoute('/start-here') ? 'w-full' : 'w-0 group-hover:w-full'
+                    }`}></span>
                   </Link>
-                ) : (
-                  (todaysTidbit ?? 0) > 0 && (
-                    <Link 
-                      href={`/day/${todaysTidbit}`} 
-                      className="transition-all duration-300 hover:scale-105"
-                      onClick={() => trackEvent('todays_tidbit_clicked', { 
-                        day_number: todaysTidbit,
-                        source: 'navigation' 
-                      })}
-                    >
-                      {/* ✅ BRAND COLOR FIX: Use bg-brand-green and bg-brand-blue instead of generic classes */}
+
+                  <Link 
+                    href="/field-guide" 
+                    className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-blue relative group flex items-center gap-2"
+                    onClick={() => trackEvent('nav_link_clicked', { link: 'field_guide', section: 'desktop' })}
+                  >
+                    <Compass className="w-4 h-4" />
+                    FIELD GUIDE
+                    <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-blue transition-all duration-300 ${
+                      isActiveRoute('/field-guide') ? 'w-full' : 'w-0 group-hover:w-full'
+                    }`}></span>
+                  </Link>
+
+                  {/* Today's Tidbit - ALWAYS show Link structure */}
+                  <Link 
+                    href={todaysTidbitLoading || !todaysTidbit ? "#" : `/day/${todaysTidbit}`}
+                    className={`transition-all duration-300 ${todaysTidbitLoading || !todaysTidbit ? 'pointer-events-none' : 'hover:scale-105'}`}
+                    onClick={(e) => {
+                      if (todaysTidbitLoading || !todaysTidbit) {
+                        e.preventDefault()
+                      } else {
+                        trackEvent('todays_tidbit_clicked', { 
+                          day_number: todaysTidbit,
+                          source: 'navigation' 
+                        })
+                      }
+                    }}
+                    aria-label={todaysTidbitLoading ? "Loading today's tidbit" : `Today's tidbit - Day ${todaysTidbit}`}
+                  >
+                    {todaysTidbitLoading || !todaysTidbit ? (
+                      <div className="bg-gray-200 animate-pulse rounded-full px-6 py-2 h-10 w-48"></div>
+                    ) : (
                       <div className={`bg-gradient-to-r from-brand-green to-brand-blue text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 ${
                         isActiveRoute(`/day/${todaysTidbit}`) ? 'ring-2 ring-white/30' : ''
                       }`}>
@@ -409,82 +371,82 @@ export default function Navigation() {
                         <span>TODAY'S TIDBIT</span>
                         <div className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">#{todaysTidbit}</div>
                       </div>
+                    )}
+                  </Link>
+                  
+                  <Link 
+                    href="/TidbitLibrary" 
+                    className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-green relative group"
+                    onClick={() => trackEvent('nav_link_clicked', { link: 'tidbit_library', section: 'desktop' })}
+                  >
+                    TIDBIT LIBRARY
+                    <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-green transition-all duration-300 ${
+                      isActiveRoute('/TidbitLibrary') ? 'w-full' : 'w-0 group-hover:w-full'
+                    }`}></span>
+                  </Link>
+
+                  <Link 
+                    href="/bitboard" 
+                    className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-green relative group font-sans"
+                    onClick={() => trackEvent('nav_link_clicked', { link: 'bitboard', section: 'desktop' })}
+                  >
+                    BITBOARD
+                    <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-green transition-all duration-300 ${
+                      isActiveRoute('/bitboard') ? 'w-full' : 'w-0 group-hover:w-full'
+                    }`}></span>
+                  </Link>
+
+                  {/* Partner Dashboard Link */}
+                  {showPartnerLinks && company && (
+                    <Link 
+                      href="/partners/dashboard" 
+                      className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-blue relative group flex items-center gap-2"
+                      onClick={() => trackEvent('nav_link_clicked', { link: 'partner_hub', section: 'desktop' })}
+                    >
+                      <Building2 className="w-4 h-4" />
+                      PARTNER HUB
+                      <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-blue transition-all duration-300 ${
+                        isActiveRoute('/partners') ? 'w-full' : 'w-0 group-hover:w-full'
+                      }`}></span>
                     </Link>
-                  )
-                )
+                  )}
+                </>
               ) : (
-                // ✅ HYDRATION SAFETY: Show consistent skeleton during SSR
-                <Link 
-                  href="#" 
-                  className="block pointer-events-none"
-                  aria-label="Loading today's tidbit"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  <div className="bg-gray-200 animate-pulse rounded-full px-6 py-2 h-10 w-48"></div>
-                </Link>
-              )}
-              
-              <Link 
-                href="/TidbitLibrary" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-green relative group"
-                onClick={() => trackEvent('nav_link_clicked', { link: 'tidbit_library', section: 'desktop' })}
-              >
-                TIDBIT LIBRARY
-                {/* ✅ BRAND COLOR FIX: Use bg-brand-green instead of generic green */}
-                <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-green transition-all duration-300 ${
-                  isActiveRoute('/TidbitLibrary') ? 'w-full' : 'w-0 group-hover:w-full'
-                }`}></span>
-              </Link>
-
-              <Link 
-                href="/bitboard" 
-                className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-green relative group font-sans"
-                onClick={() => trackEvent('nav_link_clicked', { link: 'bitboard', section: 'desktop' })}
-              >
-                BITBOARD
-                {/* ✅ BRAND COLOR FIX: Use bg-brand-green instead of generic green */}
-                <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-green transition-all duration-300 ${
-                  isActiveRoute('/bitboard') ? 'w-full' : 'w-0 group-hover:w-full'
-                }`}></span>
-              </Link>
-
-              {/* ✅ Partner Dashboard Link - BRAND COLOR FIX */}
-              {showPartnerLinks && company && (
-                <Link 
-                  href="/partners/dashboard" 
-                  className="transition-colors duration-300 font-medium text-gray-700 hover:text-brand-blue relative group flex items-center gap-2"
-                  onClick={() => trackEvent('nav_link_clicked', { link: 'partner_hub', section: 'desktop' })}
-                >
-                  <Building2 className="w-4 h-4" />
-                  PARTNER HUB
-                  {/* ✅ BRAND COLOR FIX: Use bg-brand-blue instead of generic blue */}
-                  <span className={`absolute bottom-0 left-0 h-0.5 bg-brand-blue transition-all duration-300 ${
-                    isActiveRoute('/partners') ? 'w-full' : 'w-0 group-hover:w-full'
-                  }`}></span>
-                </Link>
+                // Loading state - same structure
+                <>
+                  <div className="h-4 bg-gray-200 animate-pulse rounded w-32"></div>
+                  <div className="h-4 bg-gray-200 animate-pulse rounded w-28"></div>
+                  <div className="h-10 bg-gray-200 animate-pulse rounded-full w-48"></div>
+                  <div className="h-4 bg-gray-200 animate-pulse rounded w-32"></div>
+                  <div className="h-4 bg-gray-200 animate-pulse rounded w-24"></div>
+                </>
               )}
             </nav>
 
-            {/* ✅ Right - Search & Auth */}
+            {/* Right - Search & Auth - ALWAYS show same structure */}
             <div className="flex items-center gap-4">
-              {/* ✅ Search - BRAND COLOR FIX */}
-              <div className="hidden md:block relative">
-                <form onSubmit={handleSearch}>
-                  <input
-                    type="text"
-                    placeholder="Search tips..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-48 px-4 py-2 pr-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
-                    aria-label="Search tips"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Search className="w-4 h-4 text-gray-400" />
-                  </div>
-                </form>
-              </div>
+              {/* Search */}
+              {mounted ? (
+                <div className="hidden md:block relative">
+                  <form onSubmit={handleSearch}>
+                    <input
+                      type="text"
+                      placeholder="Search tips..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-48 px-4 py-2 pr-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+                      aria-label="Search tips"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Search className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <div className="hidden md:block w-48 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+              )}
 
-              {/* ✅ HYDRATION SAFE: Auth section with clear states - BRAND COLOR FIX */}
+              {/* Auth section - ALWAYS show same structure */}
               {shouldShowUserUI ? (
                 <div className="relative" data-profile-dropdown>
                   <button
@@ -509,7 +471,7 @@ export default function Navigation() {
                     </div>
                   </button>
 
-                  {/* Profile Dropdown - BRAND COLOR FIX */}
+                  {/* Profile Dropdown */}
                   {showProfileDropdown && (
                     <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] animate-fade-in">
                       <div className="p-3 border-b border-gray-100">
@@ -579,20 +541,21 @@ export default function Navigation() {
                 ></div>
               )}
 
-              {/* Mobile menu toggle - BRAND COLOR FIX */}
+              {/* Mobile menu toggle */}
               <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)} 
+                onClick={() => mounted && setIsMenuOpen(!isMenuOpen)} 
                 className="lg:hidden p-2 text-gray-700 hover:text-brand-green transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
                 aria-expanded={isMenuOpen}
                 aria-label="Toggle mobile menu"
+                disabled={!mounted}
               >
                 {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           </div>
 
-          {/* Mobile Menu - BRAND COLOR FIX */}
-          {isMenuOpen && (
+          {/* Mobile Menu */}
+          {mounted && isMenuOpen && (
             <div className="lg:hidden border-t border-gray-200 py-4 bg-white/95 backdrop-blur-sm">
               <div className="flex flex-col space-y-4">
                 <form onSubmit={handleSearch} className="md:hidden">
@@ -611,7 +574,6 @@ export default function Navigation() {
                   </div>
                 </form>
 
-                {/* Mobile nav links - BRAND COLOR FIX */}
                 <Link href="/start-here" className="block py-3 font-medium text-gray-700 hover:text-brand-green transition-colors" onClick={() => setIsMenuOpen(false)}>
                   AI FOR REAL PEOPLE
                 </Link>

@@ -6,7 +6,8 @@ import TidbitTutor from '../../components/TidbitTutor'
 import RotatingWord from '../../components/RotatingWord'
 import TryOtherAITools from '../../components/TryOtherAITools'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
-import { analytics, useAnalytics, logEvent } from '../../lib/analytics'
+import { useMounted } from '../../lib/clientUtils'
+import { useAnalytics, trackTidbitViewed, trackTidbitCompleted, trackAIPracticed, trackVideoInteraction, trackUserEngagement } from '../../lib/analytics'
 
 interface TidbitStep {
   id: string
@@ -36,7 +37,7 @@ interface UserProgress {
 
 // Error Boundary Components
 class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ComponentType<{ error?: Error }> },
+  { children: React.ReactNode; fallback: React.ComponentType<{ error?: Error; resetErrorBoundary?: () => void }> },
   { hasError: boolean; error?: Error }
 > {
   constructor(props: any) {
@@ -49,52 +50,63 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    if (typeof window !== 'undefined' && analytics) {
-      analytics.trackEvent({
-        event_type: 'react_error_boundary',
-        event_data: {
-          error_message: error.message,
-          stack: error.stack,
-          componentStack: errorInfo.componentStack
-        }
-      })
+    if (typeof window !== 'undefined') {
+      console.error('ErrorBoundary caught an error:', error, errorInfo)
     }
+  }
+
+  resetErrorBoundary = () => {
+    this.setState({ hasError: false, error: undefined })
   }
 
   render() {
     if (this.state.hasError) {
       const Fallback = this.props.fallback
-      return <Fallback error={this.state.error} />
+      return (
+        <Fallback
+          error={this.state.error}
+          resetErrorBoundary={this.resetErrorBoundary}
+        />
+      )
     }
-
     return this.props.children
   }
 }
 
-const StepsErrorFallback = ({ error }: { error?: Error }) => (
+const StepsErrorFallback = ({ error, resetErrorBoundary }: { error?: Error; resetErrorBoundary?: () => void }) => (
   <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
     <div className="text-red-600 mb-4">
       <Target className="w-12 h-12 mx-auto mb-4" />
       <h3 className="heading-subsection">Steps temporarily unavailable</h3>
       <p className="body-small mt-2">We're working on loading the walkthrough steps.</p>
-      <button 
-        onClick={() => typeof window !== 'undefined' && window.location.reload()} 
-        className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
-      >
-        Try Again
-      </button>
+      {resetErrorBoundary && (
+        <button 
+          onClick={resetErrorBoundary}
+          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+        >
+          Try Again
+        </button>
+      )}
     </div>
   </div>
 )
 
-const VideoErrorFallback = ({ error }: { error?: Error }) => (
+const VideoErrorFallback = ({ error, resetErrorBoundary }: { error?: Error; resetErrorBoundary?: () => void }) => (
   <div className="bg-gray-100 rounded-2xl p-8 text-center">
     <Play className="w-16 h-16 mx-auto mb-4 text-gray-400" />
     <p className="body-medium text-gray-600">Video temporarily unavailable</p>
+    {resetErrorBoundary && (
+      <button 
+        onClick={resetErrorBoundary}
+        className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+      >
+        Try Again
+      </button>
+    )}
   </div>
 )
 
-const TutorErrorFallback = ({ error }: { error?: Error }) => (
+const TutorErrorFallback = ({ error, resetErrorBoundary }: { error?: Error; resetErrorBoundary?: () => void }) => (
   <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8 text-center">
     <div className="text-blue-600 mb-4">
       <Lightbulb className="w-12 h-12 mx-auto mb-4" />
@@ -125,17 +137,47 @@ const StepsLoadingSkeleton = () => (
   </div>
 )
 
-// Social Sharing Component - HYDRATION SAFE + BRAND COLORS
-const SocialShare = ({ tidbit }: { tidbit: any }) => {
-  const [mounted, setMounted] = useState(false)
-  const { analytics: analyticsInstance } = useAnalytics()
-  
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+// Page Loading Skeleton
+function PageLoadingSkeleton() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-200 via-emerald-100 to-cyan-200">
+      <div className="bg-white/95 backdrop-blur-sm border-b border-emerald-100">
+        <div className="max-w-4xl mx-auto px-6 py-12">
+          <div className="max-w-3xl mx-auto mb-8">
+            <div className="aspect-video bg-gray-300 rounded-2xl animate-pulse"></div>
+          </div>
+          <div className="text-center">
+            <div className="h-16 bg-gray-200 rounded w-3/4 mx-auto mb-6 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="max-w-4xl mx-auto px-6 py-12">
+        <div className="space-y-12">
+          <StepsLoadingSkeleton />
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  // HYDRATION SAFE: Only available after mounting
-  const shareUrl = mounted && typeof window !== 'undefined' ? window.location.href : ''
+// Social Sharing Component
+const SocialShare = ({ tidbit }: { tidbit: any }) => {
+  const mounted = useMounted()
+  const { track } = useAnalytics()
+  
+  if (!mounted) {
+    return (
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-brand-green" />
+          <p className="body-medium text-gray-600 mt-4">Loading sharing options...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const shareUrl = window.location.href
   const shareText = `Check out Day ${tidbit.day_number}: ${tidbit.title} on Daily Tidbit!`
 
   const shareOptions = [
@@ -171,25 +213,14 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
     }
   ]
 
-  // HYDRATION SAFE: Fixed clipboard access pattern
   const copyToClipboard = async () => {
-    if (!mounted || typeof window === 'undefined' || !window.navigator?.clipboard) {
-      alert('Clipboard not available')
-      return
-    }
-
     try {
-      await window.navigator.clipboard.writeText(shareUrl)
-      if (analyticsInstance) {
-        await analyticsInstance.trackEvent({
-          event_type: 'user_engagement',
-          event_data: {
-            engagement_type: 'click',
-            target: 'copy_link_button',
-            tidbit_number: tidbit.day_number
-          }
-        })
-      }
+      await navigator.clipboard.writeText(shareUrl)
+      track('user_engagement', {
+        engagement_type: 'click',
+        target: 'copy_link_button',
+        tidbit_number: tidbit.day_number
+      })
       alert('Link copied to clipboard!')
     } catch (err) {
       console.error('Failed to copy:', err)
@@ -197,34 +228,14 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
     }
   }
 
-  const handleSocialShare = async (platform: string, url: string) => {
-    // HYDRATION SAFE: Window access
-    if (!mounted || typeof window === 'undefined') return
-    
-    if (analyticsInstance) {
-      await analyticsInstance.trackEvent({
-        event_type: 'user_engagement',
-        event_data: {
-          engagement_type: 'click',
-          target: `share_${platform.toLowerCase()}_button`,
-          tidbit_number: tidbit.day_number,
-          platform: platform.toLowerCase()
-        }
-      })
-    }
+  const handleSocialShare = (platform: string, url: string) => {
+    track('user_engagement', {
+      engagement_type: 'click',
+      target: `share_${platform.toLowerCase()}_button`,
+      tidbit_number: tidbit.day_number,
+      platform: platform.toLowerCase()
+    })
     window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
-  // Show loading state until mounted
-  if (!mounted) {
-    return (
-      <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-brand-green" />
-          <p className="body-medium text-gray-600 mt-4">Loading sharing options...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -265,7 +276,10 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
         
         <button
           onClick={copyToClipboard}
-          className="flex items-center gap-2 px-4 py-3 bg-brand-green hover:bg-brand-greenDark text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg body-bold shadow-md border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          className="flex items-center gap-2 px-4 py-3 text-white rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg body-bold shadow-md border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          style={{ backgroundColor: '#60A875' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4e8e61'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#60A875'}
           title="Copy link"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,65 +292,13 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
   )
 }
 
-// Enhanced Video Component - HYDRATION SAFE + BRAND COLORS
+// Enhanced Video Component
 const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
   const [videoError, setVideoError] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const { analytics: analyticsInstance } = useAnalytics()
-  
-  // ✅ HYDRATION SAFE: Timestamp generation only after mount
-  const [analyticsTimestamp, setAnalyticsTimestamp] = useState<number>(0)
-
-  useEffect(() => {
-    setMounted(true)
-    // ✅ HYDRATION SAFE: Generate timestamp after mount for analytics
-    setAnalyticsTimestamp(Date.now())
-  }, [])
-
-  const handleVideoLoad = () => {
-    setVideoLoaded(true)
-  }
-
-  const handleVideoError = () => {
-    setVideoError(true)
-    if (mounted && analyticsInstance) {
-      analyticsInstance.trackEvent({
-        event_type: 'video_error',
-        event_data: {
-          error_type: 'video_load_error',
-          video_id: `tidbit_${tidbit.day_number}_video`,
-          tidbit_number: tidbit.day_number
-        }
-      })
-    }
-  }
-
-  const handlePlay = async () => {
-    setIsPlaying(true)
-    // ✅ HYDRATION SAFE: Only use timestamp after it's been set
-    if (mounted && analyticsInstance && analyticsTimestamp > 0) {
-      await analyticsInstance.trackVideoInteraction({
-        video_id: `tidbit_${tidbit.day_number}_video`,
-        action: 'play',
-        timestamp: analyticsTimestamp, // Use pre-generated timestamp
-        duration: 0
-      })
-    }
-  }
-
-  const handlePause = async () => {
-    setIsPlaying(false)
-    // ✅ HYDRATION SAFE: Only use timestamp after it's been set
-    if (mounted && analyticsInstance && analyticsTimestamp > 0) {
-      await analyticsInstance.trackVideoInteraction({
-        video_id: `tidbit_${tidbit.day_number}_video`,
-        action: 'pause',
-        timestamp: Date.now() // This is fine as it's in a user interaction handler
-      })
-    }
-  }
+  const [staticTimestamp] = useState(() => Date.now())
 
   if (!mounted) {
     return (
@@ -350,8 +312,26 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
     )
   }
 
+  const handleVideoLoad = () => {
+    setVideoLoaded(true)
+  }
+
+  const handleVideoError = () => {
+    setVideoError(true)
+  }
+
+  const handlePlay = () => {
+    setIsPlaying(true)
+    trackVideoInteraction(`tidbit_${tidbit.day_number}_video`, 'play', tidbit.day_number)
+  }
+
+  const handlePause = () => {
+    setIsPlaying(false)
+    trackVideoInteraction(`tidbit_${tidbit.day_number}_video`, 'pause', tidbit.day_number)
+  }
+
   if (videoError) {
-    return <VideoErrorFallback />
+    return <VideoErrorFallback error={undefined} resetErrorBoundary={() => setVideoError(false)} />
   }
 
   return (
@@ -385,14 +365,10 @@ const EnhancedVideo = ({ tidbit }: { tidbit: any }) => {
   )
 }
 
-// Progress Analytics Component - HYDRATION SAFE + BRAND COLORS
+// Progress Analytics Component
 const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
   
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   if (!mounted) {
     return (
       <div className="bg-gradient-to-r from-brand-green/10 to-brand-blue/10 rounded-xl p-6 border border-brand-green/20 animate-pulse">
@@ -437,10 +413,101 @@ const ProgressAnalytics = ({ progress }: { progress: UserProgress }) => {
   )
 }
 
+// Rich Content Component
+function RichContent({ children }: { children: string }) {
+  const cleanContent = children
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim()
+
+  const lines = cleanContent.split('\n')
+  const elements: React.ReactElement[] = []
+  let listBuffer: string[] = []
+
+  const flushList = (keyPrefix: string) => {
+    if (listBuffer.length > 0) {
+      elements.push(
+        <ul key={`ul-${keyPrefix}`} className="list-none space-y-3 ml-0 my-6">
+          {listBuffer.map((item, i) => (
+            <li key={`li-${keyPrefix}-${i}`} className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#60A875' }} />
+              <span className="body-large text-gray-700">{parseInlineFormatting(item)}</span>
+            </li>
+          ))}
+        </ul>
+      )
+      listBuffer = []
+    }
+  }
+
+  const parseInlineFormatting = (text: string): React.ReactElement => {
+    const brParts = text.split('<br>')
+    
+    return (
+      <>
+        {brParts.map((brPart, brIndex) => (
+          <React.Fragment key={brIndex}>
+            {brIndex > 0 && <br />}
+            {(() => {
+              const parts = brPart.split(/(\*\*.*?\*\*|\*.*?\*|https?:\/\/[^\s]+)/g)
+              
+              return parts.map((part, i) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
+                } else if (part.startsWith('*') && part.endsWith('*')) {
+                  return <em key={i} className="italic">{part.slice(1, -1)}</em>
+                } else if (part.startsWith('http')) {
+                  return (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" 
+                       className="underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
+                       style={{ color: '#59B1E3' }}
+                       onMouseEnter={(e) => e.currentTarget.style.color = '#4791bf'}
+                       onMouseLeave={(e) => e.currentTarget.style.color = '#59B1E3'}>
+                      {part}
+                    </a>
+                  )
+                }
+                return <span key={i}>{part}</span>
+              })
+            })()}
+          </React.Fragment>
+        ))}
+      </>
+    )
+  }
+
+  lines.forEach((line, i) => {
+    const trimmed = line.trim()
+
+    if (trimmed.startsWith('- ')) {
+      listBuffer.push(trimmed.slice(2))
+      return
+    }
+
+    flushList(`line-${i}`)
+
+    if (trimmed === '') {
+      elements.push(<div key={`space-${i}`} className="h-4" />)
+      return
+    }
+
+    elements.push(
+      <p key={`p-${i}`} className="body-large text-gray-700 my-4">
+        {parseInlineFormatting(line)}
+      </p>
+    )
+  })
+
+  flushList('final')
+
+  return <div className="space-y-2">{elements}</div>
+}
+
+// Main Component
 export default function DayPage({ params }: DayPageProps) {
-  // CRITICAL: Mount guard for hydration safety
-  const [mounted, setMounted] = useState(false)
-  const { analytics: analyticsInstance } = useAnalytics()
+  const mounted = useMounted()
+  const [supabaseReady, setSupabaseReady] = useState(false)
   
   // Component state
   const [resolvedParams, setResolvedParams] = useState<{ day: string } | null>(null)
@@ -454,15 +521,28 @@ export default function DayPage({ params }: DayPageProps) {
   const [user, setUser] = useState<any>(null)
   const [userProgress, setUserProgress] = useState<UserProgress>({})
   
-  // ✅ HYDRATION SAFE: Analytics timestamp generated only after mount
-  const [conversationIdTimestamp, setConversationIdTimestamp] = useState<number>(0)
+  const [conversationId] = useState(() => `conv_${Date.now()}`)
 
-  // Initialize mounted state
+  // Check Supabase availability after mount
   useEffect(() => {
-    setMounted(true)
-    // ✅ HYDRATION SAFE: Generate timestamp for conversation IDs after mount
-    setConversationIdTimestamp(Date.now())
-  }, [])
+    if (!mounted) return
+
+    const checkSupabase = () => {
+      try {
+        const supabase = getSupabaseBrowserClient()
+        setSupabaseReady(!!supabase)
+      } catch (error) {
+        console.warn('Supabase client not available:', error)
+        setSupabaseReady(false)
+      }
+    }
+
+    checkSupabase()
+    if (!supabaseReady) {
+      const interval = setInterval(checkSupabase, 2000)
+      return () => clearInterval(interval)
+    }
+  }, [mounted, supabaseReady])
 
   // Memoized processed steps
   const processedSteps = useMemo(() => 
@@ -472,15 +552,14 @@ export default function DayPage({ params }: DayPageProps) {
     })), [tidbitSteps]
   )
 
-  // Enhanced progress tracking - HYDRATION SAFE: Fixed Supabase null handling
+  // Progress tracking functions
   const markTidbitViewed = async (tidbitNumber: number) => {
-    if (!mounted || !user) return
+    if (!mounted || !supabaseReady || !user) return
 
     setProgressLoading(true)
     try {
       const supabase = getSupabaseBrowserClient()
       
-      // CRITICAL FIX: Handle null supabase client
       if (!supabase) {
         console.warn('Supabase client not available')
         return
@@ -500,9 +579,7 @@ export default function DayPage({ params }: DayPageProps) {
         console.error('Error marking tidbit viewed:', error)
       } else {
         setUserProgress(prev => ({ ...prev, viewedAt: new Date().toISOString() }))
-        if (mounted && analyticsInstance) {
-          await analyticsInstance.trackTidbitViewed(tidbitNumber)
-        }
+        trackTidbitViewed(tidbitNumber)
       }
     } catch (error) {
       console.error('Error updating progress:', error)
@@ -512,12 +589,11 @@ export default function DayPage({ params }: DayPageProps) {
   }
 
   const markTutorUsed = async (tidbitNumber: number) => {
-    if (!mounted || !user) return
+    if (!mounted || !supabaseReady || !user) return
 
     try {
       const supabase = getSupabaseBrowserClient()
       
-      // CRITICAL FIX: Handle null supabase client
       if (!supabase) {
         console.warn('Supabase client not available')
         return
@@ -537,29 +613,20 @@ export default function DayPage({ params }: DayPageProps) {
         console.error('Error marking tutor used:', error)
       } else {
         setUserProgress(prev => ({ ...prev, practicedWithAI: true }))
-        // ✅ HYDRATION SAFE: Only use timestamp after it's been set
-        if (mounted && analyticsInstance && conversationIdTimestamp > 0) {
-          await analyticsInstance.trackAIPracticed(tidbitNumber, {
-            conversation_id: `conv_${conversationIdTimestamp}`, // Use pre-generated timestamp
-            message_count: 1,
-            session_duration: 0,
-            topics_discussed: [tidbit?.title || 'AI Practice']
-          })
-        }
+        trackAIPracticed(tidbitNumber, 1, 0)
       }
     } catch (error) {
       console.error('Error updating progress:', error)
     }
   }
 
-  // Load user progress - HYDRATION SAFE: Fixed Supabase null handling
+  // Load user progress
   const loadUserProgress = async (userId: string, tidbitNumber: number) => {
-    if (!mounted) return
+    if (!mounted || !supabaseReady) return
     
     try {
       const supabase = getSupabaseBrowserClient()
       
-      // CRITICAL FIX: Handle null supabase client
       if (!supabase) {
         console.warn('Supabase client not available')
         return
@@ -584,7 +651,7 @@ export default function DayPage({ params }: DayPageProps) {
 
   // Simple progress refresh function
   const refreshUserProgress = async () => {
-    if (mounted && user && tidbit) {
+    if (mounted && supabaseReady && user && tidbit) {
       await loadUserProgress(user.id, tidbit.day_number)
     }
   }
@@ -610,9 +677,9 @@ export default function DayPage({ params }: DayPageProps) {
     }
   }
 
-  // Resolve params and fetch data - HYDRATION SAFE: Only after mounting
+  // Resolve params and fetch data
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !supabaseReady) return
 
     async function fetchData() {
       try {
@@ -620,9 +687,7 @@ export default function DayPage({ params }: DayPageProps) {
         setResolvedParams(resolvedParams)
         
         const { day } = resolvedParams
-        console.log('Day param:', day)
 
-        // CRITICAL FIX: Handle null supabase client
         const supabase = getSupabaseBrowserClient()
         if (!supabase) {
           setError('Database connection unavailable')
@@ -671,31 +736,21 @@ export default function DayPage({ params }: DayPageProps) {
       } catch (err) {
         setError('Failed to load tidbit')
         console.error(err)
-        if (mounted && analyticsInstance) {
-          await analyticsInstance.trackEvent({
-            event_type: 'tidbit_fetch_error',
-            event_data: {
-              error_message: String(err),
-              attempted_day: resolvedParams?.day
-            }
-          })
-        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [mounted, params, analyticsInstance])
+  }, [mounted, supabaseReady, params])
 
-  // Check for user auth and load progress - HYDRATION SAFE: Only after mounting and tidbit loaded
+  // Check for user auth and load progress
   useEffect(() => {
-    if (!mounted || !tidbit) return
+    if (!mounted || !supabaseReady || !tidbit) return
     
     const initializeUser = async () => {
       const supabase = getSupabaseBrowserClient()
       
-      // CRITICAL FIX: Handle null supabase client
       if (!supabase) {
         console.warn('Supabase client not available for user initialization')
         return
@@ -711,18 +766,11 @@ export default function DayPage({ params }: DayPageProps) {
     }
     
     initializeUser()
-  }, [mounted, tidbit])
+  }, [mounted, supabaseReady, tidbit])
 
-  // HYDRATION SAFETY: Show loading until mounted AND data loaded
-  if (!mounted || loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50/30 to-blue-50/30 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 w-8 text-brand-green animate-spin mx-auto mb-4" />
-          <p className="body-medium text-gray-600">Loading tidbit...</p>
-        </div>
-      </div>
-    )
+  // Show loading until all prerequisites are met
+  if (!mounted || !supabaseReady || loading) {
+    return <PageLoadingSkeleton />
   }
 
   if (error || !tidbit) {
@@ -736,7 +784,10 @@ export default function DayPage({ params }: DayPageProps) {
               window.location.href = '/'
             }
           }}
-          className="mt-4 px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          className="mt-4 px-6 py-2 text-white rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          style={{ backgroundColor: '#60A875' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4e8e61'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#60A875'}
         >
           Back to Home
         </button>
@@ -774,13 +825,12 @@ export default function DayPage({ params }: DayPageProps) {
             <ProgressAnalytics progress={userProgress} />
           )}
 
-          {/* What You'll Learn & What You Need - Combined White Box with BRAND COLORS */}
+          {/* What You'll Learn & What You Need */}
           <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
             <div className="space-y-8">
-              {/* What You'll Learn */}
               <div>
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-lg bg-brand-blue text-white">
+                  <div className="p-2 rounded-lg text-white" style={{ backgroundColor: '#59B1E3' }}>
                     <Lightbulb className="w-6 h-6" />
                   </div>
                   <h3 className="heading-subsection text-gray-900">
@@ -790,10 +840,9 @@ export default function DayPage({ params }: DayPageProps) {
                 <RichContent>{tidbit.walkthrough_intro}</RichContent>
               </div>
 
-              {/* What You Need */}
               <div>
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-lg bg-brand-green text-white">
+                  <div className="p-2 rounded-lg text-white" style={{ backgroundColor: '#60A875' }}>
                     <CheckCircle className="w-6 h-6" />
                   </div>
                   <h3 className="heading-subsection text-gray-900">
@@ -805,14 +854,13 @@ export default function DayPage({ params }: DayPageProps) {
             </div>
           </section>
 
-          {/* Timeline Walkthrough Steps with BRAND COLORS */}
+          {/* Timeline Walkthrough Steps */}
           <section className="sm:bg-white/95 sm:backdrop-blur-sm sm:rounded-2xl sm:p-6 lg:p-8 sm:border sm:border-emerald-200/50 sm:shadow-lg overflow-hidden relative">
             <ErrorBoundary fallback={StepsErrorFallback}>
               <Suspense fallback={<StepsLoadingSkeleton />}>
                 <div className="relative z-10">
-                  {/* Header */}
                   <div className="flex items-center gap-3 mb-8 sm:mb-10 px-4 sm:px-0">
-                    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-green to-brand-blue text-white shadow-lg">
+                    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br text-white shadow-lg" style={{ background: 'linear-gradient(135deg, #60A875, #59B1E3)' }}>
                       <Target className="w-5 h-5 sm:w-7 sm:h-7" />
                     </div>
                     <div>
@@ -828,23 +876,17 @@ export default function DayPage({ params }: DayPageProps) {
                     <div className="relative space-y-4 sm:space-y-8 mb-12">
                       {processedSteps.map((step, index) => (
                         <div key={step.id} className="relative group">
-                          {/* Step Number Badge with BRAND COLORS */}
                           <div className={`
                             absolute top-2 left-2 sm:-left-6 sm:top-1/2 sm:-translate-y-1/2 flex items-center justify-center 
                             w-10 h-10 sm:w-20 sm:h-20 
-                            ${index % 2 === 0 
-                              ? 'bg-brand-green' 
-                              : 'bg-brand-blue'
-                            }
                             text-white rounded-lg sm:rounded-xl lg:rounded-2xl font-bold text-base sm:text-2xl 
                             shadow-lg sm:shadow-2xl border-2 sm:border-4 border-white
                             transform transition-transform duration-300 group-hover:scale-105 group-hover:rotate-1
                             z-20
-                          `}>
+                          `} style={{ backgroundColor: index % 2 === 0 ? '#60A875' : '#59B1E3' }}>
                             {step.step_number}
                           </div>
 
-                          {/* Step Card */}
                           <div className={`
                             ${index % 2 === 0 
                               ? 'bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 sm:border-purple-200/50' 
@@ -857,10 +899,8 @@ export default function DayPage({ params }: DayPageProps) {
                             ${index % 2 === 0 ? 'sm:hover:border-purple-300' : 'sm:hover:border-blue-300'}
                             hover:bg-opacity-90
                           `}>
-                            {/* Step Content */}
                             <div className="pl-12 sm:pl-0">
                               <div className="relative mb-4 sm:mb-6">
-                                {/* Large Background Icon */}
                                 {step.icon && (
                                   <div className={`
                                     absolute -top-2 -right-2 sm:-top-4 sm:-right-4 text-6xl sm:text-8xl lg:text-9xl opacity-10
@@ -871,7 +911,6 @@ export default function DayPage({ params }: DayPageProps) {
                                   </div>
                                 )}
                                 
-                                {/* Title and Content */}
                                 <div className="relative z-10">
                                   <h4 className={`
                                     heading-subsection leading-tight mb-4 sm:mb-3
@@ -921,101 +960,4 @@ export default function DayPage({ params }: DayPageProps) {
       </div>
     </main>
   )
-}
-
-// Rich Content Component - keeping original functionality with BRAND COLORS
-function RichContent({ children }: { children: string }) {
-  // Clean up content - handle \r\n, multiple spaces, etc.
-  const cleanContent = children
-    .replace(/\\r\\n/g, '\n') // Convert escaped \r\n to actual newlines
-    .replace(/\r\n/g, '\n')   // Convert actual \r\n to \n
-    .replace(/\r/g, '\n')     // Convert lone \r to \n
-    .trim()
-
-  const lines = cleanContent.split('\n')
-  const elements: React.ReactElement[] = []
-  let listBuffer: string[] = []
-
-  const flushList = (keyPrefix: string) => {
-    if (listBuffer.length > 0) {
-      elements.push(
-        <ul key={`ul-${keyPrefix}`} className="list-none space-y-3 ml-0 my-6">
-          {listBuffer.map((item, i) => (
-            <li key={`li-${keyPrefix}-${i}`} className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-brand-green flex-shrink-0 mt-0.5" />
-              <span className="body-large text-gray-700">{parseInlineFormatting(item)}</span>
-            </li>
-          ))}
-        </ul>
-      )
-      listBuffer = []
-    }
-  }
-
-  // Parse inline formatting like **bold**, *italic*, <br> tags, and links
-  const parseInlineFormatting = (text: string): React.ReactElement => {
-    // First, split by <br> tags to handle line breaks
-    const brParts = text.split('<br>')
-    
-    return (
-      <>
-        {brParts.map((brPart, brIndex) => (
-          <React.Fragment key={brIndex}>
-            {brIndex > 0 && <br />}
-            {(() => {
-              // Now handle other formatting within each part
-              const parts = brPart.split(/(\*\*.*?\*\*|\*.*?\*|https?:\/\/[^\s]+)/g)
-              
-              return parts.map((part, i) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                  return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
-                } else if (part.startsWith('*') && part.endsWith('*')) {
-                  return <em key={i} className="italic">{part.slice(1, -1)}</em>
-                } else if (part.startsWith('http')) {
-                  return (
-                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" 
-                       className="text-brand-blue hover:text-brand-blueDark underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2">
-                      {part}
-                    </a>
-                  )
-                }
-                return <span key={i}>{part}</span>
-              })
-            })()}
-          </React.Fragment>
-        ))}
-      </>
-    )
-  }
-
-  lines.forEach((line, i) => {
-    const trimmed = line.trim()
-
-    // Handle list items
-    if (trimmed.startsWith('- ')) {
-      listBuffer.push(trimmed.slice(2))
-      return
-    }
-
-    // Flush any pending list before processing other content
-    flushList(`line-${i}`)
-
-    // Empty lines create spacing
-    if (trimmed === '') {
-      elements.push(<div key={`space-${i}`} className="h-4" />)
-      return
-    }
-
-    // Regular paragraphs
-    elements.push(
-      <p key={`p-${i}`} className="body-large text-gray-700 my-4">
-        {parseInlineFormatting(line)}
-      </p>
-    )
-  })
-
-  // Flush any remaining list items
-  flushList('final')
-
-  return <div className="space-y-2">{elements}</div>
 }

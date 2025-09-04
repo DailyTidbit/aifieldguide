@@ -3,15 +3,13 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useSupabaseBrowser } from '../../lib/supabaseClient' // ✅ CORRECT IMPORT
+import { getSupabaseBrowserClient } from '../../lib/supabaseClient' // ✅ FIXED: Consistent import path
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
 
 function PasswordResetContent() {
-  // ✅ HYDRATION SAFE: Essential mounted state
+  // ✅ HYDRATION SAFE: Essential mounted state first
   const [mounted, setMounted] = useState(false)
-  
-  // ✅ HYDRATION SAFE: Use the custom hook
-  const { client: supabase, isReady: supabaseReady } = useSupabaseBrowser()
+  const [supabaseReady, setSupabaseReady] = useState(false)
   
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -25,19 +23,50 @@ function PasswordResetContent() {
   const sp = useSearchParams()
   const verifiedOnceRef = useRef(false)
 
-  // Hydration safety - must be first useEffect
+  // ✅ Hydration safety - must be first useEffect
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // ✅ Check Supabase client availability
+  useEffect(() => {
+    if (!mounted) return
+
+    const checkSupabaseClient = () => {
+      try {
+        const supabase = getSupabaseBrowserClient()
+        setSupabaseReady(!!supabase)
+      } catch (error) {
+        console.warn('Supabase client not available:', error)
+        setSupabaseReady(false)
+      }
+    }
+
+    checkSupabaseClient()
+    // Retry if not ready
+    if (!supabaseReady) {
+      const interval = setInterval(checkSupabaseClient, 2000)
+      return () => clearInterval(interval)
+    }
+  }, [mounted, supabaseReady])
+
   // Establish/confirm session from the link - only after mounted and supabase ready
   useEffect(() => {
-    if (!mounted || !supabaseReady || !supabase) return
+    if (!mounted || !supabaseReady) return
 
     let cancelled = false
     const run = async () => {
       try {
         setError(null)
+        const supabase = getSupabaseBrowserClient()
+        
+        // ✅ CRITICAL: Handle null supabase client
+        if (!supabase) {
+          setError('Database connection unavailable')
+          setInitializing(false)
+          return
+        }
+
         const token_hash = sp.get('token_hash')
         const type = (sp.get('type') as 'recovery' | null) ?? null
         const code = sp.get('code')
@@ -78,6 +107,15 @@ function PasswordResetContent() {
         if (sessErr) throw sessErr
         if (!cancelled) setSessionReady(!!session)
       } catch (e: any) {
+        const supabase = getSupabaseBrowserClient()
+        if (!supabase) {
+          if (!cancelled) {
+            setError('Database connection unavailable')
+            setSessionReady(false)
+          }
+          return
+        }
+
         const { data } = await supabase.auth.getSession()
         if (!data.session && !cancelled) {
           setError(e?.message || 'Reset link invalid or expired. Please request a new one.')
@@ -91,18 +129,24 @@ function PasswordResetContent() {
     }
     run()
     return () => { cancelled = true }
-  }, [mounted, supabaseReady, supabase, sp])
+  }, [mounted, supabaseReady, sp])
 
-  // Hydration-safe calculations
-  const canSubmit = mounted ? password.length >= 8 && password === confirmPassword : false
+  // ✅ Hydration-safe calculations
+  const canSubmit = mounted && supabaseReady ? password.length >= 8 && password === confirmPassword : false
   const showForm = mounted && supabaseReady && sessionReady
 
   // ✅ HYDRATION SAFE: Submit with browser checks
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!mounted || !supabase || !password) return setError('Password is required')
+    if (!mounted || !supabaseReady || !password) return setError('Password is required')
     if (password.length < 8) return setError('Password must be at least 8 characters long')
     if (password !== confirmPassword) return setError('Passwords do not match')
+
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setError('Database connection unavailable')
+      return
+    }
 
     setLoading(true); setError(null)
     try {
@@ -140,7 +184,9 @@ function PasswordResetContent() {
         <div className="max-w-md w-full space-y-8 text-center">
           <Loader2 className="mx-auto h-12 w-12 animate-spin" />
           <h2 className="mt-6 text-3xl font-extrabold">Processing Reset Link</h2>
-          <p className="mt-2 text-sm text-gray-600">Please wait while we verify your reset link…</p>
+          <p className="mt-2 text-sm text-gray-600">
+            {!supabaseReady ? 'Connecting to database...' : 'Please wait while we verify your reset link…'}
+          </p>
         </div>
       </div>
     )

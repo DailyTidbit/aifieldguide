@@ -1,58 +1,61 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { analytics, useAnalytics } from '../lib/analytics'
-import { getCurrentYear } from '../lib/clientUtils'
+import { useState } from 'react'
+import { useMounted, getCurrentYear } from '../lib/clientUtils'
+import { useAnalytics } from '../lib/analytics'
+
+function FooterSkeleton() {
+  return (
+    <footer className="relative z-10 bg-gradient-to-br from-gray-200 via-gray-100 to-brand-blue/10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="text-center space-y-6">
+          <div className="h-16 bg-gray-200 rounded w-1/2 mx-auto animate-pulse"></div>
+          <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="w-10 h-10 bg-gray-200 rounded-full animate-pulse"></div>
+            ))}
+          </div>
+          <div className="pt-4 border-t border-gray-300 space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-1/3 mx-auto animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/4 mx-auto animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
 
 export default function Footer() {
-  // Hydration safety
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
   const [interactions, setInteractions] = useState(0)
-  const { analytics: analyticsInstance } = useAnalytics()
+  const { track } = useAnalytics()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // MANDATORY: Show skeleton until mounted
+  if (!mounted) {
+    return <FooterSkeleton />
+  }
 
   const bumpInteraction = () => setInteractions(p => p + 1)
 
-  const handleSocialClick = async (platform: string, url: string) => {
-    if (mounted && analyticsInstance) {
-      try {
-        await analyticsInstance.trackEvent({
-          event_type: 'cta_click',
-          event_data: {
-            cta_type: `social_${platform}`,
-            cta_location: 'footer',
-            target_url: url,
-            platform
-          }
-        })
-        bumpInteraction()
-      } catch (error) {
-        console.warn('Analytics tracking failed:', error)
-      }
-    }
+  const handleSocialClick = (platform: string, url: string) => {
+    track('cta_click', {
+      cta_type: `social_${platform}`,
+      cta_location: 'footer',
+      target_url: url,
+      platform
+    })
+    bumpInteraction()
   }
 
-  const handleFooterLinkClick = async (label: string, url: string) => {
-    if (mounted && analyticsInstance) {
-      try {
-        await analyticsInstance.trackEvent({
-          event_type: 'cta_click',
-          event_data: {
-            cta_type: label,
-            cta_location: 'footer',
-            target_url: url,
-            link_type: 'footer_navigation'
-          }
-        })
-        bumpInteraction()
-      } catch (error) {
-        console.warn('Analytics tracking failed:', error)
-      }
-    }
+  const handleFooterLinkClick = (label: string, url: string) => {
+    track('cta_click', {
+      cta_type: label,
+      cta_location: 'footer',
+      target_url: url,
+      link_type: 'footer_navigation'
+    })
+    bumpInteraction()
   }
 
   return (
@@ -184,7 +187,6 @@ export default function Footer() {
                 Get in Touch
               </a>
             </nav>
-            {/* ✅ HYDRATION SAFE: Uses UTC-based year calculation */}
             <p className="text-xs text-gray-500">© {getCurrentYear()} Daily Tidbit. All rights reserved.</p>
           </div>
         </div>

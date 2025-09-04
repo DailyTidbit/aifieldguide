@@ -1,7 +1,7 @@
-// components/ValuePropCarousel.tsx - COMPLETE HYDRATION SAFETY FIX
+// components/ValuePropCarousel.tsx - CRITICAL HYDRATION FIX
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Clock, BookOpen, Gift, Zap, Users, Heart } from 'lucide-react';
 
 // Define a map for icons
@@ -29,7 +29,7 @@ const ValuePropCard: React.FC<ValuePropCardProps> = ({
 }) => {
   const IconComponent = iconMap[icon];
   
-  // ? BRAND COLOR FIX: Use proper brand color classes
+  // BRAND COLOR FIX: Use proper brand color classes
   const accentColors = {
     green: {
       gradient: 'from-brand-green to-green-400',
@@ -88,7 +88,7 @@ const ValuePropCard: React.FC<ValuePropCardProps> = ({
 };
 
 interface ValuePropCarouselProps {
-  cards: ValuePropCardProps[];
+  cards?: ValuePropCardProps[];
   autoPlay?: boolean;
   autoPlayDelay?: number;
   className?: string;
@@ -100,7 +100,7 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
   autoPlayDelay = 4000,
   className = ""
 }) => {
-  // ? CRITICAL FIX: ALL hooks MUST be declared BEFORE any conditional returns
+  // ✅ CRITICAL FIX: ALL hooks MUST be declared BEFORE any conditional returns
   const [mounted, setMounted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(autoPlay);
@@ -108,15 +108,19 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
+  // Refs
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Calculate total cards
   const totalCards = cards.length;
 
-  // ? HYDRATION SAFETY: Wait for mount
+  // ✅ HYDRATION SAFETY: Wait for mount
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const goToSlide = useCallback((index: number) => {
-    if (!mounted || isTransitioning) return; // Guard against running during hydration
+    if (!mounted || isTransitioning || totalCards === 0) return;
 
     setIsTransitioning(true);
     
@@ -134,39 +138,50 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
   }, [totalCards, isTransitioning, mounted]);
 
   const nextSlide = useCallback(() => {
-    if (!mounted) return; // Guard against running during hydration
+    if (!mounted || totalCards === 0) return;
     goToSlide(currentIndex + 1);
-  }, [currentIndex, goToSlide, mounted]);
+  }, [currentIndex, goToSlide, mounted, totalCards]);
 
   const prevSlide = useCallback(() => {
-    if (!mounted) return; // Guard against running during hydration
+    if (!mounted || totalCards === 0) return;
     goToSlide(currentIndex - 1);
-  }, [currentIndex, goToSlide, mounted]);
+  }, [currentIndex, goToSlide, mounted, totalCards]);
 
-  // ? HYDRATION SAFETY: Auto-play functionality only after mount
+  // ✅ HYDRATION SAFETY: Auto-play functionality only after mount
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || totalCards <= 1) return;
     
-    if (isAutoPlaying && totalCards > 1 && !isTransitioning) {
-      const interval = setInterval(nextSlide, autoPlayDelay);
-      return () => clearInterval(interval);
+    if (isAutoPlaying && !isTransitioning) {
+      intervalRef.current = setInterval(nextSlide, autoPlayDelay);
     }
+    
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [mounted, isAutoPlaying, totalCards, nextSlide, autoPlayDelay, isTransitioning]);
 
   // Pause auto-play on hover
   const handleMouseEnter = useCallback(() => {
-    if (!mounted) return; // Guard against running during hydration
-    setIsAutoPlaying(false);
+    if (!mounted) return;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
   }, [mounted]);
 
   const handleMouseLeave = useCallback(() => {
-    if (!mounted) return; // Guard against running during hydration
-    setIsAutoPlaying(autoPlay);
-  }, [autoPlay, mounted]);
+    if (!mounted || !autoPlay || totalCards <= 1) return;
+    if (isAutoPlaying && !isTransitioning) {
+      intervalRef.current = setInterval(nextSlide, autoPlayDelay);
+    }
+  }, [autoPlay, mounted, isAutoPlaying, isTransitioning, nextSlide, autoPlayDelay, totalCards]);
 
-  // ? HYDRATION SAFETY: Keyboard navigation only after mount
+  // ✅ HYDRATION SAFETY: Keyboard navigation only after mount
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || totalCards === 0) return;
     
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
@@ -180,17 +195,17 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mounted, nextSlide, prevSlide]);
+  }, [mounted, nextSlide, prevSlide, totalCards]);
 
   // Touch handling - only after mount
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!mounted) return; // Guard against running during hydration
+    if (!mounted) return;
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
   }, [mounted]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!mounted) return; // Guard against running during hydration
+    if (!mounted) return;
     setTouchEnd(e.targetTouches[0].clientX);
   }, [mounted]);
 
@@ -208,20 +223,9 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
     }
   }, [touchStart, touchEnd, nextSlide, prevSlide, mounted]);
 
-  // ? CRITICAL: Early returns AFTER all hooks are declared
+  // ✅ CRITICAL: Early returns AFTER all hooks are declared
   
-  // Early return if no cards
-  if (!cards || cards.length === 0) {
-    return (
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-        <div className="p-6 text-center text-gray-500">
-          No cards to display
-        </div>
-      </div>
-    );
-  }
-
-  // ? HYDRATION SAFETY: Loading state during hydration
+  // ✅ HYDRATION SAFETY: Loading state during hydration
   if (!mounted) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', position: 'relative' }}>
@@ -237,6 +241,17 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
               <div className="h-4 bg-gray-300 rounded w-3/4"></div>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Early return if no cards - AFTER mount check
+  if (!cards || cards.length === 0) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+        <div className="p-6 text-center text-gray-500">
+          No cards to display
         </div>
       </div>
     );
@@ -272,7 +287,7 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
       >
         {/* Current card with fade transition */}
         <div
-          key={currentIndex} // Force re-render for transition
+          key={currentIndex}
           style={{
             opacity: isTransitioning ? 0.7 : 1,
             transform: isTransitioning ? 'scale(0.98)' : 'scale(1)',
@@ -320,7 +335,7 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
               }}
               aria-label="Previous slide"
             >
-              <ChevronLeft style={{ width: '20px', height: '20px', color: 'rgb(var(--brand-green))' }} />
+              <ChevronLeft className="w-5 h-5 text-brand-green" />
             </button>
             
             <button
@@ -357,7 +372,7 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
               }}
               aria-label="Next slide"
             >
-              <ChevronRight style={{ width: '20px', height: '20px', color: 'rgb(var(--brand-green))' }} />
+              <ChevronRight className="w-5 h-5 text-brand-green" />
             </button>
           </>
         )}
@@ -377,48 +392,21 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
               key={`dot-${index}`}
               onClick={() => goToSlide(index)}
               disabled={isTransitioning}
+              className={`w-3 h-3 rounded-full border-none transition-all duration-300 ${
+                index === currentIndex 
+                  ? 'bg-brand-green scale-125' 
+                  : 'bg-gray-300 hover:bg-gray-400'
+              }`}
               style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                border: 'none',
-                background: index === currentIndex ? 'brand-green' : '#d1d5db', // Use brand green
                 cursor: isTransitioning ? 'wait' : 'pointer',
-                transition: 'all 300ms ease',
-                transform: index === currentIndex ? 'scale(1.2)' : 'scale(1)',
-                position: 'relative',
-                overflow: 'hidden',
                 opacity: isTransitioning ? 0.7 : 1
               }}
-              onMouseEnter={(e) => {
-                if (index !== currentIndex && !isTransitioning) {
-                  e.currentTarget.style.background = '#9ca3af';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (index !== currentIndex) {
-                  e.currentTarget.style.background = '#d1d5db';
-                }
-              }}
               aria-label={`Go to slide ${index + 1}`}
-            >
-              {/* Auto-play progress indicator */}
-              {index === currentIndex && isAutoPlaying && !isTransitioning && (
-                <div 
-                  className="dailytidbit-progress-animation"
-                  style={{
-                    position: 'absolute',
-                    inset: '0',
-                    background: '#86efac',
-                    borderRadius: '50%'
-                  }}
-                />
-              )}
-            </button>
+            />
           ))}
           
           {/* Auto-play toggle */}
-          {autoPlay && (
+          {autoPlay && totalCards > 1 && (
             <button
               onClick={() => setIsAutoPlaying(!isAutoPlaying)}
               style={{
@@ -443,7 +431,7 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
               aria-label={isAutoPlaying ? 'Pause auto-play' : 'Resume auto-play'}
               title={isAutoPlaying ? 'Pause auto-play' : 'Resume auto-play'}
             >
-              {isAutoPlaying ? '??' : '??'}
+              {isAutoPlaying ? '⏸️' : '▶️'}
             </button>
           )}
         </div>

@@ -11,6 +11,39 @@ export const isBrowser = typeof window !== 'undefined';
 export const isClient = isBrowser; // Alias for consistency
 
 // =============================================================================
+// Hydration-Safe Environment Detection
+// =============================================================================
+
+export const safeEnvironment = {
+  isDevelopment: (): boolean => {
+    if (!isBrowser) {
+      // On server, check NODE_ENV if available, default to false
+      return typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
+    }
+    // On client, check both NODE_ENV and location hostname
+    return process.env.NODE_ENV === 'development' || 
+           window.location.hostname === 'localhost' || 
+           window.location.hostname === '127.0.0.1';
+  },
+  
+  isProduction: (): boolean => {
+    if (!isBrowser) {
+      return typeof process !== 'undefined' && process.env?.NODE_ENV === 'production';
+    }
+    return process.env.NODE_ENV === 'production' && 
+           !window.location.hostname.includes('localhost') &&
+           !window.location.hostname.includes('127.0.0.1');
+  },
+  
+  getNodeEnv: (): string => {
+    if (!isBrowser) {
+      return typeof process !== 'undefined' ? (process.env?.NODE_ENV || 'development') : 'development';
+    }
+    return process.env.NODE_ENV || 'development';
+  }
+};
+
+// =============================================================================
 // Core Hydration Safety Hook
 // =============================================================================
 
@@ -95,6 +128,16 @@ export const safeWindow = {
   localStorage: safeLocalStorage,
   sessionStorage: safeSessionStorage,
   
+  // Environment detection methods
+  isProduction: (): boolean => safeEnvironment.isProduction(),
+  isDevelopment: (): boolean => safeEnvironment.isDevelopment(),
+  getNodeEnv: (): string => safeEnvironment.getNodeEnv(),
+  
+  // Service worker detection
+  hasServiceWorker: (): boolean => {
+    return isBrowser && 'serviceWorker' in navigator;
+  },
+  
   navigator: {
     userAgent: (): string => {
       return isBrowser ? (window.navigator?.userAgent || '') : '';
@@ -124,7 +167,7 @@ export const useClientState = <T>(initialValue: T): [T, React.Dispatch<React.Set
 };
 
 // =============================================================================
-// Safe Random Generation
+// Safe Random Generation - FIXED VERSION
 // =============================================================================
 
 export const safeRandom = {
@@ -132,6 +175,13 @@ export const safeRandom = {
     if (!isBrowser) {
       return `${prefix}-ssr`;
     }
+    // Use crypto.getRandomValues for better consistency and hydration safety
+    if (window.crypto && window.crypto.getRandomValues) {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return `${prefix}-${array[0].toString(36)}`;
+    }
+    // Fallback to Math.random only if crypto is not available
     return `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
   },
   
@@ -139,6 +189,14 @@ export const safeRandom = {
     if (!isBrowser) {
       return min;
     }
+    // Use crypto.getRandomValues for better consistency and hydration safety
+    if (window.crypto && window.crypto.getRandomValues) {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      const randomValue = array[0] / (0xffffffff + 1);
+      return randomValue * (max - min) + min;
+    }
+    // Fallback to Math.random only if crypto is not available
     return Math.random() * (max - min) + min;
   }
 };

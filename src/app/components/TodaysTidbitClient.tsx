@@ -1,13 +1,12 @@
-// src/app/components/TodaysTidbitClient.tsx - COMPLETE HYDRATION SAFE + BRAND COLOR FIX
+// src/app/components/TodaysTidbitClient.tsx - Fixed to use new analytics system
 'use client';
 
 import { ArrowRight, Brain, Target } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
-
-// ✅ HYDRATION SAFE: Lazy import analytics to avoid SSR issues
-const loadAnalytics = () => import('../lib/gtag');
+import { useMounted } from '../lib/clientUtils';
+import { useAnalytics } from '../lib/analytics';
 
 interface TodaysTip {
   day_number: number;
@@ -26,7 +25,7 @@ interface TodaysTidbitClientProps {
   todaysTip: TodaysTip | null;
 }
 
-// ✅ HYDRATION SAFE: Loading skeleton component
+// Loading skeleton component
 const TodaysTidbitSkeleton = () => (
   <div className="max-w-3xl mx-auto">
     <div className="animate-pulse space-y-6">
@@ -46,8 +45,8 @@ const TodaysTidbitSkeleton = () => (
 )
 
 export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProps) {
-  // ✅ HYDRATION SAFETY: Component-level mounted state
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
+  const { track, hasConsent } = useAnalytics();
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageHoveredRef = useRef(false);
@@ -56,12 +55,7 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
   const [videoInteractions, setVideoInteractions] = useState(0);
   const [cardInteractions, setCardInteractions] = useState(0);
 
-  // ✅ HYDRATION SAFETY: Wait for mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // ✅ HYDRATION SAFE: Video ID calculation only after mount
+  // Video ID calculation only after mount
   const videoId = useMemo(
     () => {
       if (!mounted) return 'tidbit_day_unknown'
@@ -73,83 +67,53 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
   const bumpVideoInteraction = () => setVideoInteractions((prev) => prev + 1);
   const bumpCardInteraction = () => setCardInteractions((prev) => prev + 1);
 
-  // ✅ HYDRATION SAFE: All analytics functions check mounted state
-  const trackSectionView = async (section: string) => {
-    if (!mounted) return;
-    try {
-      const { logEvent } = await loadAnalytics();
-      logEvent('section_view', { section });
-    } catch {
-      // Analytics not critical
-    }
+  // Safe analytics tracking functions
+  const trackSectionView = (section: string) => {
+    if (!mounted || !hasConsent || !track) return;
+    track('section_view', { section });
   };
 
-  const trackImageInteraction = async (videoId: string, action: string, params: Record<string, any>) => {
-    if (!mounted) return;
-    try {
-      const { logEvent } = await loadAnalytics();
-      logEvent('image_interaction', { video_id: videoId, action, ...params });
-    } catch {
-      // Analytics not critical
-    }
+  const trackImageInteraction = (videoId: string, action: string, params: Record<string, any>) => {
+    if (!mounted || !hasConsent || !track) return;
+    track('image_interaction', { video_id: videoId, action, ...params });
   };
 
-  const trackCTAClick = async (ctaName: string, section: string, url: string) => {
-    if (!mounted) return;
-    try {
-      const { logEvent } = await loadAnalytics();
-      logEvent('cta_click', { cta_name: ctaName, section, url });
-    } catch {
-      // Analytics not critical
-    }
+  const trackCTAClick = (ctaName: string, section: string, url: string) => {
+    if (!mounted || !hasConsent || !track) return;
+    track('cta_click', { cta_name: ctaName, section, url });
   };
 
-  const trackConversionFunnel = async (stage: string, score: number, params: Record<string, any>) => {
-    if (!mounted) return;
-    try {
-      const { logEvent } = await loadAnalytics();
-      logEvent('conversion_funnel', { stage, engagement_score: score, ...params });
-    } catch {
-      // Analytics not critical
-    }
+  const trackConversionFunnel = (stage: string, score: number, params: Record<string, any>) => {
+    if (!mounted || !hasConsent || !track) return;
+    track('conversion_funnel', { stage, engagement_score: score, ...params });
   };
 
   const calculateEngagementScore = (timeSpent: number, scrollDepth: number, interactions: number) => {
     return Math.min(100, timeSpent * 0.001 + scrollDepth * 50 + interactions * 10);
   };
 
-  const logEvent = async (eventName: string, params: Record<string, any>) => {
-    if (!mounted) return;
-    try {
-      const { logEvent } = await loadAnalytics();
-      logEvent(eventName, params);
-    } catch {
-      // Analytics not critical
-    }
-  };
-
-  // ✅ HYDRATION SAFE: Track section view once on mount
+  // Track section view once on mount
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !hasConsent) return;
     trackSectionView('todays_tidbit');
-  }, [mounted]);
+  }, [mounted, hasConsent]);
 
-  // ✅ HYDRATION SAFE: Reset video milestones when the tidbit changes
+  // Reset video milestones when the tidbit changes
   useEffect(() => {
     if (!mounted) return;
     videoMilestonesRef.current = new Set(['25', '50', '75']);
   }, [mounted, todaysTip?.day_number]);
 
-  // ✅ HYDRATION SAFE: Video engagement tracking (only if we have a video and are mounted)
+  // Video engagement tracking (only if we have a video and are mounted)
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !hasConsent || !track) return;
     
     const videoEl = videoRef.current;
     if (!videoEl || !todaysTip?.video_url) return;
 
     const handleVideoPlay = () => {
       bumpVideoInteraction();
-      logEvent('video_interaction', {
+      track('video_interaction', {
         action: 'play',
         video_id: videoId,
         section_name: 'todays_tidbit',
@@ -157,7 +121,7 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
     };
 
     const handleVideoPause = () => {
-      logEvent('video_interaction', {
+      track('video_interaction', {
         action: 'pause',
         video_id: videoId,
         current_time: Math.round(videoEl.currentTime),
@@ -166,7 +130,7 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
 
     const handleVideoEnded = () => {
       bumpVideoInteraction();
-      logEvent('video_interaction', {
+      track('video_interaction', {
         action: 'completed',
         video_id: videoId,
         engagement_score: 100,
@@ -180,15 +144,15 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
 
       if (progress >= 25 && milestones.has('25')) {
         milestones.delete('25');
-        logEvent('video_progress', { milestone: '25_percent', video_id: videoId });
+        track('video_progress', { milestone: '25_percent', video_id: videoId });
       }
       if (progress >= 50 && milestones.has('50')) {
         milestones.delete('50');
-        logEvent('video_progress', { milestone: '50_percent', video_id: videoId });
+        track('video_progress', { milestone: '50_percent', video_id: videoId });
       }
       if (progress >= 75 && milestones.has('75')) {
         milestones.delete('75');
-        logEvent('video_progress', { milestone: '75_percent', video_id: videoId });
+        track('video_progress', { milestone: '75_percent', video_id: videoId });
       }
     };
 
@@ -203,16 +167,16 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
       videoEl.removeEventListener('ended', handleVideoEnded);
       videoEl.removeEventListener('timeupdate', handleVideoProgress);
     };
-  }, [mounted, todaysTip?.video_url, videoId]);
+  }, [mounted, hasConsent, track, todaysTip?.video_url, videoId]);
 
   const handleImageHover = () => {
-    if (!mounted || imageHoveredRef.current || !todaysTip) return;
+    if (!mounted || imageHoveredRef.current || !todaysTip || !hasConsent) return;
     imageHoveredRef.current = true;
     trackImageInteraction(videoId, 'hover', { section_name: 'todays_tidbit' });
   };
 
   const handleImageClick = () => {
-    if (!mounted || !todaysTip) return;
+    if (!mounted || !todaysTip || !hasConsent) return;
     trackImageInteraction(videoId, 'click', {
       section_name: 'todays_tidbit',
       image_type: 'tidbit_illustration',
@@ -220,9 +184,9 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
   };
 
   const handleLearningCardClick = () => {
-    if (!mounted) return;
+    if (!mounted || !hasConsent || !track) return;
     bumpCardInteraction();
-    logEvent('card_interaction', {
+    track('card_interaction', {
       card_type: 'learning_preview',
       action: 'click',
       section_name: 'todays_tidbit',
@@ -230,9 +194,9 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
   };
 
   const handleNeedsCardClick = () => {
-    if (!mounted) return;
+    if (!mounted || !hasConsent || !track) return;
     bumpCardInteraction();
-    logEvent('card_interaction', {
+    track('card_interaction', {
       card_type: 'requirements_preview',
       action: 'click',
       section_name: 'todays_tidbit',
@@ -240,7 +204,7 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
   };
 
   const handleWalkthroughClick = () => {
-    if (!mounted || !todaysTip) return;
+    if (!mounted || !todaysTip || !hasConsent) return;
 
     trackCTAClick(
       `walkthrough_${todaysTip.title.toLowerCase().replace(/\s+/g, '_')}`,
@@ -260,24 +224,24 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
     });
   };
 
-  // ✅ HYDRATION SAFETY: Show loading state until mounted
+  // Show loading state until mounted
   if (!mounted) {
     return <TodaysTidbitSkeleton />;
   }
 
-  // ✅ BRAND COLOR FIX: Branded empty/error state (rare given server logic)
+  // Branded empty/error state (rare given server logic)
   if (!todaysTip) {
     return (
       <div className="max-w-2xl mx-auto px-4">
         <div
-          className="rounded-2xl p-8 sm:p-12 text-center border shadow-lg bg-brand-blue/8 border-brand-blue"
+          className="rounded-2xl p-8 sm:p-12 text-center border shadow-lg bg-blue-50/80 border-blue-200"
           role="alert"
           aria-live="polite"
         >
-          <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center bg-brand-blue">
+          <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center bg-blue-600">
             <span className="text-2xl text-white">⚠️</span>
           </div>
-          <h3 className="text-xl font-bold mb-2 text-brand-blue">
+          <h3 className="text-xl font-bold mb-2 text-blue-600">
             We couldn't load today's Tidbit
           </h3>
           <p className="text-sm sm:text-base text-gray-700">
@@ -327,18 +291,17 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
           </p>
         </button>
 
-        {/* ✅ BRAND COLOR FIX: Use brand color classes in gradient */}
         <button
           type="button"
           onClick={handleNeedsCardClick}
-          className="bg-gradient-to-br from-brand-green/10 to-brand-green/20 p-4 sm:p-6 rounded-xl border border-brand-green/20 shadow-lg backdrop-blur-sm hover:shadow-xl hover:scale-105 transition-all duration-300 text-left"
+          className="bg-gradient-to-br from-green-50 to-green-100 p-4 sm:p-6 rounded-xl border border-green-200 shadow-lg backdrop-blur-sm hover:shadow-xl hover:scale-105 transition-all duration-300 text-left"
           aria-label="Open list of what you need to follow this tidbit"
         >
-          <h3 className="text-base sm:text-lg font-bold text-brand-greenDark mb-2 sm:mb-3 flex items-center gap-2">
+          <h3 className="text-base sm:text-lg font-bold text-green-700 mb-2 sm:mb-3 flex items-center gap-2">
             <Target className="w-4 sm:w-5 h-4 sm:h-5" />
             What You Need
           </h3>
-          <p className="text-sm sm:text-base text-brand-greenDark/80 leading-relaxed">
+          <p className="text-sm sm:text-base text-green-700/80 leading-relaxed">
             {todaysTip.what_you_need.length > 120
               ? `${todaysTip.what_you_need.substring(0, 120)}...`
               : todaysTip.what_you_need}
@@ -350,7 +313,6 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
         <div className="relative bg-gray-900 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl aspect-video mb-4 sm:mb-6 w-full max-w-full">
           <video ref={videoRef} className="w-full h-full object-cover" controls preload="metadata">
             <source src={todaysTip.video_url} type="video/mp4" />
-            {/* Optional captions file; add the .vtt when ready */}
             <track
               kind="captions"
               src={`/captions/day-${todaysTip.day_number}.vtt`}
@@ -366,7 +328,7 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
         <Link
           href={`/day/${todaysTip.day_number}`}
           onClick={handleWalkthroughClick}
-          className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-brand-green to-brand-blue text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full hover:shadow-2xl transform hover:scale-110 transition-all duration-300 font-bold text-lg sm:text-xl w-full sm:w-auto shadow-lg dance-button hover:animate-pulse"
+          className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full hover:shadow-2xl transform hover:scale-110 transition-all duration-300 font-bold text-lg sm:text-xl w-full sm:w-auto shadow-lg hover:animate-pulse"
           aria-label={`Open walkthrough for Day ${todaysTip.day_number}: ${todaysTip.title}`}
         >
           <span>Walkthrough: {todaysTip.title}</span>

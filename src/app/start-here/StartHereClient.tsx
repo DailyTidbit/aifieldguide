@@ -16,39 +16,9 @@ import ValuePropCarousel, {
 import AIExplanationCarousel from '../components/AIExplanationCarousel';
 import CTASection from '../components/CTASection';
 
-// Hydration-safe utilities
-const isBrowser = typeof window !== 'undefined';
-
-// Safe analytics loader
-const loadAnalytics = () => {
-  if (!isBrowser) {
-    return Promise.resolve({
-      trackCTAClick: () => {},
-      trackSectionView: () => {},
-      trackUserEngagement: () => {},
-      trackImageInteraction: () => {},
-      trackStepInteraction: () => {},
-      trackReadingBehavior: () => {},
-      trackDeviceEngagement: () => {},
-      trackConversionFunnel: () => {},
-      getDeviceType: () => 'unknown',
-      calculateEngagementScore: () => 0,
-    });
-  }
-  
-  return import('../lib/gtag').catch(() => ({
-    trackCTAClick: () => {},
-    trackSectionView: () => {},
-    trackUserEngagement: () => {},
-    trackImageInteraction: () => {},
-    trackStepInteraction: () => {},
-    trackReadingBehavior: () => {},
-    trackDeviceEngagement: () => {},
-    trackConversionFunnel: () => {},
-    getDeviceType: () => 'unknown',
-    calculateEngagementScore: () => 0,
-  }));
-};
+// Use established hydration-safe utilities
+import { useMounted } from '../lib/clientUtils';
+import { useAnalytics, trackUserEngagement } from '../lib/analytics';
 
 // Lazy load heavy components
 const CarouselComponent = lazy(() => import('../components/CarouselComponent'));
@@ -74,7 +44,7 @@ class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    if (isBrowser) {
+    if (typeof window !== 'undefined') {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
   }
@@ -116,7 +86,10 @@ function CarouselErrorFallback({
       </p>
       <button
         onClick={resetErrorBoundary}
-        className="bg-brand-green text-white px-6 py-2 rounded-lg hover:bg-brand-greenDark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+        className="text-white px-6 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+        style={{ backgroundColor: '#60A875' }}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4e8e61'}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#60A875'}
         aria-label="Try loading the carousel again"
       >
         Try Again
@@ -130,7 +103,6 @@ function StartHereSkeleton() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
       <div className="animate-pulse">
-        {/* Hero Section Skeleton */}
         <section className="px-6 md:px-12 py-20">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
@@ -153,14 +125,6 @@ function StartHereSkeleton() {
             </div>
           </div>
         </section>
-        
-        {/* Additional sections skeleton */}
-        <section className="px-6 md:px-12 py-20 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="h-12 bg-gray-200 rounded w-1/2 mx-auto mb-8"></div>
-            <div className="h-64 bg-gray-200 rounded-xl"></div>
-          </div>
-        </section>
       </div>
     </div>
   );
@@ -178,6 +142,26 @@ function CarouselSkeleton() {
       <span className="sr-only">Loading interactive content...</span>
     </div>
   );
+}
+
+// Helper functions
+const getDeviceType = (): 'mobile' | 'tablet' | 'desktop' => {
+  if (typeof window === 'undefined') return 'desktop'
+  const width = window.innerWidth
+  if (width < 768) return 'mobile'
+  if (width < 1024) return 'tablet'
+  return 'desktop'
+}
+
+const calculateEngagementScore = (
+  timeOnPageMs: number, 
+  scrollDepthPercent: number, 
+  interactions: number
+): number => {
+  const timeScore = Math.min(timeOnPageMs / 60000, 10) * 3
+  const scrollScore = scrollDepthPercent * 40
+  const interactionScore = Math.min(interactions, 10) * 3
+  return Math.round(timeScore + scrollScore + interactionScore)
 }
 
 // Value Props with brand colors
@@ -208,18 +192,17 @@ const valuePropsCards: ValuePropCardProps[] = [
   },
   {
     title: 'Daily Tidbit = Fast, Useful, Actually Fun',
-    description: "60-second videos. With walkthroughs if you want 'em. From emails to ideas. Quick wins and big moves. And yeah – it's free.",
+    description: "60-second videos. With walkthroughs if you want 'em. From emails to ideas. Quick wins and big moves. And yeah — it's free.",
     icon: 'Gift',
     accent: 'pink',
   },
 ];
 
 export default function StartHereClient() {
-  // PRIMARY HYDRATION SAFETY
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [carouselInView, setCarouselInView] = useState(false);
   const [interactions, setInteractions] = useState(0);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const { track, trackPageView } = useAnalytics();
 
   // Refs for engagement tracking
   const interactionsRef = useRef(0);
@@ -228,14 +211,12 @@ export default function StartHereClient() {
   const startTimeRef = useRef<number>(0);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
 
-  // Initialize mounted state and load analytics
+  // Initialize after mount
   useEffect(() => {
-    setMounted(true);
-    startTimeRef.current = Date.now();
+    if (!mounted) return;
     
-    // Load analytics after mount
-    loadAnalytics().then(setAnalytics);
-  }, []);
+    startTimeRef.current = Date.now();
+  }, [mounted]);
 
   const bumpInteraction = () => {
     if (!mounted) return;
@@ -243,11 +224,10 @@ export default function StartHereClient() {
     setInteractions((v) => v + 1);
   };
 
-  // Intersection observer setup - only after mounted
+  // Intersection observer setup
   useEffect(() => {
-    if (!mounted || !isBrowser) return;
+    if (!mounted) return;
 
-    // Intersection Observer for lazy loading carousel
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
@@ -273,8 +253,11 @@ export default function StartHereClient() {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const sectionName = sections.find((s) => s.id === entry.target.id)?.name;
-            if (sectionName && analytics?.trackSectionView) {
-              analytics.trackSectionView(sectionName);
+            if (sectionName) {
+              track('user_engagement', {
+                engagement_type: 'section_view',
+                section_name: sectionName
+              });
             }
           }
         });
@@ -291,11 +274,11 @@ export default function StartHereClient() {
       observer.disconnect();
       sectionObserver.disconnect();
     };
-  }, [mounted, analytics]);
+  }, [mounted, track]);
 
-  // Scroll tracking - only after mounted
+  // Scroll tracking
   useEffect(() => {
-    if (!mounted || !isBrowser) return;
+    if (!mounted) return;
 
     const handleScroll = () => {
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -310,9 +293,11 @@ export default function StartHereClient() {
       for (const threshold of thresholds) {
         if (scrollPct >= threshold && !firedThresholdsRef.current.has(threshold)) {
           firedThresholdsRef.current.add(threshold);
-          if (analytics?.trackUserEngagement) {
-            analytics.trackUserEngagement('scroll_depth', threshold, { page: 'start-here' });
-          }
+          track('user_engagement', {
+            engagement_type: 'scroll_depth',
+            scroll_depth_percent: threshold,
+            page: 'start-here'
+          });
         }
       }
     };
@@ -330,63 +315,79 @@ export default function StartHereClient() {
 
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [mounted, analytics]);
+  }, [mounted, track]);
 
-  // Engagement timer - only after mounted
+  // Engagement timer
   useEffect(() => {
-    if (!mounted || !isBrowser) return;
+    if (!mounted) return;
 
     const timer = setTimeout(() => {
       const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
-      
-      if (analytics?.getDeviceType && analytics?.calculateEngagementScore && analytics?.trackReadingBehavior && analytics?.trackDeviceEngagement && analytics?.trackConversionFunnel && analytics?.trackUserEngagement) {
-        const deviceType = analytics.getDeviceType();
-        const engagementScore = analytics.calculateEngagementScore(
-          timeSpent * 1000,
-          maxScrollRef.current / 100,
-          interactionsRef.current
-        );
+      const deviceType = getDeviceType();
+      const engagementScore = calculateEngagementScore(
+        timeSpent * 1000,
+        maxScrollRef.current / 100,
+        interactionsRef.current
+      );
 
-        if (timeSpent > 60 && maxScrollRef.current > 75) {
-          analytics.trackReadingBehavior('reader', timeSpent, maxScrollRef.current);
-        } else if (timeSpent < 30 && maxScrollRef.current > 80) {
-          analytics.trackReadingBehavior('skimmer', timeSpent, maxScrollRef.current);
-        } else if (timeSpent > 30 && maxScrollRef.current < 50) {
-          analytics.trackReadingBehavior('scanner', timeSpent, maxScrollRef.current);
-        }
-
-        analytics.trackDeviceEngagement(deviceType, engagementScore, {
+      if (timeSpent > 60 && maxScrollRef.current > 75) {
+        track('reading_behavior', {
+          behavior_type: 'reader',
           time_spent: timeSpent,
-          scroll_depth: maxScrollRef.current,
-          interactions: interactionsRef.current,
+          scroll_depth: maxScrollRef.current
         });
-
-        if (engagementScore > 70) {
-          analytics.trackConversionFunnel('interested', engagementScore, {
-            high_engagement: true,
-            device_type: deviceType,
-          });
-        } else if (engagementScore > 40) {
-          analytics.trackConversionFunnel('engaged', engagementScore, {
-            medium_engagement: true,
-            device_type: deviceType,
-          });
-        }
-
-        analytics.trackUserEngagement('time_on_page', timeSpent, {
-          page: 'start-here',
-          engaged_time: timeSpent,
-          engagement_score: engagementScore,
-          device_type: deviceType,
+      } else if (timeSpent < 30 && maxScrollRef.current > 80) {
+        track('reading_behavior', {
+          behavior_type: 'skimmer',
+          time_spent: timeSpent,
+          scroll_depth: maxScrollRef.current
+        });
+      } else if (timeSpent > 30 && maxScrollRef.current < 50) {
+        track('reading_behavior', {
+          behavior_type: 'scanner',
+          time_spent: timeSpent,
+          scroll_depth: maxScrollRef.current
         });
       }
+
+      track('device_engagement', {
+        device_type: deviceType,
+        engagement_score: engagementScore,
+        time_spent: timeSpent,
+        scroll_depth: maxScrollRef.current,
+        interactions: interactionsRef.current
+      });
+
+      if (engagementScore > 70) {
+        track('conversion_funnel', {
+          funnel_step: 'interested',
+          engagement_score: engagementScore,
+          high_engagement: true,
+          device_type: deviceType
+        });
+      } else if (engagementScore > 40) {
+        track('conversion_funnel', {
+          funnel_step: 'engaged',
+          engagement_score: engagementScore,
+          medium_engagement: true,
+          device_type: deviceType
+        });
+      }
+
+      track('user_engagement', {
+        engagement_type: 'time_on_page',
+        time_spent: timeSpent,
+        page: 'start-here',
+        engagement_score: engagementScore,
+        device_type: deviceType
+      });
     }, 30000);
 
     return () => clearTimeout(timer);
-  }, [mounted, analytics]);
+  }, [mounted, track]);
 
   const scrollToSection = (id: string) => {
-    if (!mounted || !isBrowser) return;
+    if (!mounted) return;
     
     const element = document.getElementById(id);
     if (!element) return;
@@ -400,9 +401,11 @@ export default function StartHereClient() {
 
     const buttonText = id === 'how-daily-tidbit-works' ? 'Daily Tidbit?!' : "What's AI?";
 
-    if (analytics?.trackCTAClick) {
-      analytics.trackCTAClick(buttonText, 'Hero Section', sectionNames[id] || id);
-    }
+    track('cta_click', {
+      cta_name: buttonText,
+      cta_section: 'Hero Section',
+      cta_url: sectionNames[id] || id
+    });
 
     // Accessibility announcement
     const announcement = document.createElement('div');
@@ -473,11 +476,11 @@ export default function StartHereClient() {
                     }}
                     onClick={() => {
                       bumpInteraction();
-                      if (analytics?.trackImageInteraction) {
-                        analytics.trackImageInteraction('hero-celebration', 'click', {
-                          location: 'hero_section',
-                        });
-                      }
+                      track('user_engagement', {
+                        engagement_type: 'click',
+                        target: 'hero_image',
+                        location: 'hero_section'
+                      });
                     }}
                   />
 
@@ -493,12 +496,12 @@ export default function StartHereClient() {
                     aria-label="Welcome message for new users"
                   >
                     <div className="text-center">
-                      <h4 className="font-bold text-brand-green mb-2 flex items-center justify-center gap-1 font-serif">
+                      <h4 className="font-bold mb-2 flex items-center justify-center gap-1 font-serif" style={{ color: '#60A875' }}>
                         <span aria-hidden="true">✨</span> You Belong Here
                       </h4>
                       <p className="text-sm text-gray-700 leading-relaxed">
-                        Whether you're writing, dreaming, planning – or just
-                        curious – you're in the right place to learn AI that
+                        Whether you're writing, dreaming, planning — or just
+                        curious — you're in the right place to learn AI that
                         helps.
                       </p>
                     </div>
@@ -513,22 +516,22 @@ export default function StartHereClient() {
               </div>
             </div>
 
-            {/* Right: Text + carousel + buttons with brand colors */}
+            {/* Right: Text + carousel + buttons */}
             <div className="lg:w-1/2 space-y-8 text-center lg:text-left">
               <h1
                 id="hero-heading"
                 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight animate-fade-in-up font-serif"
               >
-                <span className="text-brand-blue" aria-label="AI with sparkle emoji">
+                <span style={{ color: '#59B1E3' }} aria-label="AI with sparkle emoji">
                   ✨ AI
                 </span>{' '}
-                <span className="text-brand-green">for Real People</span>
+                <span style={{ color: '#60A875' }}>for Real People</span>
               </h1>
 
               <div className="space-y-6 text-xl md:text-2xl text-gray-800 leading-relaxed animate-fade-in-up delay-300">
                 <p>
                   <strong>
-                    Kick off your shoes, put up your feet – you're in the right
+                    Kick off your shoes, put up your feet — you're in the right
                     place.
                   </strong>
                 </p>
@@ -539,7 +542,7 @@ export default function StartHereClient() {
                 </p>
                 <p>
                   From writing better emails to making music, planning dinner to
-                  chasing big ideas – it's all easier than you think.
+                  chasing big ideas — it's all easier than you think.
                 </p>
                 <p>We'll show you how, one smart tip a day. Simple. Fast. Useful.</p>
               </div>
@@ -560,14 +563,15 @@ export default function StartHereClient() {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                   <button
                     onClick={() => scrollToSection('how-daily-tidbit-works')}
-                    className="bg-brand-green text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-brand-greenDark hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                    className="text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                    style={{ backgroundColor: '#60A875' }}
+                    onMouseEnter={(e) => {
+                      bumpInteraction();
+                      e.currentTarget.style.backgroundColor = '#4e8e61';
+                    }}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#60A875'}
                     aria-label="Learn about Daily Tidbit - scroll to how it works section"
-                    onMouseEnter={() => bumpInteraction()}
                   >
-                    <div
-                      className="absolute inset-0 bg-gradient-to-r from-brand-greenLight to-brand-green opacity-0 group-hover:opacity-20 transition-opacity duration-300"
-                      aria-hidden="true"
-                    ></div>
                     <span className="text-lg font-bold relative z-10">
                       Daily Tidbit?!
                     </span>
@@ -581,14 +585,15 @@ export default function StartHereClient() {
 
                   <button
                     onClick={() => scrollToSection('how-it-works')}
-                    className="bg-brand-blue text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:bg-brand-blueDark hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
+                    className="text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
+                    style={{ backgroundColor: '#59B1E3' }}
+                    onMouseEnter={(e) => {
+                      bumpInteraction();
+                      e.currentTarget.style.backgroundColor = '#4791bf';
+                    }}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#59B1E3'}
                     aria-label="Learn about AI basics - scroll to explanation section"
-                    onMouseEnter={() => bumpInteraction()}
                   >
-                    <div
-                      className="absolute inset-0 bg-gradient-to-r from-brand-blueLight to-brand-blue opacity-0 group-hover:opacity-20 transition-opacity duration-300"
-                      aria-hidden="true"
-                    ></div>
                     <span className="text-lg font-bold relative z-10">
                       What's AI?
                     </span>
@@ -606,7 +611,7 @@ export default function StartHereClient() {
         </div>
       </section>
 
-      {/* What Can You Do With AI with brand colors */}
+      {/* What Can You Do With AI */}
       <section
         id="what-is-ai"
         className="bg-white px-6 md:px-12 py-20"
@@ -616,13 +621,14 @@ export default function StartHereClient() {
           <div className="text-center mb-16">
             <h2
               id="what-ai-heading"
-              className="text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold drop-shadow-sm font-serif"
+              className="text-4xl md:text-5xl mb-6 leading-tight font-bold drop-shadow-sm font-serif"
+              style={{ color: '#60A875' }}
             >
               <span aria-hidden="true">💡</span> Real Tools. Real Use Cases.
             </h2>
 
             <p className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-bold">
-              One smart AI idea a day – creative, practical, and actually fun.
+              One smart AI idea a day — creative, practical, and actually fun.
             </p>
           </div>
 
@@ -636,20 +642,19 @@ export default function StartHereClient() {
 
           <div className="text-center mt-12">
             <p className="text-lg text-gray-600 italic">
-              And don't worry 'bout a thing – every little tip's gonna be
+              And don't worry 'bout a thing — every little tip's gonna be
               alright. <span aria-hidden="true">🎶</span>
             </p>
           </div>
         </div>
       </section>
 
-      {/* How It Works with brand colors */}
+      {/* How It Works */}
       <section
         id="how-it-works"
         className="bg-gradient-to-b from-[#F4F5FF] to-[#E6F6F9] px-6 md:px-12 py-20 relative overflow-hidden"
         aria-labelledby="how-ai-works-heading"
       >
-        {/* Decorative elements */}
         <div
           className="absolute top-10 left-10 w-20 h-20 bg-blue-200/20 rounded-full blur-xl"
           aria-hidden="true"
@@ -662,7 +667,8 @@ export default function StartHereClient() {
         <div className="max-w-6xl mx-auto relative z-10">
           <h3
             id="how-ai-works-heading"
-            className="text-4xl md:text-5xl text-brand-blue mb-6 text-center font-bold"
+            className="text-4xl md:text-5xl mb-6 text-center font-bold"
+            style={{ color: '#59B1E3' }}
           >
             <span aria-hidden="true">✨</span> How Does AI Actually Work?
           </h3>
@@ -677,7 +683,7 @@ export default function StartHereClient() {
         </div>
       </section>
 
-      {/* How Daily Tidbit Works with brand colors */}
+      {/* How Daily Tidbit Works */}
       <section
         id="how-daily-tidbit-works"
         className="bg-white px-6 md:px-12 py-20"
@@ -690,16 +696,16 @@ export default function StartHereClient() {
               className="text-4xl md:text-5xl mb-4 text-center font-serif font-bold"
             >
               <span aria-hidden="true">🚀</span> The{' '}
-              <span className="text-brand-green">D</span>
-              <span className="text-brand-blue">ai</span>
-              <span className="text-brand-green">ly Tidbit</span> Formula
+              <span style={{ color: '#60A875' }}>D</span>
+              <span style={{ color: '#59B1E3' }}>ai</span>
+              <span style={{ color: '#60A875' }}>ly Tidbit</span> Formula
             </h3>
             <p className="text-xl text-gray-600 font-bold">
-              Like a cheat code for real life – watch, try, repeat.
+              Like a cheat code for real life — watch, try, repeat.
             </p>
           </div>
 
-          {/* 3-Step Process with brand colors */}
+          {/* 3-Step Process */}
           <div
             className="grid md:grid-cols-3 gap-8"
             role="list"
@@ -712,20 +718,25 @@ export default function StartHereClient() {
               role="listitem"
               onClick={() => {
                 bumpInteraction();
-                if (analytics?.trackStepInteraction) {
-                  analytics.trackStepInteraction('watch', 1, 'click');
-                }
+                track('user_engagement', {
+                  engagement_type: 'click',
+                  target: 'step_watch',
+                  step_number: 1
+                });
               }}
               aria-label="Step 1: Watch - See it in action"
             >
-              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border border-brand-blue/20 relative overflow-hidden cursor-pointer">
+              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative overflow-hidden cursor-pointer"
+                   style={{ borderColor: '#59B1E3', borderWidth: '1px', borderStyle: 'solid' }}>
                 <div
-                  className="absolute top-0 left-0 w-full h-2 bg-brand-blue/30"
+                  className="absolute top-0 left-0 w-full h-2"
+                  style={{ backgroundColor: 'rgba(89, 177, 227, 0.3)' }}
                   aria-hidden="true"
                 ></div>
 
                 <div
-                  className="w-12 h-12 bg-brand-blue/20 text-brand-blue rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
+                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
+                  style={{ backgroundColor: 'rgba(89, 177, 227, 0.2)', color: '#59B1E3' }}
                   aria-label="Step 1"
                 >
                   1
@@ -735,7 +746,7 @@ export default function StartHereClient() {
                   <div className="text-4xl mb-4" aria-hidden="true">
                     🎬
                   </div>
-                  <h4 className="text-xl font-bold text-brand-blue mb-2 font-serif">
+                  <h4 className="text-xl font-bold mb-2 font-serif" style={{ color: '#59B1E3' }}>
                     Watch
                   </h4>
                   <p className="text-lg font-bold text-gray-700 mb-4">
@@ -745,7 +756,7 @@ export default function StartHereClient() {
 
                 <p className="text-base text-gray-700 leading-relaxed">
                   Start with a quick 60-second video that shows the AI tip in
-                  the real world – no jargon, just results.
+                  the real world — no jargon, just results.
                 </p>
               </div>
             </button>
@@ -757,20 +768,25 @@ export default function StartHereClient() {
               role="listitem"
               onClick={() => {
                 bumpInteraction();
-                if (analytics?.trackStepInteraction) {
-                  analytics.trackStepInteraction('try', 2, 'click');
-                }
+                track('user_engagement', {
+                  engagement_type: 'click',
+                  target: 'step_try',
+                  step_number: 2
+                });
               }}
               aria-label="Step 2: Try - Use it yourself"
             >
-              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border border-brand-green/20 relative overflow-hidden cursor-pointer">
+              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative overflow-hidden cursor-pointer"
+                   style={{ borderColor: '#60A875', borderWidth: '1px', borderStyle: 'solid' }}>
                 <div
-                  className="absolute top-0 left-0 w-full h-2 bg-brand-green/30"
+                  className="absolute top-0 left-0 w-full h-2"
+                  style={{ backgroundColor: 'rgba(96, 168, 117, 0.3)' }}
                   aria-hidden="true"
                 ></div>
 
                 <div
-                  className="w-12 h-12 bg-brand-green/20 text-brand-green rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
+                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
+                  style={{ backgroundColor: 'rgba(96, 168, 117, 0.2)', color: '#60A875' }}
                   aria-label="Step 2"
                 >
                   2
@@ -780,7 +796,7 @@ export default function StartHereClient() {
                   <div className="text-4xl mb-4" aria-hidden="true">
                     💡
                   </div>
-                  <h4 className="text-xl font-bold text-brand-green mb-2 font-serif">
+                  <h4 className="text-xl font-bold mb-2 font-serif" style={{ color: '#60A875' }}>
                     Try
                   </h4>
                   <p className="text-lg font-bold text-gray-700 mb-4">
@@ -790,7 +806,7 @@ export default function StartHereClient() {
 
                 <p className="text-base text-gray-700 leading-relaxed">
                   Watch the walkthrough, then test the idea instantly using a
-                  real AI tool – right in your browser.
+                  real AI tool — right in your browser.
                 </p>
               </div>
             </button>
@@ -802,9 +818,11 @@ export default function StartHereClient() {
               role="listitem"
               onClick={() => {
                 bumpInteraction();
-                if (analytics?.trackStepInteraction) {
-                  analytics.trackStepInteraction('share', 3, 'click');
-                }
+                track('user_engagement', {
+                  engagement_type: 'click',
+                  target: 'step_share',
+                  step_number: 3
+                });
               }}
               aria-label="Step 3: Share - Post what you made"
             >
