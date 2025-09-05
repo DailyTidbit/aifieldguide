@@ -1,4 +1,4 @@
-// src/app/components/TodaysTidbitClient.tsx - Fixed to use brand colors and improved hydration safety
+// src/app/components/TodaysTidbitClient.tsx - Fixed to use new analytics system
 'use client';
 
 import { ArrowRight, Brain, Target } from 'lucide-react';
@@ -25,34 +25,26 @@ interface TodaysTidbitClientProps {
   todaysTip: TodaysTip | null;
 }
 
-// MANDATORY: Loading skeleton component matching expected structure
+// Loading skeleton component
 const TodaysTidbitSkeleton = () => (
-  <div className="max-w-3xl mx-auto animate-pulse">
-    {/* Image skeleton */}
-    <div className="flex justify-center mb-6 sm:mb-8">
-      <div className="relative max-w-3xl w-full px-4">
-        <div className="w-full max-w-md mx-auto aspect-square bg-gray-200 rounded-2xl shadow-xl"></div>
+  <div className="max-w-3xl mx-auto">
+    <div className="animate-pulse space-y-6">
+      <div className="flex justify-center mb-8">
+        <div className="w-64 h-64 bg-gray-200 rounded-2xl"></div>
       </div>
-    </div>
-    
-    {/* Cards skeleton */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 px-4">
-      <div className="bg-gray-200 h-32 rounded-xl"></div>
-      <div className="bg-gray-200 h-32 rounded-xl"></div>
-    </div>
-    
-    {/* Video skeleton */}
-    <div className="bg-gray-200 h-64 rounded-xl aspect-video mb-4 sm:mb-6 w-full max-w-full"></div>
-    
-    {/* Button skeleton */}
-    <div className="flex justify-center px-4 sm:px-0">
-      <div className="bg-gray-200 h-16 w-80 rounded-full"></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-200 h-32 rounded-xl"></div>
+        <div className="bg-gray-200 h-32 rounded-xl"></div>
+      </div>
+      <div className="bg-gray-200 h-64 rounded-xl aspect-video"></div>
+      <div className="flex justify-center">
+        <div className="bg-gray-200 h-16 w-80 rounded-full"></div>
+      </div>
     </div>
   </div>
 )
 
 export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProps) {
-  // MANDATORY: First line in every client component
   const mounted = useMounted();
   const { track, hasConsent } = useAnalytics();
   
@@ -72,49 +64,28 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
     [todaysTip, mounted]
   );
 
-  // MANDATORY: Always show skeleton until mounted
-  if (!mounted) {
-    return <TodaysTidbitSkeleton />;
-  }
-
   const bumpVideoInteraction = () => setVideoInteractions((prev) => prev + 1);
   const bumpCardInteraction = () => setCardInteractions((prev) => prev + 1);
 
   // Safe analytics tracking functions
   const trackSectionView = (section: string) => {
     if (!mounted || !hasConsent || !track) return;
-    try {
-      track('section_view', { section });
-    } catch (error) {
-      console.warn('Section view tracking error:', error);
-    }
+    track('section_view', { section });
   };
 
   const trackImageInteraction = (videoId: string, action: string, params: Record<string, any>) => {
     if (!mounted || !hasConsent || !track) return;
-    try {
-      track('image_interaction', { video_id: videoId, action, ...params });
-    } catch (error) {
-      console.warn('Image interaction tracking error:', error);
-    }
+    track('image_interaction', { video_id: videoId, action, ...params });
   };
 
   const trackCTAClick = (ctaName: string, section: string, url: string) => {
     if (!mounted || !hasConsent || !track) return;
-    try {
-      track('cta_click', { cta_name: ctaName, section, url });
-    } catch (error) {
-      console.warn('CTA click tracking error:', error);
-    }
+    track('cta_click', { cta_name: ctaName, section, url });
   };
 
   const trackConversionFunnel = (stage: string, score: number, params: Record<string, any>) => {
     if (!mounted || !hasConsent || !track) return;
-    try {
-      track('conversion_funnel', { stage, engagement_score: score, ...params });
-    } catch (error) {
-      console.warn('Conversion funnel tracking error:', error);
-    }
+    track('conversion_funnel', { stage, engagement_score: score, ...params });
   };
 
   const calculateEngagementScore = (timeSpent: number, scrollDepth: number, interactions: number) => {
@@ -142,40 +113,28 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
 
     const handleVideoPlay = () => {
       bumpVideoInteraction();
-      try {
-        track('video_interaction', {
-          action: 'play',
-          video_id: videoId,
-          section_name: 'todays_tidbit',
-        });
-      } catch (error) {
-        console.warn('Video play tracking error:', error);
-      }
+      track('video_interaction', {
+        action: 'play',
+        video_id: videoId,
+        section_name: 'todays_tidbit',
+      });
     };
 
     const handleVideoPause = () => {
-      try {
-        track('video_interaction', {
-          action: 'pause',
-          video_id: videoId,
-          current_time: Math.round(videoEl.currentTime),
-        });
-      } catch (error) {
-        console.warn('Video pause tracking error:', error);
-      }
+      track('video_interaction', {
+        action: 'pause',
+        video_id: videoId,
+        current_time: Math.round(videoEl.currentTime),
+      });
     };
 
     const handleVideoEnded = () => {
       bumpVideoInteraction();
-      try {
-        track('video_interaction', {
-          action: 'completed',
-          video_id: videoId,
-          engagement_score: 100,
-        });
-      } catch (error) {
-        console.warn('Video end tracking error:', error);
-      }
+      track('video_interaction', {
+        action: 'completed',
+        video_id: videoId,
+        engagement_score: 100,
+      });
     };
 
     const handleVideoProgress = () => {
@@ -183,21 +142,17 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
       const progress = (videoEl.currentTime / videoEl.duration) * 100;
       const milestones = videoMilestonesRef.current;
 
-      try {
-        if (progress >= 25 && milestones.has('25')) {
-          milestones.delete('25');
-          track('video_progress', { milestone: '25_percent', video_id: videoId });
-        }
-        if (progress >= 50 && milestones.has('50')) {
-          milestones.delete('50');
-          track('video_progress', { milestone: '50_percent', video_id: videoId });
-        }
-        if (progress >= 75 && milestones.has('75')) {
-          milestones.delete('75');
-          track('video_progress', { milestone: '75_percent', video_id: videoId });
-        }
-      } catch (error) {
-        console.warn('Video progress tracking error:', error);
+      if (progress >= 25 && milestones.has('25')) {
+        milestones.delete('25');
+        track('video_progress', { milestone: '25_percent', video_id: videoId });
+      }
+      if (progress >= 50 && milestones.has('50')) {
+        milestones.delete('50');
+        track('video_progress', { milestone: '50_percent', video_id: videoId });
+      }
+      if (progress >= 75 && milestones.has('75')) {
+        milestones.delete('75');
+        track('video_progress', { milestone: '75_percent', video_id: videoId });
       }
     };
 
@@ -231,29 +186,21 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
   const handleLearningCardClick = () => {
     if (!mounted || !hasConsent || !track) return;
     bumpCardInteraction();
-    try {
-      track('card_interaction', {
-        card_type: 'learning_preview',
-        action: 'click',
-        section_name: 'todays_tidbit',
-      });
-    } catch (error) {
-      console.warn('Learning card tracking error:', error);
-    }
+    track('card_interaction', {
+      card_type: 'learning_preview',
+      action: 'click',
+      section_name: 'todays_tidbit',
+    });
   };
 
   const handleNeedsCardClick = () => {
     if (!mounted || !hasConsent || !track) return;
     bumpCardInteraction();
-    try {
-      track('card_interaction', {
-        card_type: 'requirements_preview',
-        action: 'click',
-        section_name: 'todays_tidbit',
-      });
-    } catch (error) {
-      console.warn('Needs card tracking error:', error);
-    }
+    track('card_interaction', {
+      card_type: 'requirements_preview',
+      action: 'click',
+      section_name: 'todays_tidbit',
+    });
   };
 
   const handleWalkthroughClick = () => {
@@ -276,6 +223,11 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
       day_number: todaysTip.day_number,
     });
   };
+
+  // Show loading state until mounted
+  if (!mounted) {
+    return <TodaysTidbitSkeleton />;
+  }
 
   // Branded empty/error state (rare given server logic)
   if (!todaysTip) {
@@ -376,16 +328,23 @@ export default function TodaysTidbitClient({ todaysTip }: TodaysTidbitClientProp
         <Link
           href={`/day/${todaysTip.day_number}`}
           onClick={handleWalkthroughClick}
-          className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-[#60A875] to-[#59B1E3] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full hover:shadow-2xl hover:scale-110 hover:-translate-y-2 transition-all duration-300 font-bold text-lg sm:text-xl w-full sm:w-auto shadow-lg hover:from-[#4e8e61] hover:to-[#4791bf] animate-[sway_3s_ease-in-out_infinite]"
+          className="group relative inline-flex items-center justify-center gap-3 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full hover:shadow-2xl transform hover:scale-110 transition-all duration-300 font-bold text-lg sm:text-xl w-full sm:w-auto shadow-brand-lg overflow-hidden animate-pulse-gentle"
           style={{
-            animation: 'sway 3s ease-in-out infinite'
+            background: 'linear-gradient(to right, #60A875, #59B1E3)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'linear-gradient(to right, #4e8e61, #4791bf)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'linear-gradient(to right, #60A875, #59B1E3)';
           }}
           aria-label={`Open walkthrough for Day ${todaysTip.day_number}: ${todaysTip.title}`}
         >
-          <span className="group-hover:scale-105 transition-transform duration-200">
-            Walkthrough: {todaysTip.title}
-          </span>
-          <ArrowRight className="w-6 h-6 group-hover:translate-x-1 group-hover:scale-110 transition-all duration-200" />
+          {/* Animated background shimmer effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
+          
+          <span className="relative z-10">Walkthrough: {todaysTip.title}</span>
+          <ArrowRight className="relative z-10 w-6 h-6 animate-dance-idle group-hover:animate-bounce" />
         </Link>
       </div>
     </div>

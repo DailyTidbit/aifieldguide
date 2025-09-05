@@ -20,6 +20,8 @@
   --animate-fade-in: fade-in 0.3s ease-out;
   --animate-slide-up: slide-up 0.5s ease-out;
   --animate-float: float 3s ease-in-out infinite;
+  --animate-pulse-gentle: pulse-gentle 2s ease-in-out infinite;
+  --animate-dance-idle: dance-idle 2s ease-in-out infinite;
   
   /* Custom Box Shadows */
   --shadow-brand: 0 4px 14px 0 rgba(96, 168, 117, 0.15);
@@ -55,6 +57,57 @@
   }
   50% { 
     transform: translateY(-10px); 
+  }
+}
+
+@keyframes pulse-gentle {
+  0% {
+    transform: rotate(0deg) translateY(-1px) translateX(0px);
+    box-shadow: 0 11px 29px 0 rgba(96, 168, 117, 0.22);
+  }
+  12.5% {
+    transform: rotate(0.2deg) translateY(-0.7px) translateX(0.7px);
+    box-shadow: 0 10.7px 28.7px 0 rgba(96, 168, 117, 0.215);
+  }
+  25% {
+    transform: rotate(0.3deg) translateY(0px) translateX(1px);
+    box-shadow: 0 10px 28px 0 rgba(96, 168, 117, 0.20);
+  }
+  37.5% {
+    transform: rotate(0.2deg) translateY(0.7px) translateX(0.7px);
+    box-shadow: 0 9.3px 27.3px 0 rgba(96, 168, 117, 0.185);
+  }
+  50% {
+    transform: rotate(0deg) translateY(1px) translateX(0px);
+    box-shadow: 0 9px 27px 0 rgba(96, 168, 117, 0.18);
+  }
+  62.5% {
+    transform: rotate(-0.2deg) translateY(0.7px) translateX(-0.7px);
+    box-shadow: 0 9.3px 27.3px 0 rgba(96, 168, 117, 0.185);
+  }
+  75% {
+    transform: rotate(-0.3deg) translateY(0px) translateX(-1px);
+    box-shadow: 0 10px 28px 0 rgba(96, 168, 117, 0.20);
+  }
+  87.5% {
+    transform: rotate(-0.2deg) translateY(-0.7px) translateX(-0.7px);
+    box-shadow: 0 10.7px 28.7px 0 rgba(96, 168, 117, 0.215);
+  }
+  100% {
+    transform: rotate(0deg) translateY(-1px) translateX(0px);
+    box-shadow: 0 11px 29px 0 rgba(96, 168, 117, 0.22);
+  }
+}
+
+@keyframes dance-idle {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(2px) rotate(1deg);
+  }
+  75% {
+    transform: translateX(-2px) rotate(-1deg);
   }
 }
 
@@ -281,6 +334,15 @@ select:focus-visible {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* === Button Animation Controls === */
+.animate-pulse-gentle:hover {
+  animation-play-state: paused;
+}
+
+.animate-dance-idle:hover {
+  animation-play-state: paused;
 }
 
 /* === Responsive Design === */
