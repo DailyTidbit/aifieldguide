@@ -1,4 +1,4 @@
-// app/components/FieldGuideSectionClient.tsx - Fixed to use new analytics system
+// app/components/FieldGuideSectionClient.tsx - Updated for CSS class colors
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
@@ -6,7 +6,7 @@ import Link from 'next/link'
 import ToolModal from './ToolModal'
 import CRTSectionDisplay from './CRTSectionDisplay'
 import React from 'react'
-import { useMounted } from '../lib/clientUtils'
+import { useMounted, getSectionColorClasses, getSectionHexColor } from '../lib/clientUtils'
 import { useAnalytics } from '../lib/analytics'
 
 // Types
@@ -50,9 +50,13 @@ interface SectionClientProps {
 }
 
 export default function FieldGuideSectionClient({ initialData }: SectionClientProps) {
-  const { section, tools, sectionColor, sectionEmoji } = initialData
+  const { section, tools, sectionEmoji } = initialData
   const mounted = useMounted()
   const { track, hasConsent } = useAnalytics()
+  
+  // Get color classes for this section
+  const colorClasses = useMemo(() => getSectionColorClasses(section.section_name), [section.section_name])
+  const sectionHexColor = useMemo(() => getSectionHexColor(section.section_name), [section.section_name])
   
   // State management
   const [isDesktop, setIsDesktop] = useState(false)
@@ -278,13 +282,12 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
           <button
             onClick={handleCrtToggle}
             className={`
-              px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-[1.02] shadow-lg text-sm
+              px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-[1.02] shadow-lg text-sm font-sans
               ${crtMode 
                 ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-purple-500/25' 
                 : 'bg-white/90 hover:bg-white text-gray-700 hover:shadow-xl border border-gray-200'
               }
             `}
-            style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
           >
             <div className="flex items-center gap-2">
               <span className="text-base">📺</span>
@@ -299,7 +302,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       {/* CRT TV Display */}
       <CRTSectionDisplay 
         section={section}
-        sectionColor={sectionColor}
+        sectionColor={sectionHexColor}
         sectionEmoji={sectionEmoji}
         crtMode={crtMode && isDesktop}
         currentChannel={currentChannel}
@@ -311,23 +314,14 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-16">
-            <h2 
-              className="text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6"
-              style={{
-                fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
-                color: sectionColor
-              }}
-            >
+            <h2 className={`text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6 font-serif ${colorClasses.text}`}>
               <span className="text-4xl md:text-5xl" aria-hidden="true">🛠️</span>
               Explore Tools
             </h2>
             
-            <div className="w-32 h-2 mx-auto rounded-full mb-8" style={{ backgroundColor: sectionColor }}></div>
+            <div className={`w-32 h-2 mx-auto rounded-full mb-8 ${colorClasses.bg}`}></div>
             
-            <p 
-              className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed mb-8"
-              style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-            >
+            <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed mb-8 font-sans">
               Hand-picked AI tools to supercharge your {section.section_name.toLowerCase()} workflow
             </p>
 
@@ -342,8 +336,8 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                     placeholder="Search tools..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-300 focus:ring-2 focus:ring-current focus:border-current bg-white shadow-sm transition-all"
-                    style={{ '--tw-ring-color': `${sectionColor}33` } as any}
+                    className={`w-full px-4 py-3 pl-12 rounded-xl border border-gray-300 focus:ring-2 focus:border-current bg-white shadow-sm transition-all ${colorClasses.text}`}
+                    style={{ '--tw-ring-color': `${sectionHexColor}33` } as any}
                   />
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,7 +363,8 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                 <ToolCard 
                   key={tool.id} 
                   tool={tool} 
-                  sectionColor={sectionColor}
+                  colorClasses={colorClasses}
+                  sectionHexColor={sectionHexColor}
                   index={index}
                   onToolClick={handleToolClick}
                   onOpenModal={() => handleOpenModal(tool)}
@@ -387,8 +382,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                   </p>
                   <button
                     onClick={handleClearSearch}
-                    className="px-6 py-3 text-white rounded-xl hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: sectionColor }}
+                    className={`px-6 py-3 text-white rounded-xl hover:opacity-90 transition-opacity ${colorClasses.bg}`}
                   >
                     Clear search
                   </button>
@@ -397,26 +391,17 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                 <>
                   <div 
                     className="inline-flex items-center justify-center w-32 h-32 rounded-full mb-8 shadow-lg"
-                    style={{ backgroundColor: `${sectionColor}10`, border: `3px solid ${sectionColor}20` }}
+                    style={{ backgroundColor: `${sectionHexColor}10`, border: `3px solid ${sectionHexColor}20` }}
                   >
                     <span className="text-5xl">🚀</span>
                   </div>
                   
-                  <h3 
-                    className="text-4xl font-bold mb-6"
-                    style={{
-                      fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
-                      color: sectionColor
-                    }}
-                  >
+                  <h3 className={`text-4xl font-bold mb-6 font-serif ${colorClasses.text}`}>
                     Tools Coming Soon
                   </h3>
                   
-                  <p 
-                    className="text-xl text-gray-600 mb-8 max-w-lg mx-auto leading-relaxed"
-                    style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-                  >
-                    we're carefully curating the best AI tools for this section. Check back soon!
+                  <p className="text-xl text-gray-600 mb-8 max-w-lg mx-auto leading-relaxed font-sans">
+                    We're carefully curating the best AI tools for this section. Check back soon!
                   </p>
                   
                   <Link
@@ -453,7 +438,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
       {/* Simplified Modal - no gesture support */}
       <ToolModal
         tool={selectedTool}
-        sectionColor={sectionColor}
+        sectionColor={sectionHexColor}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         isLoading={isModalLoading}
@@ -465,13 +450,15 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
 // Updated Tool Card Component
 const ToolCard = React.memo(function ToolCard({ 
   tool, 
-  sectionColor, 
+  colorClasses,
+  sectionHexColor,
   index,
   onToolClick,
   onOpenModal
 }: { 
   tool: AITool; 
-  sectionColor: string; 
+  colorClasses: { bg: string; text: string; border: string; suffix: string };
+  sectionHexColor: string;
   index: number;
   onToolClick: (tool: AITool, action: 'modal' | 'website') => void;
   onOpenModal: () => void;
@@ -492,20 +479,11 @@ const ToolCard = React.memo(function ToolCard({
       <article className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] border border-gray-100 h-full flex flex-col relative overflow-hidden">
         
         {/* Top accent bar */}
-        <div 
-          className="absolute top-0 left-0 w-full h-2 rounded-t-3xl"
-          style={{ backgroundColor: sectionColor }}
-        />
+        <div className={`absolute top-0 left-0 w-full h-2 rounded-t-3xl ${colorClasses.bg}`} />
         
         {/* Header */}
         <div className="mb-6">
-          <h3 
-            className="text-2xl font-bold mb-2 group-hover:text-opacity-80 transition-colors"
-            style={{
-              fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
-              color: sectionColor
-            }}
-          >
+          <h3 className={`text-2xl font-bold mb-2 group-hover:text-opacity-80 transition-colors font-serif ${colorClasses.text}`}>
             {tool.name}
           </h3>
           {tool.company && (
@@ -521,10 +499,7 @@ const ToolCard = React.memo(function ToolCard({
         </div>
 
         {/* Description */}
-        <p 
-          className="text-gray-700 leading-relaxed mb-6 flex-1 text-lg"
-          style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-        >
+        <p className="text-gray-700 leading-relaxed mb-6 flex-1 text-lg font-sans">
           {tool.description}
         </p>
 
@@ -537,10 +512,7 @@ const ToolCard = React.memo(function ToolCard({
               </svg>
               <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Use Cases</span>
             </div>
-            <p 
-              className="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-100 italic"
-              style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-            >
+            <p className="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-100 italic font-sans">
               {tool.use_cases}
             </p>
           </div>
@@ -589,13 +561,13 @@ const ToolCard = React.memo(function ToolCard({
               onClick={handleWebsiteClick}
               className="w-full text-white px-6 py-3 rounded-xl font-bold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
               style={{
-                background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
+                background: `linear-gradient(135deg, ${sectionHexColor}, ${sectionHexColor}dd)`,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}ee, ${sectionColor}cc)`
+                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionHexColor}ee, ${sectionHexColor}cc)`
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`
+                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionHexColor}, ${sectionHexColor}dd)`
               }}
             >
               <span>Try {tool.name}</span>

@@ -1,7 +1,7 @@
-﻿// src/app/components/ToolModal.tsx - FIXED CUT-OFF ISSUES
+﻿// src/app/components/ToolModal.tsx - Fixed for Tailwind v4
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { AITool } from '../lib/field-guide-types'
 
 interface ToolModalProps {
@@ -174,11 +174,8 @@ export default function ToolModal({
                   <div className="flex-1 pr-4">
                     <div className="flex items-center gap-4 mb-3 flex-wrap">
                       <h2 
-                        className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight"
-                        style={{ 
-                          color: sectionColor,
-                          fontFamily: "var(--font-playfair, 'Playfair Display'), serif" 
-                        }}
+                        className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight font-serif"
+                        style={{ color: sectionColor }}
                       >
                         {tool.name}
                       </h2>
@@ -188,7 +185,7 @@ export default function ToolModal({
                     </div>
                     
                     {tool.company && (
-                      <p className="text-gray-600 text-base md:text-lg mb-4">by {tool.company}</p>
+                      <p className="text-gray-600 text-base md:text-lg mb-4 font-sans">by {tool.company}</p>
                     )}
                     
                     <div className="flex items-center gap-3 flex-wrap">
@@ -233,9 +230,8 @@ export default function ToolModal({
                       {tool.detailed_description ? (
                         <div className="prose prose-lg max-w-none">
                           <div 
-                            className="text-gray-800 leading-relaxed"
+                            className="text-gray-800 leading-relaxed font-sans"
                             style={{
-                              fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
                               fontSize: "1.125rem",
                               lineHeight: "1.7"
                             }}
@@ -252,20 +248,14 @@ export default function ToolModal({
                         </div>
                       ) : (
                         <div className="prose prose-lg max-w-none">
-                          <div 
-                            className="text-gray-700 leading-relaxed text-lg"
-                            style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-                          >
+                          <div className="text-gray-700 leading-relaxed text-lg font-sans">
                             <p className="mb-6">{tool.description}</p>
                             
                             {tool.use_cases && (
                               <div className="mt-8">
                                 <h4 
-                                  className="text-xl font-bold mb-3"
-                                  style={{ 
-                                    color: sectionColor,
-                                    fontFamily: "var(--font-playfair, 'Playfair Display'), serif"
-                                  }}
+                                  className="text-xl font-bold mb-3 font-serif"
+                                  style={{ color: sectionColor }}
                                 >
                                   Use Cases
                                 </h4>
@@ -331,7 +321,7 @@ export default function ToolModal({
                           )}
                           <div className="flex flex-col space-y-1">
                             <span className="text-sm text-gray-600">Pricing</span>
-                            <span className={`text-sm font-medium ${tool.free_tier ? 'text-brand-greenDark' : 'text-orange-600'}`}>
+                            <span className={`text-sm font-medium ${tool.free_tier ? 'text-brand-green-dark' : 'text-orange-600'}`}>
                               {tool.free_tier ? 'Free tier available' : 'Paid only'}
                             </span>
                           </div>

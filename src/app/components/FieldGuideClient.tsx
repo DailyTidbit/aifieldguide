@@ -1,13 +1,24 @@
-// app/components/FieldGuideClient.tsx - Fixed to use new analytics system
+// app/components/FieldGuideClient.tsx - Complete file with CSS class colors
 'use client'
 
 import { useState, useEffect, useDeferredValue, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import React from 'react'
-import { useMounted } from '../lib/clientUtils'
+import { useMounted, getSectionColorClasses, getSectionHexColor } from '../lib/clientUtils'
 import { useAnalytics } from '../lib/analytics'
 
 // Types
+interface AITool {
+  id: string
+  name: string
+  company?: string
+  category: string
+  description: string
+  use_cases?: string
+  website?: string
+  free_tier: boolean
+}
+
 interface FieldGuideSection {
   id: string
   section_number: number
@@ -17,6 +28,7 @@ interface FieldGuideSection {
   summary?: string
   use_cases?: string
   toolCount: number
+  tools?: AITool[] // Tools data passed from server
 }
 
 interface FieldGuideClientProps {
@@ -27,7 +39,7 @@ interface FieldGuideClientProps {
   }
 }
 
-// Helper functions (memoized for performance)
+// Helper functions for emojis (keeping these since they're not color-related)
 const getSectionEmoji = (sectionName: string): string => {
   const emojiMap: Record<string, string> = {
     'AI Assistants': '🤖',
@@ -60,38 +72,6 @@ const getSectionEmoji = (sectionName: string): string => {
   return emojiMap[sectionName] || '🔮'
 }
 
-const getSectionColor = (sectionName: string): string => {
-  const colorMap: Record<string, string> = {
-    'AI Assistants': 'var(--brand-green)',
-    'Image Generation': 'var(--brand-blue)',
-    'Video Generation': '#F7936F',
-    'Music Creation': '#F39C12',
-    'Photo & Image Tools': '#9B59B6',
-    'Video Editing': '#E74C3C',
-    'AI Avatars': '#8E44AD',
-    'Speech & Voice': '#4A9B8E',
-    'Creative Writing & Storytelling': '#8E44AD',
-    'Productivity Tools': '#27AE60',
-    'AI Search Tools': '#3498DB',
-    'Education & Learning': '#E67E22',
-    'Coding Assistants': '#3B82F6',
-    'Automation Tools': '#2ECC71',
-    
-    // OLD names (backward compatibility)
-    'Language Models': 'var(--brand-green)',
-    'Music': '#F39C12',
-    'Music & Audio Tools': '#F39C12',
-    'AI Photo & Image Editors': '#9B59B6',
-    'Image Editing': '#9B59B6',
-    'Video Editing & Avatars': '#E74C3C',
-    'Video Editing & AI Avatars': '#E74C3C',
-    'Voice Synthesis': '#4A9B8E',
-    'AI Agents & Automation': '#2ECC71',
-    'Educational & Learning Tools': '#E67E22'
-  }
-  return colorMap[sectionName] || 'var(--brand-green)'
-}
-
 export default function FieldGuideClient({ initialData }: FieldGuideClientProps) {
   const mounted = useMounted()
   const { track, hasConsent } = useAnalytics()
@@ -102,16 +82,30 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
   // Debounced search for better performance
   const deferredSearchQuery = useDeferredValue(searchQuery)
   
-  // Memoized filtered sections for better performance
+  // Enhanced filtering that searches both sections and tools
   const filteredSections = useMemo(() => {
     if (!deferredSearchQuery.trim()) return initialData.sections
     
     const query = deferredSearchQuery.toLowerCase()
-    return initialData.sections.filter(section =>
-      section.section_name.toLowerCase().includes(query) ||
-      (section.summary && section.summary.toLowerCase().includes(query)) ||
-      (section.intro && section.intro.toLowerCase().includes(query))
-    )
+    
+    return initialData.sections.filter(section => {
+      // Search in section fields
+      const sectionMatch = 
+        section.section_name.toLowerCase().includes(query) ||
+        (section.summary && section.summary.toLowerCase().includes(query)) ||
+        (section.intro && section.intro.toLowerCase().includes(query)) ||
+        (section.use_cases && section.use_cases.toLowerCase().includes(query))
+      
+      // Search in tools for this section (if tools data is available)
+      const toolMatch = section.tools?.some(tool => 
+        tool.name.toLowerCase().includes(query) ||
+        (tool.company && tool.company.toLowerCase().includes(query)) ||
+        tool.description.toLowerCase().includes(query) ||
+        (tool.use_cases && tool.use_cases.toLowerCase().includes(query))
+      )
+      
+      return sectionMatch || toolMatch
+    })
   }, [deferredSearchQuery, initialData.sections])
 
   // Safe analytics tracking functions
@@ -125,47 +119,77 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
     })
   }, [mounted, hasConsent, track, initialData.sectionCount, initialData.totalTools])
 
-  const trackFieldGuideSearch = useCallback((searchTerm: string, resultsCount: number) => {
+  const trackFieldGuideSearch = useCallback((searchTerm: string, resultsCount: number, searchType: 'enhanced') => {
     if (!mounted || !hasConsent || !track) return
     track('field_guide_search', {
       search_term: searchTerm,
-      results_count: resultsCount
+      results_count: resultsCount,
+      search_type: searchType
     })
   }, [mounted, hasConsent, track])
 
-  const trackSectionClick = useCallback((sectionName: string, slug: string, toolCount: number) => {
+  const trackSectionClick = useCallback((sectionName: string, slug: string, toolCount: number, searchQuery?: string) => {
     if (!mounted || !hasConsent || !track) return
     track('field_guide_section_click', {
       section_name: sectionName,
       section_slug: slug,
-      tool_count: toolCount
+      tool_count: toolCount,
+      from_search: !!searchQuery,
+      search_query: searchQuery
     })
   }, [mounted, hasConsent, track])
 
-  // Track page view on mount
+  // Initialize component
   useEffect(() => {
     if (!mounted) return
     
+    console.log('Field Guide Debug:')
+    console.log('Total sections:', initialData.sections.length)
+    console.log('Sections with tools:', initialData.sections.filter(s => s.tools && s.tools.length > 0).length)
+    
+    initialData.sections.forEach(section => {
+      console.log(`${section.section_name}: ${section.tools?.length || 0} tools`)
+      if (section.tools && section.tools.length > 0) {
+        console.log('Tools:', section.tools.map(t => t.name).join(', '))
+      }
+    })
+    
     setIsVisible(true)
     trackPageView()
-  }, [mounted, trackPageView])
+  }, [mounted, trackPageView, initialData.sections])
 
   // Track search with debounced query
   useEffect(() => {
     if (!mounted || !deferredSearchQuery.trim()) return
     
-    trackFieldGuideSearch(deferredSearchQuery, filteredSections.length)
+    trackFieldGuideSearch(deferredSearchQuery, filteredSections.length, 'enhanced')
   }, [mounted, deferredSearchQuery, filteredSections.length, trackFieldGuideSearch])
 
   const handleSectionClick = useCallback((section: FieldGuideSection) => {
     if (!mounted) return
     
-    trackSectionClick(section.section_name, section.slug, section.toolCount)
-  }, [mounted, trackSectionClick])
+    trackSectionClick(section.section_name, section.slug, section.toolCount, deferredSearchQuery)
+  }, [mounted, trackSectionClick, deferredSearchQuery])
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery('')
   }, [])
+
+  // Get matching tools for a section (for display in search results)
+  const getMatchingTools = useCallback((section: FieldGuideSection, query: string): AITool[] => {
+    if (!query.trim() || !section.tools) return []
+    
+    const lowerQuery = query.toLowerCase()
+    return section.tools.filter(tool => 
+      tool.name.toLowerCase().includes(lowerQuery) ||
+      (tool.company && tool.company.toLowerCase().includes(lowerQuery)) ||
+      tool.description.toLowerCase().includes(lowerQuery) ||
+      (tool.use_cases && tool.use_cases.toLowerCase().includes(lowerQuery))
+    )
+  }, [])
+
+  // Check if we have tools data for enhanced search
+  const hasToolsData = initialData.sections.some(section => section.tools && section.tools.length > 0)
 
   // HYDRATION FIX: Return loading state until mounted to prevent mismatch
   if (!mounted) {
@@ -173,7 +197,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
       <section className="bg-white px-6 md:px-12 py-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl text-green-600 mb-6 leading-tight font-bold">
+            <h2 className="text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold">
               🔍 Loading Field Guide...
             </h2>
             <div className="animate-pulse">
@@ -195,46 +219,61 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
       <section className="bg-white px-6 md:px-12 py-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 
-              className="heading-section text-4xl md:text-5xl text-green-600 mb-6 leading-tight font-bold"
-              style={{fontFamily: "var(--font-playfair, 'Playfair Display'), serif"}}
-            >
+            <h2 className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold font-serif">
               🔍 Explore AI by Category
             </h2>
-            <p 
-              className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-medium mb-8"
-              style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-            >
-              Pick your adventure – each section is packed with hand-picked tools and real-world use cases.
+            <p className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-medium mb-8 font-sans">
+              Pick your adventure — each section is packed with hand-picked tools and real-world use cases.
             </p>
 
-            {/* Search */}
+            {/* Enhanced Search */}
             <div className="max-w-md mx-auto mb-8">
-              <label htmlFor="section-search" className="sr-only">Search sections</label>
+              <label htmlFor="section-search" className="sr-only">
+                {hasToolsData ? 'Search categories and tools' : 'Search categories'}
+              </label>
               <div className="relative">
                 <input
                   id="section-search"
                   type="text"
-                  placeholder="Search categories..."
+                  placeholder={hasToolsData ? "Search categories and tools..." : "Search categories..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoComplete="off"
-                  className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 bg-white shadow-sm transition-all min-h-[44px]"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green bg-white shadow-sm transition-all min-h-[44px]"
                   aria-describedby="search-results"
                 />
-                <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
               </div>
+              
+              {/* Search help text */}
+              <p className="text-sm text-gray-500 mt-2">
+                {hasToolsData 
+                  ? 'Search by category name, description, or AI tool (e.g., "ChatGPT", "Midjourney")'
+                  : 'Search by category name or description'
+                }
+              </p>
             </div>
 
             {/* Results count */}
             {searchQuery && (
-              <p id="search-results" className="text-gray-600 mb-8" aria-live="polite" aria-atomic="true">
-                {filteredSections.length} section{filteredSections.length !== 1 ? 's' : ''} found
-              </p>
+              <div id="search-results" className="mb-8" aria-live="polite" aria-atomic="true">
+                <p className="text-gray-600">
+                  {filteredSections.length} section{filteredSections.length !== 1 ? 's' : ''} found
+                </p>
+                {/* Show matching tools summary if we have tools data */}
+                {hasToolsData && deferredSearchQuery && (
+                  <div className="mt-2 text-sm text-gray-500">
+                    {filteredSections.map(section => {
+                      const matchingTools = getMatchingTools(section, deferredSearchQuery)
+                      if (matchingTools.length === 0) return null
+                      return (
+                        <span key={section.id} className="inline-block mr-4">
+                          {matchingTools.length} tool{matchingTools.length !== 1 ? 's' : ''} in {section.section_name}
+                        </span>
+                      )
+                    }).filter(Boolean)}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -242,11 +281,14 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
           {filteredSections.length > 0 ? (
             <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-8 transition-all duration-1000 motion-reduce:transition-none ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               {filteredSections.map((section, index) => (
-                <SectionCard 
+                <EnhancedSectionCard 
                   key={section.id} 
                   section={section} 
                   index={index}
+                  searchQuery={deferredSearchQuery}
+                  matchingTools={getMatchingTools(section, deferredSearchQuery)}
                   onClick={() => handleSectionClick(section)}
+                  hasToolsData={hasToolsData}
                 />
               ))}
             </div>
@@ -255,11 +297,11 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
               <div className="text-4xl mb-4">🔍</div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No sections found</h3>
               <p className="text-gray-600 mb-6">
-                No sections match "{searchQuery}". Try a different search term.
+                No sections{hasToolsData ? ' or tools' : ''} match "{searchQuery}". Try a different search term.
               </p>
               <button
                 onClick={handleClearSearch}
-                className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                className="px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-brand-green-dark transition-colors"
               >
                 Clear search
               </button>
@@ -271,71 +313,110 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
   )
 }
 
-// Memoized Section Card Component for better performance
-const SectionCard = React.memo(function SectionCard({ 
+// Enhanced Section Card Component that shows matching tools
+const EnhancedSectionCard = React.memo(function EnhancedSectionCard({ 
   section, 
   index, 
-  onClick 
+  searchQuery,
+  matchingTools,
+  onClick,
+  hasToolsData
 }: { 
   section: FieldGuideSection; 
   index: number;
+  searchQuery: string;
+  matchingTools: AITool[];
   onClick: () => void;
+  hasToolsData: boolean;
 }) {
   const delayClass = `delay-${Math.min(index * 100 + 300, 1200)}`
   
   // Memoize these calculations since they won't change during render
-  const sectionColor = useMemo(() => getSectionColor(section.section_name), [section.section_name])
+  const colorClasses = useMemo(() => getSectionColorClasses(section.section_name), [section.section_name])
   const sectionEmoji = useMemo(() => getSectionEmoji(section.section_name), [section.section_name])
+  
+  // Highlight search terms in text
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) return text
+    
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    const parts = text.split(regex)
+    
+    return parts.map((part, i) => 
+      regex.test(part) ? (
+        <mark key={i} className="bg-yellow-200 px-1 rounded">{part}</mark>
+      ) : part
+    )
+  }
   
   return (
     <Link 
       href={`/field-guide/${section.slug}`}
       className={`group block motion-safe:animate-fade-in-up motion-reduce:transition-none ${delayClass}`}
       onClick={onClick}
-      aria-label={`Open ${section.section_name} – ${section.toolCount} tools available`}
+      aria-label={`Open ${section.section_name} — ${section.toolCount} tools available${matchingTools.length > 0 ? `, ${matchingTools.length} matching your search` : ''}`}
     >
-      <article className="bg-white p-8 rounded-3xl shadow-md motion-safe:hover:shadow-xl transition-all duration-500 motion-reduce:transform-none motion-safe:hover:scale-[1.02] border border-gray-100 relative overflow-hidden h-full" style={{ ['--fg-accent' as any]: sectionColor }}>
+      <article className="bg-white p-8 rounded-3xl shadow-md motion-safe:hover:shadow-xl transition-all duration-500 motion-reduce:transform-none motion-safe:hover:scale-[1.02] border border-gray-100 relative overflow-hidden h-full">
         {/* Top accent bar */}
-        <div 
-          className="absolute top-0 left-0 w-full h-2"
-          style={{ backgroundColor: sectionColor }}
-        />
+        <div className={`absolute top-0 left-0 w-full h-2 ${colorClasses.bg}`} />
         
         {/* Section emoji and number */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-4xl" aria-hidden="true">{sectionEmoji}</div>
           <div 
-            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
-            style={{ backgroundColor: sectionColor }}
-            aria-label={`Section ${section.section_number}`}
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${colorClasses.bg}`}
+            aria-label={`Section ${section.section_number || index + 1}`}
           >
-            {section.section_number}
+            {section.section_number || index + 1}
           </div>
         </div>
         
         {/* Section title */}
-        <h3 
-          className="text-2xl font-bold mb-4 group-hover:text-opacity-80 transition-colors"
-          style={{
-            color: sectionColor,
-            fontFamily: "var(--font-playfair, 'Playfair Display'), serif"
-          }}
-        >
-          {section.section_name}
+        <h3 className={`text-2xl font-bold mb-4 group-hover:text-opacity-80 transition-colors font-serif ${colorClasses.text}`}>
+          {searchQuery ? highlightText(section.section_name, searchQuery) : section.section_name}
         </h3>
         
         {/* Summary */}
-        <p 
-          className="text-gray-700 leading-relaxed mb-6 line-clamp-3"
-          style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
-        >
-          {section.summary || section.intro || 'Explore this category of AI tools'}
-        </p>
+        <div className="text-gray-700 leading-relaxed mb-6 line-clamp-3 font-sans">
+          {searchQuery ? 
+            highlightText(section.summary || section.intro || 'Explore this category of AI tools', searchQuery) :
+            (section.summary || section.intro || 'Explore this category of AI tools')
+          }
+        </div>
+        
+        {/* Matching tools preview - only show if we have tools data */}
+        {hasToolsData && matchingTools.length > 0 && (
+          <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="text-sm font-semibold text-yellow-800 mb-2">
+              {matchingTools.length} matching tool{matchingTools.length !== 1 ? 's' : ''}:
+            </div>
+            <div className="text-sm text-yellow-700">
+              {matchingTools.slice(0, 3).map(tool => (
+                <span key={tool.id} className="inline-block mr-2 mb-1">
+                  {searchQuery ? highlightText(tool.name, searchQuery) : tool.name}
+                  {tool.company && (
+                    <span className="text-yellow-600 ml-1">
+                      ({searchQuery ? highlightText(tool.company, searchQuery) : tool.company})
+                    </span>
+                  )}
+                </span>
+              ))}
+              {matchingTools.length > 3 && (
+                <span className="text-yellow-600">+{matchingTools.length - 3} more</span>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Tool count and CTA */}
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500">
             <span className="font-semibold text-gray-700">{section.toolCount} tools</span>
+            {hasToolsData && matchingTools.length > 0 && (
+              <span className="ml-2 text-yellow-600 font-medium">
+                ({matchingTools.length} match)
+              </span>
+            )}
           </div>
           <div className="text-sm font-semibold text-gray-500 group-hover:text-gray-700 transition-colors flex items-center gap-1">
             Explore
@@ -347,6 +428,9 @@ const SectionCard = React.memo(function SectionCard({
         <div className="sr-only">
           <p>Section {section.section_number}: {section.section_name}</p>
           <p>{section.toolCount} tools available</p>
+          {hasToolsData && matchingTools.length > 0 && (
+            <p>{matchingTools.length} tools match your search for "{searchQuery}"</p>
+          )}
           <p>{section.summary || section.intro}</p>
         </div>
       </article>

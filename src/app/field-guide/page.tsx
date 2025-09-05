@@ -1,10 +1,10 @@
-﻿// app/field-guide/page.tsx - Enhanced with Design System Consistency
+﻿// app/field-guide/page.tsx - Enhanced with tools data
 import { Metadata } from 'next'
 import { FieldGuideServerAPI } from '../lib/field-guide-server'
 import FieldGuideClient from '../components/FieldGuideClient'
 import CTASection from '../components/CTASection'
 
-// ISR caching - revalidate every 10 minutes (field guide changes less frequently)
+// ISR caching - revalidate every 10 minutes
 export const revalidate = 600
 
 // Define section order with stable sorting for unknowns
@@ -25,7 +25,7 @@ const SECTION_ORDER = [
   'Automation Tools'
 ]
 
-// ✅ Improved sorting with stable fallback
+// Enhanced sorting with stable fallback
 function sortSections(sections: any[]) {
   return sections.sort((a, b) => {
     const indexA = SECTION_ORDER.indexOf(a.section_name)
@@ -117,10 +117,10 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-// Server component - renders immediately with data
+// Server component - renders immediately with data including tools
 export default async function FieldGuidePage() {
   try {
-    // Fetch data server-side
+    // Fetch sections and total tools count
     const [sectionsWithCounts, totalTools] = await Promise.all([
       FieldGuideServerAPI.getAllSectionsWithCounts(),
       FieldGuideServerAPI.getTotalToolsCount()
@@ -129,15 +129,34 @@ export default async function FieldGuidePage() {
     // Sort sections according to defined order
     const sortedSections = sortSections(sectionsWithCounts)
 
+    // Fetch tools for each section (for enhanced search)
+    const sectionsWithTools = await Promise.all(
+      sortedSections.map(async (section) => {
+        try {
+          const tools = await FieldGuideServerAPI.getToolsForSection(section.section_name)
+          return {
+            ...section,
+            tools: tools || []
+          }
+        } catch (error) {
+          console.warn(`Failed to load tools for ${section.section_name}:`, error)
+          return {
+            ...section,
+            tools: []
+          }
+        }
+      })
+    )
+
     const initialData = {
-      sections: sortedSections,
+      sections: sectionsWithTools,
       totalTools,
       sectionCount: sortedSections.length
     }
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
-        {/* ✅ ENHANCED HERO SECTION with design system consistency */}
+        {/* Hero Section with design system consistency */}
         <section className="px-6 md:px-12 py-12 md:py-16">
           <div className="max-w-6xl mx-auto text-center">
             <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8 font-serif">
@@ -162,7 +181,7 @@ export default async function FieldGuidePage() {
           </div>
         </section>
 
-        {/* Pass server data to client component */}
+        {/* Pass server data with tools to client component */}
         <FieldGuideClient initialData={initialData} />
 
         {/* CTA Section */}
@@ -217,11 +236,11 @@ export default async function FieldGuidePage() {
             </div>
             <h1 className="heading-section text-gray-900 mb-4">Field Guide Temporarily Unavailable</h1>
             <p className="body-large text-gray-700 mb-6 max-w-2xl mx-auto">
-              we're having trouble loading the field guide. Please try refreshing the page or check back in a few moments.
+              We're having trouble loading the field guide. Please try refreshing the page or check back in a few moments.
             </p>
             <a 
               href="/field-guide"
-              className="inline-block px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-brand-greenDark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 body-bold"
+              className="inline-block px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-brand-green-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 body-bold"
             >
               Refresh Page
             </a>

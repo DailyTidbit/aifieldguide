@@ -488,3 +488,66 @@ export const SafeDate: React.FC<SafeDateProps> = ({
     className: className
   }, displayDate);
 };
+
+// =============================================================================
+// Tool Category Colors
+// =============================================================================
+
+export function sectionNameToClassSuffix(sectionName: string): string {
+  if (!sectionName || typeof sectionName !== 'string') {
+    return 'ai-assistants' // Default fallback
+  }
+  
+  return sectionName
+    .toLowerCase()
+    .replace(/[&]/g, '') // Remove &
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters except spaces
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+}
+
+export function getSectionColorClasses(sectionName: string) {
+  const suffix = sectionNameToClassSuffix(sectionName)
+  
+  return {
+    bg: `bg-category-${suffix}`,
+    text: `text-category-${suffix}`,
+    border: `border-category-${suffix}`,
+    suffix
+  }
+}
+
+export function getSectionHexColor(sectionName: string): string {
+  const suffix = sectionNameToClassSuffix(sectionName)
+  
+  const colorMap: Record<string, string> = {
+    'ai-assistants': '#60A875',
+    'image-generation': '#59B1E3',
+    'video-generation': '#F7936F',
+    'music-creation': '#F39C12',
+    'photo-image-tools': '#9B59B6',
+    'video-editing': '#E74C3C',
+    'ai-avatars': '#8E44AD',
+    'speech-voice': '#4A9B8E',
+    'creative-writing-storytelling': '#8E44AD',
+    'productivity-tools': '#27AE60',
+    'ai-search-tools': '#3498DB',
+    'education-learning': '#E67E22',
+    'coding-assistants': '#3B82F6',
+    'automation-tools': '#2ECC71',
+    
+    // Backward compatibility
+    'language-models': '#60A875',
+    'music': '#F39C12',
+    'music-audio-tools': '#F39C12',
+    'ai-photo-image-editors': '#9B59B6',
+    'image-editing': '#9B59B6',
+    'video-editing-avatars': '#E74C3C',
+    'video-editing-ai-avatars': '#E74C3C',
+    'voice-synthesis': '#4A9B8E',
+    'ai-agents-automation': '#2ECC71',
+    'educational-learning-tools': '#E67E22'
+  }
+  
+  return colorMap[suffix] || '#60A875'
+}
