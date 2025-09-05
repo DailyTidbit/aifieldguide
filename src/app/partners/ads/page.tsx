@@ -294,7 +294,7 @@ export default function SponsorAdsPage() {
             : item
         ))
       }
-      // Note: We don&apos;t fail if hold creation fails, as it's optional
+      // Note: We don't fail if hold creation fails, as it's optional
       
     } catch (holdError) {
       console.warn('Failed to create hold:', holdError)
@@ -434,7 +434,7 @@ export default function SponsorAdsPage() {
               Get your AI tool in front of 30,000+ learners
             </h1>
             <p className="text-gray-600 mb-6">
-              Sponsor a Daily Tidbit lesson and reach engaged beginners at the perfect moment they&apos;re 
+              Sponsor a Daily Tidbit lesson and reach engaged beginners at the perfect moment they're 
               learning about your tool category. Introductory pricing: just $1 per day this month.
             </p>
             
@@ -665,7 +665,7 @@ export default function SponsorAdsPage() {
                 <div>
                   <h4 className="font-semibold mb-2">Perfect timing</h4>
                   <p className="text-gray-600 text-sm">
-                    Reach users exactly when they&apos;re learning about your tool's category. 
+                    Reach users exactly when they're learning about your tool's category. 
                     No cold outreach needed.
                   </p>
                 </div>

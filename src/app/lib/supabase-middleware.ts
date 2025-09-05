@@ -168,7 +168,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
-  // If you&apos;re creating a new response object with NextResponse.next() make sure to:
+  // If you're creating a new response object with NextResponse.next() make sure to:
   // 1. Pass the request in it, like so: NextResponse.next({ request })
   // 2. Copy over the cookies, like so: response.cookies.setAll(supabaseResponse.cookies.getAll())
 

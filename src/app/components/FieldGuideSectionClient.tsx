@@ -247,7 +247,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     )
   }
 
-  // HYDRATION FIX: don&apos;t render interactive elements until mounted
+  // HYDRATION FIX: don't render interactive elements until mounted
   if (!mounted) {
     return (
       <div className="bg-white px-6 md:px-12 py-20">
@@ -416,7 +416,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                     className="text-xl text-gray-600 mb-8 max-w-lg mx-auto leading-relaxed"
                     style={{fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"}}
                   >
-                    we&apos;re carefully curating the best AI tools for this section. Check back soon!
+                    we're carefully curating the best AI tools for this section. Check back soon!
                   </p>
                   
                   <Link

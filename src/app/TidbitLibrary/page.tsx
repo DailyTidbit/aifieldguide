@@ -1,4 +1,4 @@
-﻿// app/TidbitLibrary/page.tsx - Fixed to use Tailwind v4 classes with brand colors
+﻿// app/TidbitLibrary/page.tsx - Fixed to use proper Tailwind v4 brand colors
 import { Metadata } from 'next'
 import { getTidbits } from '../lib/tidbits'
 import TidbitLibraryClient from './TidbitLibraryClient'
@@ -53,7 +53,9 @@ export default async function TidbitLibraryPage() {
           </div>
         </header>
 
-        <TidbitLibraryClient initialData={initialData} />
+        <div className="relative z-10">
+          <TidbitLibraryClient initialData={initialData} />
+        </div>
 
         <script
           type="application/ld+json"
@@ -98,7 +100,7 @@ export default async function TidbitLibraryPage() {
             <p className="text-gray-600 mb-6">
               There was an issue loading the library. Please try refreshing the page.
             </p>
-            <a href="/TidbitLibrary" className="inline-block px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-brand-greenDark transition-colors focus:ring-2 focus:ring-brand-green/20 focus:outline-none">
+            <a href="/TidbitLibrary" className="inline-block px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-brand-green-dark transition-colors focus:ring-2 focus:ring-brand-green/20 focus:outline-none">
               Refresh Page
             </a>
           </div>

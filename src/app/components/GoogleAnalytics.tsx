@@ -67,7 +67,7 @@ export default function GoogleAnalytics({ hasConsent }: GoogleAnalyticsProps = {
     return <GoogleAnalyticsSkeleton />
   }
 
-  // don&apos;t load if no consent or invalid GA ID
+  // don't load if no consent or invalid GA ID
   if (!actualConsent || !isValidGAID) {
     return null
   }

@@ -158,7 +158,7 @@ export function useAnalytics() {
     return wrappedFunction as T
   }
   
-  // Ensure all functions are always defined, even if they don&apos;t do anything
+  // Ensure all functions are always defined, even if they don't do anything
   return {
     mounted,
     hasConsent,

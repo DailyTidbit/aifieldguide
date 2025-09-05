@@ -141,7 +141,7 @@ export const SafeModal: React.FC<SafeModalProps> = ({
 }) => {
   const isMounted = useIsMounted();
   
-  // don&apos;t render portal until hydrated
+  // don't render portal until hydrated
   if (!isMounted || !isOpen) return null;
   
   return (

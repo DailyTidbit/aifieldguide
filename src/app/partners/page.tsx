@@ -108,7 +108,7 @@ const StatusMessage = ({ authState, company, mounted }: {
       icon: Building2,
       className: 'bg-green-50 border-green-200 text-green-800',
       title: 'Welcome back!',
-      message: `you&apos;re part of the ${company?.name || 'company'} team on Daily Tidbit.`
+      message: `you're part of the ${company?.name || 'company'} team on Daily Tidbit.`
     }
   }
 
@@ -523,7 +523,7 @@ export default function PartnersLanding() {
               Request Partner Access <ArrowRight className="w-5 h-5" />
             </Link>
             <p className="text-sm text-gray-500 mt-4">
-              we&apos;ll send you a secure login link via email
+              we'll send you a secure login link via email
             </p>
           </div>
         </section>

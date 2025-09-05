@@ -49,7 +49,7 @@ foreach ($file in $files) {
         $issues['Random Values'] += $randomMatches
         
     } catch {
-        # Skip files that can&apos;t be read
+        # Skip files that can't be read
         continue
     }
 }

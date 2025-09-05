@@ -88,7 +88,7 @@ export default function PostFormBitboard() {
       }
     } catch (error) {
       console.warn('Error reading search params:', error)
-      // don&apos;t fail the whole component for URL param issues
+      // don't fail the whole component for URL param issues
     }
   }, [mounted, supabaseReady, searchParams])
 
@@ -212,7 +212,7 @@ export default function PostFormBitboard() {
           })
       } catch (progressError) {
         console.warn('Progress tracking failed:', progressError)
-        // don&apos;t fail the whole operation for progress tracking
+        // don't fail the whole operation for progress tracking
       }
 
       setSubmitted(true)
@@ -239,7 +239,7 @@ export default function PostFormBitboard() {
   // Hydration-safe calculations
   const canSubmit = mounted && supabaseReady ? !!content.trim() && !!user : false
 
-  // ✅ HYDRATION SAFETY: don&apos;t render anything until mounted
+  // ✅ HYDRATION SAFETY: don't render anything until mounted
   if (!mounted) {
     return null
   }

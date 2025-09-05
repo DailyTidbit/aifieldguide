@@ -445,7 +445,7 @@ export default function PartnerHubDemo({
                       {submitted ? <BadgeCheck className="h-4 w-4" /> : submitting ? <Save className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
                       {submitted ? 'Submitted' : submitting ? 'Submitting…' : 'Submit for approval'}
                     </button>
-                    <div className="text-xs text-neutral-500">you&apos;ll see status in Messages; we&apos;ll email you on publish.</div>
+                    <div className="text-xs text-neutral-500">you'll see status in Messages; we'll email you on publish.</div>
                   </div>
                 </Card>
 

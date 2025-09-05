@@ -378,7 +378,7 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
         )}
       </div>
 
-      {/* Pagination dots - BRAND COLOR FIX */}
+      {/* Pagination dots - REMOVED PAUSE BUTTON */}
       {totalCards > 1 && (
         <div style={{
           display: 'flex',
@@ -404,36 +404,6 @@ const ValuePropCarousel: React.FC<ValuePropCarouselProps> = ({
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
-          
-          {/* Auto-play toggle */}
-          {autoPlay && totalCards > 1 && (
-            <button
-              onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-              style={{
-                marginLeft: '12px',
-                fontSize: '12px',
-                color: '#6b7280',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                transition: 'all 200ms ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#374151';
-                e.currentTarget.style.background = '#f3f4f6';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#6b7280';
-                e.currentTarget.style.background = 'transparent';
-              }}
-              aria-label={isAutoPlaying ? 'Pause auto-play' : 'Resume auto-play'}
-              title={isAutoPlaying ? 'Pause auto-play' : 'Resume auto-play'}
-            >
-              {isAutoPlaying ? '⏸️' : '▶️'}
-            </button>
-          )}
         </div>
       )}
     </div>

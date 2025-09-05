@@ -152,7 +152,7 @@ const AIExplanationCarousel: React.FC = () => {
             Some models write, some generate images, others make music, synthesize voices, or even help with code.
           </p>
           <p className="mb-3 sm:mb-4">
-            You don&apos;t see the model — and you don&apos;t have to.
+            You don't see the model — and you don't have to.
           </p>
           <p className="font-bold text-brand-green text-base sm:text-lg">
             It all happens in the background, but that's where the magic lives.
@@ -167,7 +167,7 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            Most people don&apos;t interact with the model directly. Instead, they use websites or apps that make it easy.
+            Most people don't interact with the model directly. Instead, they use websites or apps that make it easy.
           </p>
           <p className="mb-3 sm:mb-4">
             These tools give you a simple interface — like a chat box, design screen, or form.
@@ -191,7 +191,7 @@ const AIExplanationCarousel: React.FC = () => {
             One smart tip a day to help you write better, create faster, and save time with free tools anyone can use.
           </p>
           <p className="mb-4 sm:mb-6">
-            You don&apos;t need to be technical. <span className="font-bold text-purple-600">You just need to show up.</span>
+            You don't need to be technical. <span className="font-bold text-purple-600">You just need to show up.</span>
           </p>
         </>
       ),
@@ -302,8 +302,8 @@ const AIExplanationCarousel: React.FC = () => {
   // Show loading state during hydration
   if (!mounted) {
     return (
-      <div className="ai-explanation-carousel">
-        <div className="w-full h-full flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 bg-green-50 relative overflow-hidden" style={{ minHeight: '400px' }}>
+      <div className="ai-explanation-carousel" style={{ height: '400px', position: 'relative', overflow: 'hidden' }}>
+        <div className="w-full h-full flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 bg-green-50 relative overflow-hidden">
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 lg:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50">
             <div className="animate-pulse space-y-4">
               <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto"></div>
@@ -322,6 +322,12 @@ const AIExplanationCarousel: React.FC = () => {
   return (
     <div 
       className="ai-explanation-carousel"
+      style={{ 
+        height: '400px', 
+        position: 'relative', 
+        overflow: 'hidden',
+        width: '100%'
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       role="region"
@@ -336,6 +342,7 @@ const AIExplanationCarousel: React.FC = () => {
           display: 'flex',
           flexDirection: 'column',
           height: `${totalSlides * 100}%`,
+          width: '100%',
           transform: `translateY(-${currentIndex * (100 / totalSlides)}%)`,
           transition: isTransitioning ? 'transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
           willChange: 'transform'
@@ -346,6 +353,7 @@ const AIExplanationCarousel: React.FC = () => {
             key={`ai-slide-${index}`}
             style={{
               height: `${100 / totalSlides}%`,
+              width: '100%',
               flexShrink: 0
             }}
           >
@@ -391,7 +399,7 @@ const AIExplanationCarousel: React.FC = () => {
             }}
             aria-label="Previous slide"
           >
-            <ChevronUp style={{ width: '20px', height: '20px', color: 'var(--brand-green)' }} />
+            <ChevronUp style={{ width: '20px', height: '20px', color: 'var(--color-brand-green)' }} />
           </button>
           
           <button
@@ -428,7 +436,7 @@ const AIExplanationCarousel: React.FC = () => {
             }}
             aria-label="Next slide"
           >
-            <ChevronDown style={{ width: '20px', height: '20px', color: 'var(--brand-green)' }} />
+            <ChevronDown style={{ width: '20px', height: '20px', color: 'var(--color-brand-green)' }} />
           </button>
         </>
       )}
@@ -486,14 +494,15 @@ const AIExplanationCarousel: React.FC = () => {
         ))}
       </div>
 
-      {/* Instruction hint */}
+      {/* Instruction hint - mobile optimized */}
       <div style={{
         position: 'absolute',
-        bottom: '15px',
-        left: '15px',
+        bottom: '10px',
+        left: '10px',
         color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: '11px',
-        fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif"
+        fontSize: '10px',
+        fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
+        display: 'none'
       }}>
         Swipe up ↑ or use arrows
       </div>

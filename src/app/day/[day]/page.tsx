@@ -78,7 +78,7 @@ const StepsErrorFallback = ({ error, resetErrorBoundary }: { error?: Error; rese
     <div className="text-red-600 mb-4">
       <Target className="w-12 h-12 mx-auto mb-4" />
       <h3 className="heading-subsection">Steps temporarily unavailable</h3>
-      <p className="body-small mt-2">we&apos;re working on loading the walkthrough steps.</p>
+      <p className="body-small mt-2">we're working on loading the walkthrough steps.</p>
       {resetErrorBoundary && (
         <button 
           onClick={resetErrorBoundary}
@@ -825,7 +825,7 @@ export default function DayPage({ params }: DayPageProps) {
             <ProgressAnalytics progress={userProgress} />
           )}
 
-          {/* What you&apos;ll Learn & What You Need */}
+          {/* What you'll Learn & What You Need */}
           <section className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-emerald-200/50 shadow-lg">
             <div className="space-y-8">
               <div>
@@ -834,7 +834,7 @@ export default function DayPage({ params }: DayPageProps) {
                     <Lightbulb className="w-6 h-6" />
                   </div>
                   <h3 className="heading-subsection text-gray-900">
-                    What you&apos;ll Learn
+                    What you'll Learn
                   </h3>
                 </div>
                 <RichContent>{tidbit.walkthrough_intro}</RichContent>

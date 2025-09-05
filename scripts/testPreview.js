@@ -2,7 +2,7 @@
 // Simple test script - no dependencies needed
 
 async function testPreviewSystem() {
-  // Use localhost since we&apos;re testing locally
+  // Use localhost since we're testing locally
   const baseUrl = 'http://localhost:3000'
   
   // REPLACE THIS with your actual company ID from the database
@@ -102,7 +102,7 @@ I wanted to show you what your company's Daily Tidbit partner portal would look 
 
 ${tokenData.previewUrl}
 
-You can explore everything - just click around and see all the features. When you&apos;re ready to sign up and manage your listings, there are clear prompts throughout the interface.
+You can explore everything - just click around and see all the features. When you're ready to sign up and manage your listings, there are clear prompts throughout the interface.
 
 This preview link expires in 3 days.
 

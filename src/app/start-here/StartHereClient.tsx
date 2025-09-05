@@ -86,10 +86,7 @@ function CarouselErrorFallback({
       </p>
       <button
         onClick={resetErrorBoundary}
-        className="text-white px-6 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
-        style={{ backgroundColor: '#60A875' }}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4e8e61'}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#60A875'}
+        className="bg-brand-green hover:bg-brand-green-dark text-white px-6 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
         aria-label="Try loading the carousel again"
       >
         Try Again
@@ -167,7 +164,7 @@ const calculateEngagementScore = (
 // Value Props with brand colors
 const valuePropsCards: ValuePropCardProps[] = [
   {
-    title: "Why you&apos;ll Love Daily Tidbit",
+    title: "Why you'll Love Daily Tidbit",
     description: 'Quick. 60-second videos, no fluff. Clear. Easy walkthroughs for real results. Free. No catch, just good vibes.',
     icon: 'Heart',
     accent: 'green',
@@ -179,8 +176,8 @@ const valuePropsCards: ValuePropCardProps[] = [
     accent: 'blue',
   },
   {
-    title: "Why you&apos;ll Actually Use This",
-    description: "Short & sweet. Watch it, try it, done. Super useful. Stuff you&apos;ll *actually* use. No pressure. Just show up and learn.",
+    title: "Why you'll Actually Use This",
+    description: "Short & sweet. Watch it, try it, done. Super useful. Stuff you'll *actually* use. No pressure. Just show up and learn.",
     icon: 'BookOpen',
     accent: 'orange',
   },
@@ -490,13 +487,13 @@ export default function StartHereClient() {
                     className="absolute opacity-0 group-hover:opacity-100 
                                     scale-95 group-hover:scale-100
                                     transition-all duration-300 ease-out
-                                    bg-white/95 backdrop-blur-sm p-4 rounded-xl border-2 border-green-200/80 shadow-xl
+                                    bg-white/95 backdrop-blur-sm p-4 rounded-xl border-2 border-brand-green/20 shadow-xl
                                     max-w-xs z-20 pointer-events-none transform -translate-x-1/2 -translate-y-full"
                     role="tooltip"
                     aria-label="Welcome message for new users"
                   >
                     <div className="text-center">
-                      <h4 className="font-bold mb-2 flex items-center justify-center gap-1 font-serif" style={{ color: '#60A875' }}>
+                      <h4 className="font-bold mb-2 flex items-center justify-center gap-1 font-serif text-brand-green">
                         <span aria-hidden="true">✨</span> You Belong Here
                       </h4>
                       <p className="text-sm text-gray-700 leading-relaxed">
@@ -508,7 +505,7 @@ export default function StartHereClient() {
 
                     {/* Tooltip arrow */}
                     <div
-                      className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white/95 border-r-2 border-b-2 border-green-200/80 rotate-45"
+                      className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white/95 border-r-2 border-b-2 border-brand-green/20 rotate-45"
                       aria-hidden="true"
                     ></div>
                   </div>
@@ -520,12 +517,10 @@ export default function StartHereClient() {
             <div className="lg:w-1/2 space-y-8 text-center lg:text-left">
               <h1
                 id="hero-heading"
-                className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight animate-fade-in-up font-serif"
+                className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight animate-fade-in-up font-serif"
               >
-                <span style={{ color: '#59B1E3' }} aria-label="AI with sparkle emoji">
-                  ✨ AI
-                </span>{' '}
-                <span style={{ color: '#60A875' }}>for Real People</span>
+                <span className="text-brand-blue">AI</span>{' '}
+                <span className="text-brand-green">for Real People</span>
               </h1>
 
               <div className="space-y-6 text-xl md:text-2xl text-gray-800 leading-relaxed animate-fade-in-up delay-300">
@@ -558,54 +553,7 @@ export default function StartHereClient() {
                 </ErrorBoundary>
               </div>
 
-              {/* CTA buttons with brand colors */}
-              <div className="space-y-6 animate-fade-in-up delay-1000">
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <button
-                    onClick={() => scrollToSection('how-daily-tidbit-works')}
-                    className="text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
-                    style={{ backgroundColor: '#60A875' }}
-                    onMouseEnter={(e) => {
-                      bumpInteraction();
-                      e.currentTarget.style.backgroundColor = '#4e8e61';
-                    }}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#60A875'}
-                    aria-label="Learn about Daily Tidbit - scroll to how it works section"
-                  >
-                    <span className="text-lg font-bold relative z-10">
-                      Daily Tidbit?!
-                    </span>
-                    <span
-                      className="group-hover:translate-x-1 transition-transform duration-200 relative z-10"
-                      aria-hidden="true"
-                    >
-                      →
-                    </span>
-                  </button>
 
-                  <button
-                    onClick={() => scrollToSection('how-it-works')}
-                    className="text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
-                    style={{ backgroundColor: '#59B1E3' }}
-                    onMouseEnter={(e) => {
-                      bumpInteraction();
-                      e.currentTarget.style.backgroundColor = '#4791bf';
-                    }}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#59B1E3'}
-                    aria-label="Learn about AI basics - scroll to explanation section"
-                  >
-                    <span className="text-lg font-bold relative z-10">
-                      What's AI?
-                    </span>
-                    <span
-                      className="group-hover:translate-x-1 transition-transform duration-200 relative z-10"
-                      aria-hidden="true"
-                    >
-                      ✨
-                    </span>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -621,8 +569,7 @@ export default function StartHereClient() {
           <div className="text-center mb-16">
             <h2
               id="what-ai-heading"
-              className="text-4xl md:text-5xl mb-6 leading-tight font-bold drop-shadow-sm font-serif"
-              style={{ color: '#60A875' }}
+              className="text-4xl md:text-5xl mb-6 leading-tight font-bold drop-shadow-sm font-serif text-brand-green"
             >
               <span aria-hidden="true">💡</span> Real Tools. Real Use Cases.
             </h2>
@@ -667,8 +614,7 @@ export default function StartHereClient() {
         <div className="max-w-6xl mx-auto relative z-10">
           <h3
             id="how-ai-works-heading"
-            className="text-4xl md:text-5xl mb-6 text-center font-bold"
-            style={{ color: '#59B1E3' }}
+            className="text-4xl md:text-5xl mb-6 text-center font-bold text-brand-blue"
           >
             <span aria-hidden="true">✨</span> How Does AI Actually Work?
           </h3>
@@ -696,9 +642,9 @@ export default function StartHereClient() {
               className="text-4xl md:text-5xl mb-4 text-center font-serif font-bold"
             >
               <span aria-hidden="true">🚀</span> The{' '}
-              <span style={{ color: '#60A875' }}>D</span>
-              <span style={{ color: '#59B1E3' }}>ai</span>
-              <span style={{ color: '#60A875' }}>ly Tidbit</span> Formula
+              <span className="text-brand-green">D</span>
+              <span className="text-brand-blue">ai</span>
+              <span className="text-brand-green">ly Tidbit</span> Formula
             </h3>
             <p className="text-xl text-gray-600 font-bold">
               Like a cheat code for real life — watch, try, repeat.
@@ -726,17 +672,11 @@ export default function StartHereClient() {
               }}
               aria-label="Step 1: Watch - See it in action"
             >
-              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative overflow-hidden cursor-pointer"
-                   style={{ borderColor: '#59B1E3', borderWidth: '1px', borderStyle: 'solid' }}>
-                <div
-                  className="absolute top-0 left-0 w-full h-2"
-                  style={{ backgroundColor: 'rgba(89, 177, 227, 0.3)' }}
-                  aria-hidden="true"
-                ></div>
+              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative overflow-hidden cursor-pointer border border-brand-blue">
+                <div className="absolute top-0 left-0 w-full h-2 bg-brand-blue/30" aria-hidden="true"></div>
 
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
-                  style={{ backgroundColor: 'rgba(89, 177, 227, 0.2)', color: '#59B1E3' }}
+                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300 bg-brand-blue/20 text-brand-blue"
                   aria-label="Step 1"
                 >
                   1
@@ -746,7 +686,7 @@ export default function StartHereClient() {
                   <div className="text-4xl mb-4" aria-hidden="true">
                     🎬
                   </div>
-                  <h4 className="text-xl font-bold mb-2 font-serif" style={{ color: '#59B1E3' }}>
+                  <h4 className="text-xl font-bold mb-2 font-serif text-brand-blue">
                     Watch
                   </h4>
                   <p className="text-lg font-bold text-gray-700 mb-4">
@@ -776,17 +716,11 @@ export default function StartHereClient() {
               }}
               aria-label="Step 2: Try - Use it yourself"
             >
-              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative overflow-hidden cursor-pointer"
-                   style={{ borderColor: '#60A875', borderWidth: '1px', borderStyle: 'solid' }}>
-                <div
-                  className="absolute top-0 left-0 w-full h-2"
-                  style={{ backgroundColor: 'rgba(96, 168, 117, 0.3)' }}
-                  aria-hidden="true"
-                ></div>
+              <div className="bg-white p-8 rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative overflow-hidden cursor-pointer border border-brand-green">
+                <div className="absolute top-0 left-0 w-full h-2 bg-brand-green/30" aria-hidden="true"></div>
 
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300"
-                  style={{ backgroundColor: 'rgba(96, 168, 117, 0.2)', color: '#60A875' }}
+                  className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-105 transition-transform duration-300 bg-brand-green/20 text-brand-green"
                   aria-label="Step 2"
                 >
                   2
@@ -796,7 +730,7 @@ export default function StartHereClient() {
                   <div className="text-4xl mb-4" aria-hidden="true">
                     💡
                   </div>
-                  <h4 className="text-xl font-bold mb-2 font-serif" style={{ color: '#60A875' }}>
+                  <h4 className="text-xl font-bold mb-2 font-serif text-brand-green">
                     Try
                   </h4>
                   <p className="text-lg font-bold text-gray-700 mb-4">

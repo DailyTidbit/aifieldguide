@@ -181,13 +181,13 @@ I wanted to show you what your company's Daily Tidbit partner portal would look 
 
 ${previewUrl}
 
-you&apos;ll be able to explore:
+you'll be able to explore:
 • Your company's analytics and performance metrics
 • Tool listing management interface  
 • Sponsorship opportunities ($1 intro rate!)
 • Direct support and communication tools
 
-This is a read-only preview - you can click around and see everything, but you&apos;ll need to sign up with your work email to make any changes.
+This is a read-only preview - you can click around and see everything, but you'll need to sign up with your work email to make any changes.
 
 The preview link expires in ${Math.round(expiresInHours/24)} day${expiresInHours > 24 ? 's' : ''}.
 
@@ -414,7 +414,7 @@ Daily Tidbit Team`
             </div>
             <div className="flex items-start gap-2">
               <span className="font-medium">4.</span>
-              <span>When they&apos;re ready, they'll see clear CTAs to sign up with their work email</span>
+              <span>When they're ready, they'll see clear CTAs to sign up with their work email</span>
             </div>
           </div>
         </div>

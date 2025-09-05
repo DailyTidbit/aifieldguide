@@ -324,7 +324,7 @@ export default function AuthForm() {
           <div className="text-center">
             {mode === 'signin' ? (
               <p className="body-medium text-gray-600">
-                don&apos;t have an account?{' '}
+                don't have an account?{' '}
                 <button
                   type="button"
                   onClick={() => {

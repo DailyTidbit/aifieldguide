@@ -531,7 +531,7 @@ export default function VendorSettings() {
                         <div>
                           <div className="font-medium text-blue-900">Important Account Updates</div>
                           <div className="text-sm text-blue-800 mt-1">
-                            we&apos;ll always email you about billing issues, security alerts, and major changes to our partner program, regardless of these settings.
+                            we'll always email you about billing issues, security alerts, and major changes to our partner program, regardless of these settings.
                           </div>
                         </div>
                       </div>

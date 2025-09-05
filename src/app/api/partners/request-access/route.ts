@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     // Always return generic success message to prevent enumeration
     return NextResponse.json({
       success: true,
-      message: "Thanks! If eligible, we&apos;ll review and reach out via email."
+      message: "Thanks! If eligible, we'll review and reach out via email."
     }, {
       headers: {
         'X-RateLimit-Limit': '3',
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     // Return generic success even on errors to prevent information leakage
     return NextResponse.json({
       success: true,
-      message: "Thanks! If eligible, we&apos;ll review and reach out via email."
+      message: "Thanks! If eligible, we'll review and reach out via email."
     })
   }
 }

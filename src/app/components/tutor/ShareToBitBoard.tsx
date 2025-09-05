@@ -282,7 +282,7 @@ RESPOND ONLY with the social media post text - no quotes, no extra text, just th
     }
   };
 
-  // Hydration safety guard - don&apos;t render anything until mounted
+  // Hydration safety guard - don't render anything until mounted
   if (!mounted) {
     return null;
   }

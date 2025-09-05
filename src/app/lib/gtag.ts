@@ -26,7 +26,7 @@ export const initializeGoogleAnalytics = () => {
   if (typeof window === 'undefined' || gtagInitialized || !GA_TRACKING_ID) return
   
   try {
-    // Initialize dataLayer if it doesn&apos;t exist
+    // Initialize dataLayer if it does not exist
     window.dataLayer = window.dataLayer || []
     
     // Set up gtag function
@@ -40,7 +40,7 @@ export const initializeGoogleAnalytics = () => {
     gtag('config', GA_TRACKING_ID, {
       page_title: document.title,
       page_location: window.location.href,
-      send_page_view: false // we&apos;ll handle page views through analytics.ts
+      send_page_view: false // we'll handle page views through analytics.ts
     })
     
     gtagInitialized = true

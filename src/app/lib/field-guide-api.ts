@@ -22,7 +22,7 @@ export class FieldGuideAPI {
   // ✅ Initialize only in browser
   private static async ensureInitialized(): Promise<boolean> {
     if (typeof window === 'undefined') {
-      return false // Server-side, don&apos;t initialize
+      return false // Server-side, don't initialize
     }
 
     if (!this.mounted) {

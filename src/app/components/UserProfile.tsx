@@ -68,12 +68,12 @@ interface Badge {
 const RETRO_BADGES: Badge[] = [
   // Getting Started (1-10 tidbits completed)
   { id: 'first-bit', name: 'First Bit!', emoji: '🎉', tagline: 'Welcome to the Board', tier: 'starter', threshold: 1, theme: 'from-pink-500 to-red-500', type: 'tidbits' },
-  { id: 'bit-curious', name: 'Bit Curious', emoji: '👀', tagline: "you&apos;re exploring...", tier: 'starter', threshold: 3, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
+  { id: 'bit-curious', name: 'Bit Curious', emoji: '👀', tagline: "you're exploring...", tier: 'starter', threshold: 3, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
   { id: 'daily-dabbler', name: 'Daily Dabbler', emoji: '🧪', tagline: 'Starting to feel it?', tier: 'starter', threshold: 5, theme: 'from-green-500 to-emerald-500', type: 'tidbits' },
-  { id: 'early-adapter', name: 'Early Adapter', emoji: '💾', tagline: "you&apos;re plugged in now", tier: 'starter', threshold: 10, theme: 'from-purple-500 to-violet-500', type: 'tidbits' },
+  { id: 'early-adapter', name: 'Early Adapter', emoji: '💾', tagline: "you're plugged in now", tier: 'starter', threshold: 10, theme: 'from-purple-500 to-violet-500', type: 'tidbits' },
   
   // Arcade Era (11-50 tidbits)
-  { id: 'bit-bouncer', name: 'Bit Bouncer', emoji: '🕹️', tagline: "you&apos;re bouncing back daily", tier: 'arcade', threshold: 15, theme: 'from-yellow-500 to-orange-500', type: 'tidbits' },
+  { id: 'bit-bouncer', name: 'Bit Bouncer', emoji: '🕹️', tagline: "you're bouncing back daily", tier: 'arcade', threshold: 15, theme: 'from-yellow-500 to-orange-500', type: 'tidbits' },
   { id: 'pixel-pusher', name: 'Pixel Pusher', emoji: '🎮', tagline: 'That rhythm tho', tier: 'arcade', threshold: 20, theme: 'from-indigo-500 to-purple-500', type: 'tidbits' },
   { id: 'console-committer', name: 'Console Committer', emoji: '💾', tagline: "That's a quarter milestone!", tier: 'arcade', threshold: 25, theme: 'from-green-500 to-teal-500', type: 'tidbits' },
   { id: 'coinop-regular', name: 'Coin-Op Regular', emoji: '🪙', tagline: "You've earned your high score", tier: 'arcade', threshold: 30, theme: 'from-amber-500 to-yellow-500', type: 'tidbits' },
@@ -82,13 +82,13 @@ const RETRO_BADGES: Badge[] = [
   
   // Old Web Explorer (51-100 tidbits)
   { id: 'dialup-devotee', name: 'Dial-Up Devotee', emoji: '📞', tagline: "it's noisy, but it connects", tier: 'web', threshold: 60, theme: 'from-gray-500 to-slate-500', type: 'tidbits' },
-  { id: 'sitebuilder', name: 'Sitebuilder', emoji: '🧱', tagline: "you&apos;re stacking bits", tier: 'web', threshold: 75, theme: 'from-orange-500 to-red-500', type: 'tidbits' },
+  { id: 'sitebuilder', name: 'Sitebuilder', emoji: '🧱', tagline: "you're stacking bits", tier: 'web', threshold: 75, theme: 'from-orange-500 to-red-500', type: 'tidbits' },
   { id: 'web1-legend', name: 'Web 1.0 Legend', emoji: '🌍', tagline: 'A full century of tidbits?! 🫡', tier: 'web', threshold: 100, theme: 'from-violet-500 to-purple-500', type: 'tidbits' },
   
   // The Hacker's Lounge (101-250 tidbits)
   { id: 'command-champ', name: 'Command Line Champ', emoji: '⌨️', tagline: 'You speak fluent prompts now', tier: 'hacker', threshold: 125, theme: 'from-emerald-500 to-green-500', type: 'tidbits' },
-  { id: 'syntax-sorcerer', name: 'Syntax Sorcerer', emoji: '✨', tagline: "you&apos;re remixing everything", tier: 'hacker', threshold: 150, theme: 'from-purple-500 to-indigo-500', type: 'tidbits' },
-  { id: 'terminal-traveler', name: 'Terminal Traveler', emoji: '🧳', tagline: "you&apos;re in deep — and loving it", tier: 'hacker', threshold: 200, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
+  { id: 'syntax-sorcerer', name: 'Syntax Sorcerer', emoji: '✨', tagline: "you're remixing everything", tier: 'hacker', threshold: 150, theme: 'from-purple-500 to-indigo-500', type: 'tidbits' },
+  { id: 'terminal-traveler', name: 'Terminal Traveler', emoji: '🧳', tagline: "you're in deep — and loving it", tier: 'hacker', threshold: 200, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
   { id: 'root-access', name: 'Root Access', emoji: '🔑', tagline: 'You run this machine now', tier: 'hacker', threshold: 250, theme: 'from-red-500 to-orange-500', type: 'tidbits' },
   
   // Bit Voyager (251-500 tidbits)
@@ -99,12 +99,12 @@ const RETRO_BADGES: Badge[] = [
   // Neural Explorer (501-750 tidbits)
   { id: 'prompt-poet', name: 'Prompt Poet', emoji: '✍️', tagline: 'Your style? Unmistakable.', tier: 'neural', threshold: 600, theme: 'from-amber-500 to-orange-500', type: 'tidbits' },
   { id: 'language-modeler', name: 'Language Modeler', emoji: '📚', tagline: 'You could teach a model a thing or two', tier: 'neural', threshold: 700, theme: 'from-green-500 to-emerald-500', type: 'tidbits' },
-  { id: 'synapse-syncer', name: 'Synapse Syncer', emoji: '🧬', tagline: "you&apos;re wired for this now", tier: 'neural', threshold: 750, theme: 'from-purple-500 to-pink-500', type: 'tidbits' },
+  { id: 'synapse-syncer', name: 'Synapse Syncer', emoji: '🧬', tagline: "you're wired for this now", tier: 'neural', threshold: 750, theme: 'from-purple-500 to-pink-500', type: 'tidbits' },
   
   // The Reflection Zone (751-1000 tidbits)
   { id: 'bit-philosopher', name: 'Bit Philosopher', emoji: '🪞', tagline: "You've seen it all. Now what?", tier: 'quantum', threshold: 800, theme: 'from-slate-500 to-gray-500', type: 'tidbits' },
   { id: 'echo-mapper', name: 'Echo Mapper', emoji: '🛰️', tagline: 'Your thoughts ripple across the board', tier: 'quantum', threshold: 900, theme: 'from-cyan-500 to-blue-500', type: 'tidbits' },
-  { id: 'quantum-bitmaster', name: 'Quantum Bitmaster', emoji: '🧠💡', tagline: "One thousand tidbits. you&apos;re legend.", tier: 'quantum', threshold: 1000, theme: 'from-yellow-500 to-amber-500', type: 'tidbits' },
+  { id: 'quantum-bitmaster', name: 'Quantum Bitmaster', emoji: '🧠💡', tagline: "One thousand tidbits. you're legend.", tier: 'quantum', threshold: 1000, theme: 'from-yellow-500 to-amber-500', type: 'tidbits' },
 
   // Engagement Badges (based on posts/interaction)
   { id: 'first-post', name: 'First Post', emoji: '📝', tagline: 'Welcome to sharing!', tier: 'starter', threshold: 1, theme: 'from-green-500 to-blue-500', type: 'posts' },
@@ -517,7 +517,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         <div className="text-center py-12">
           <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Profile not found</h3>
-          <p className="text-gray-600">This user profile doesn&apos;t exist or has been removed.</p>
+          <p className="text-gray-600">This user profile does not exist or has been removed.</p>
         </div>
       </div>
     )
@@ -729,7 +729,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    we&apos;ll automatically add https:// if needed
+                    we'll automatically add https:// if needed
                   </p>
                 </div>
               </div>

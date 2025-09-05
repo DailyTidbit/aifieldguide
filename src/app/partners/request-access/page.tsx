@@ -123,8 +123,8 @@ const SuccessDisplay = ({ formData, mounted }: { formData: FormData; mounted: bo
             <div className="space-y-3 text-sm text-blue-800 text-left">
               {[
                 "Our team reviews your AI tool and company information",
-                "we&apos;ll send you a secure login link via email if approved",
-                "you&apos;ll set up your password and access the partner dashboard",
+                "we'll send you a secure login link via email if approved",
+                "you'll set up your password and access the partner dashboard",
                 "Start managing your tool listings and tracking performance"
               ].map((step, index) => (
                 <div key={index} className="flex items-start gap-3">
@@ -285,7 +285,7 @@ export default function RequestAccessPage() {
               
               <p className="text-gray-600 leading-relaxed">
                 Get your AI tool in front of 30,000+ learners through our beginner-friendly lessons. 
-                Fill out the form below and we&apos;ll review your application within 2-3 business days.
+                Fill out the form below and we'll review your application within 2-3 business days.
               </p>
             </div>
           </div>
@@ -321,7 +321,7 @@ export default function RequestAccessPage() {
                   value={formData.email}
                   onChange={(v) => updateForm('email', v)}
                   placeholder="your@company.com"
-                  helper="we&apos;ll send your login link to this email"
+                  helper="we'll send your login link to this email"
                   required
                   disabled={!mounted || loading}
                 />

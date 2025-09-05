@@ -120,7 +120,7 @@ export default function ToolModal({
     }
   }, [isOpen, mounted])
 
-  // don&apos;t render until mounted
+  // don't render until mounted
   if (!mounted) return null
   if (!isOpen) return null
 

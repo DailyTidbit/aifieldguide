@@ -234,7 +234,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-4 pb-24">
+    <main className="max-w-7xl mx-auto px-4 pb-24 relative z-10">
       {/* Controls */}
       <section className="p-4">
         <div className="max-w-[1100px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -389,7 +389,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
 
               <div className="flex items-center justify-between px-4 py-3 border-t">
                 <button onClick={clearFilters} className="text-sm text-brand-green hover:underline">Clear all</button>
-                <button onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} className="px-3 py-2 rounded-xl bg-brand-green text-white hover:bg-brand-greenDark">
+                <button onClick={() => { setFiltersOpen(false); filterButtonRef.current?.focus() }} className="px-3 py-2 rounded-xl bg-brand-green text-white hover:bg-brand-green-dark">
                   Done
                 </button>
               </div>

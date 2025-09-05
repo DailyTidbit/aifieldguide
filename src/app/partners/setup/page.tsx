@@ -94,7 +94,7 @@ const SuccessDisplay = ({ companyInfo }: { companyInfo: CompanyInfo | null }) =>
       
       <p className="text-gray-600 mb-6">
         {companyInfo?.isFirstUser 
-          ? `you&apos;re the first person from ${companyInfo.name} to join our partner program. You have admin access to manage your company's presence.`
+          ? `you're the first person from ${companyInfo.name} to join our partner program. You have admin access to manage your company's presence.`
           : `You now have access to ${companyInfo?.name}'s partner dashboard and can start managing your AI tool listings.`
         }
       </p>
@@ -519,7 +519,7 @@ export default function PartnerPasswordSetupPage() {
                   ) : (
                     <>
                       <AlertCircle className="h-4 w-4" />
-                      Passwords don&apos;t match
+                      Passwords don't match
                     </>
                   )}
                 </div>

@@ -188,7 +188,7 @@ RESPOND ONLY with this JSON format:
     }
   };
 
-  // don&apos;t render anything until mounted
+  // don't render anything until mounted
   if (!mounted) {
     return null;
   }

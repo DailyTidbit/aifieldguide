@@ -199,7 +199,7 @@ export const DatabaseErrorFallback = ({ onRetry }: { onRetry?: () => void }) => 
         </h3>
         
         <p className="text-brand-blueDark mb-6 leading-relaxed">
-          we&apos;re having trouble connecting to our database. This is usually temporary - please try again in a moment.
+          we're having trouble connecting to our database. This is usually temporary - please try again in a moment.
         </p>
         
         <div className="space-y-3">
@@ -281,7 +281,7 @@ export const NetworkErrorFallback = ({ onRetry }: { onRetry?: () => void }) => (
 // Simplified error fallback components (your existing)
 export const FieldGuideErrorFallback = ({ 
   title = "Content Unavailable", 
-  message = "we&apos;re having trouble loading this content.",
+  message = "we're having trouble loading this content.",
   showRetry = true,
   onRetry
 }: {

@@ -252,7 +252,7 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
             </div>
             <h1 className="heading-section text-gray-900 mb-4">Section Temporarily Unavailable</h1>
             <p className="body-large text-gray-700 mb-6 max-w-2xl mx-auto">
-              we&apos;re having trouble loading this section. Please try refreshing the page or return to the main field guide.
+              we're having trouble loading this section. Please try refreshing the page or return to the main field guide.
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               <a 
