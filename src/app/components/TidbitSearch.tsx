@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Clock, Eye, ArrowRight, Loader2, AlertCircle, Book } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Clock, Eye, ArrowRight, Loader2, AlertCircle, Book } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useDebounce } from '../hooks/useDebounce'
-import { formatDate } from '../lib/clientUtils' // ✅ Use safe date formatter
+import { formatDate, useMounted } from '../lib/clientUtils'
 
 interface Tidbit {
   id: number
@@ -40,7 +40,7 @@ interface SearchState {
   hasSearched: boolean
 }
 
-// ✅ HYDRATION SAFE: Analytics helper
+// Analytics helper
 const trackSearchEvent = (eventName: string, parameters: Record<string, any>) => {
   if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
     try {
@@ -54,17 +54,10 @@ const trackSearchEvent = (eventName: string, parameters: Record<string, any>) =>
   }
 }
 
-// ✅ HYDRATION SAFE: Generate stable timestamp only after mount
-const getStableStartTime = (): number => {
-  if (typeof window === 'undefined') return 0
-  return Date.now()
-}
-
 const loadTidbitsFromSupabase = async (): Promise<Tidbit[]> => {
   try {
     const supabase = getSupabaseBrowserClient()
     
-    // CRITICAL FIX: Handle null supabase client
     if (!supabase) {
       throw new Error('Supabase client not available')
     }
@@ -87,12 +80,9 @@ const loadTidbitsFromSupabase = async (): Promise<Tidbit[]> => {
 }
 
 export default function TidbitSearch() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const resultsRef = useRef<HTMLDivElement>(null)
-
-  // ✅ HYDRATION SAFETY: Mount protection
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
 
   const [searchState, setSearchState] = useState<SearchState>({
     tidbits: [],
@@ -103,180 +93,143 @@ export default function TidbitSearch() {
   })
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [numberQuery, setNumberQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
-  
-  // ✅ HYDRATION SAFE: Timing states only after mount
-  const [searchStartTime, setSearchStartTime] = useState<number>(0)
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
-  // ✅ HYDRATION SAFETY: Mount detection
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // ✅ HYDRATION SAFE: Initialize search query from URL after hydration
+  // Initialize search query from URL
   useEffect(() => {
     if (mounted && searchParams) {
       const queryParam = searchParams.get('q')
-      if (queryParam) {
+      if (queryParam && queryParam !== searchQuery) {
         setSearchQuery(queryParam)
       }
     }
   }, [mounted, searchParams])
 
+  // Load tidbits on mount
   useEffect(() => {
-    if (mounted) {
-      loadTidbits()
+    if (!mounted) return
+    
+    const loadTidbits = async () => {
+      try {
+        setSearchState(prev => ({ ...prev, loading: true, error: null }))
+        const data = await loadTidbitsFromSupabase()
+        setSearchState(prev => ({
+          ...prev,
+          tidbits: data,
+          searchResults: data,
+          loading: false
+        }))
+        trackSearchEvent('search_data_loaded', { tidbit_count: data.length })
+      } catch (err: any) {
+        console.error('Error loading tidbits:', err)
+        setSearchState(prev => ({
+          ...prev,
+          error: 'Failed to load tidbits. Please try again.',
+          loading: false
+        }))
+      }
     }
+
+    loadTidbits()
   }, [mounted])
 
-  // ✅ HYDRATION SAFE: Update URL only after mounted
+  // Update URL when search query changes (but don't redirect)
   useEffect(() => {
     if (!mounted || typeof window === 'undefined') return
     
     const params = new URLSearchParams()
     if (debouncedSearchQuery) params.set('q', debouncedSearchQuery)
     const newUrl = params.toString() ? `/search?${params.toString()}` : '/search'
-    window.history.replaceState({}, '', newUrl)
+    
+    // Use replaceState to update URL without navigation
+    if (window.location.pathname + window.location.search !== newUrl) {
+      window.history.replaceState({}, '', newUrl)
+    }
   }, [debouncedSearchQuery, mounted])
 
-  const loadTidbits = async () => {
-    if (!mounted) return
+  // Search logic - pure filtering, no redirects
+  useEffect(() => {
+    if (!mounted || searchState.loading || !searchState.tidbits.length) return
     
-    try {
-      setSearchState(prev => ({ ...prev, loading: true, error: null }))
-      const data = await loadTidbitsFromSupabase()
+    const startTime = Date.now()
+    setIsSearching(true)
+    
+    if (!debouncedSearchQuery.trim()) {
       setSearchState(prev => ({
         ...prev,
-        tidbits: data,
-        searchResults: data,
-        loading: false
+        searchResults: prev.tidbits,
+        hasSearched: false
       }))
-      trackSearchEvent('search_data_loaded', { tidbit_count: data.length })
-    } catch (err: any) {
-      console.error('Error loading tidbits:', err)
-      setSearchState(prev => ({
-        ...prev,
-        error: 'Failed to load tidbits. Please try again.',
-        loading: false
-      }))
+      setIsSearching(false)
+      return
     }
-  }
 
-  const performKeywordSearch = useCallback(
-    (query: string) => {
-      if (!mounted) return
+    // Perform search - treat everything as text search
+    const queryLower = debouncedSearchQuery.toLowerCase().trim()
+    const results: Array<{ tidbit: Tidbit; score: number }> = []
+
+    searchState.tidbits.forEach(tidbit => {
+      let score = 0
       
-      setIsSearching(true)
-      // ✅ HYDRATION SAFE: Set timestamp after mount using stable method
-      setSearchStartTime(getStableStartTime())
+      // Create searchable text content
+      const searchableFields = [
+        { text: (tidbit.title || '').toLowerCase(), weight: 100 },
+        { text: (tidbit.hero_heading || '').toLowerCase(), weight: 80 },
+        { text: (tidbit.seo_description || '').toLowerCase(), weight: 60 },
+        { text: (tidbit.walkthrough_intro || '').toLowerCase(), weight: 20 },
+        { text: (tidbit.tags || []).join(' ').toLowerCase(), weight: 40 },
+        { text: `day ${tidbit.day_number}`, weight: 90 },
+        { text: `tidbit ${tidbit.day_number}`, weight: 90 },
+        { text: tidbit.day_number.toString(), weight: 85 }
+      ]
 
-      if (!query.trim()) {
-        setSearchState(prev => ({
-          ...prev,
-          searchResults: prev.tidbits,
-          hasSearched: false
-        }))
-        setIsSearching(false)
-        return
-      }
-
-      const queryLower = query.toLowerCase().trim()
-      const results: Array<{ tidbit: Tidbit; score: number }> = []
-
-      searchState.tidbits.forEach(tidbit => {
-        let score = 0
-        const searchableContent = {
-          title: (tidbit.title || '').toLowerCase(),
-          hero_heading: (tidbit.hero_heading || '').toLowerCase(),
-          description: (tidbit.seo_description || '').toLowerCase(),
-          walkthrough: (tidbit.walkthrough_intro || '').toLowerCase(),
-          tags: (tidbit.tags || []).join(' ').toLowerCase()
+      // Calculate relevance score
+      searchableFields.forEach(field => {
+        if (field.text.includes(queryLower)) {
+          score += field.weight
         }
-
-        if (searchableContent.title.includes(queryLower)) score += 100
-        if (searchableContent.hero_heading.includes(queryLower)) score += 80
-        if (searchableContent.description.includes(queryLower)) score += 60
-        if (searchableContent.tags.includes(queryLower)) score += 40
-        if (searchableContent.walkthrough.includes(queryLower)) score += 20
-
-        if (score > 0) results.push({ tidbit, score })
       })
 
-      const sortedResults = results
-        .sort((a, b) => (b.score - a.score) || (a.tidbit.day_number - b.tidbit.day_number))
-        .map(r => r.tidbit)
-
-      setSearchState(prev => ({
-        ...prev,
-        searchResults: sortedResults,
-        hasSearched: true
-      }))
-
-      setIsSearching(false)
-      
-      // ✅ HYDRATION SAFE: Calculate search time only if start time was set
-      if (searchStartTime > 0) {
-        const searchTime = getStableStartTime() - searchStartTime
-        trackSearchEvent('search_performed', {
-          query,
-          results_count: sortedResults.length,
-          search_time_ms: searchTime
-        })
+      if (score > 0) {
+        results.push({ tidbit, score })
       }
-    },
-    [searchState.tidbits, mounted, searchStartTime]
-  )
+    })
 
-  const performNumberSearch = useCallback(
-    (num: string) => {
-      if (!mounted) return
-      
-      if (!num.trim()) {
-        setSearchState(prev => ({
-          ...prev,
-          searchResults: prev.tidbits,
-          hasSearched: false
-        }))
-        return
-      }
-      const dayNum = parseInt(num, 10)
-      if (!isNaN(dayNum)) {
-        const match = searchState.tidbits.filter(t => t.day_number === dayNum)
-        setSearchState(prev => ({
-          ...prev,
-          searchResults: match,
-          hasSearched: true
-        }))
-        trackSearchEvent('search_performed', {
-          query: `day_${dayNum}`,
-          results_count: match.length
-        })
-      }
-    },
-    [searchState.tidbits, mounted]
-  )
+    const sortedResults = results
+      .sort((a, b) => (b.score - a.score) || (a.tidbit.day_number - b.tidbit.day_number))
+      .map(r => r.tidbit)
 
-  useEffect(() => {
-    if (!searchState.loading && !numberQuery && mounted) {
-      performKeywordSearch(debouncedSearchQuery)
-    }
-  }, [debouncedSearchQuery, numberQuery, searchState.loading, performKeywordSearch, mounted])
+    setSearchState(prev => ({
+      ...prev,
+      searchResults: sortedResults,
+      hasSearched: true
+    }))
 
-  useEffect(() => {
-    if (!searchState.loading && numberQuery && mounted) {
-      performNumberSearch(numberQuery)
-    }
-  }, [numberQuery, searchState.loading, performNumberSearch, mounted])
+    trackSearchEvent('search_performed', {
+      query: debouncedSearchQuery,
+      results_count: sortedResults.length,
+      search_time_ms: Date.now() - startTime
+    })
+    
+    setIsSearching(false)
+  }, [mounted, searchState.loading, searchState.tidbits, debouncedSearchQuery])
 
-  const navigateToTidbit = (tidbit: Tidbit) => {
+  // Handle tidbit viewing - open in new tab to avoid navigation
+  const handleViewTidbit = (tidbit: Tidbit) => {
     if (!mounted) return
-    router.push(`/day/${tidbit.day_number}`)
+    
+    // Track the click
+    trackSearchEvent('tidbit_view_clicked', {
+      day_number: tidbit.day_number,
+      title: tidbit.title
+    })
+    
+    // Open in new tab
+    window.open(`/day/${tidbit.day_number}`, '_blank')
   }
 
-  // ✅ BRAND COLOR FIX: Use brand colors instead of generic ones
   const getDifficultyColor = (level: number): string => {
     const colors: Record<number, string> = {
       1: 'bg-brand-green/10 text-brand-green border-brand-green/20',
@@ -297,16 +250,19 @@ export default function TidbitSearch() {
     return colors[status] || colors['draft']
   }
 
-  // ✅ HYDRATION SAFE: Loading skeleton during hydration
   if (!mounted) {
     return (
       <div className="max-w-7xl mx-auto p-4 sm:p-6 bg-gray-50 min-h-screen">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
           <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+          <div className="mb-8">
             <div className="h-12 bg-gray-200 rounded"></div>
-            <div className="h-12 bg-gray-200 rounded"></div>
+          </div>
+          <div className="space-y-4">
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
           </div>
         </div>
       </div>
@@ -334,56 +290,39 @@ export default function TidbitSearch() {
           Search Daily Tidbits
         </h1>
         <p className="text-sm sm:text-base text-gray-600">
-          Search by keyword or by tidbit number to quickly find what you need.
+          Search by keyword, title, or tag to find the tidbits you're looking for. You can also search by day number like "day 1" or "tidbit 5".
         </p>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        <div>
-          <label htmlFor="tidbit-search" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-            Search by keyword
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-            <input
-              id="tidbit-search"
-              type="text"
-              placeholder="Search tidbits by keyword, title, or tag"
-              value={searchQuery}
-              onChange={(e) => {
-                if (!mounted) return
-                setSearchQuery(e.target.value)
-                setNumberQuery('')
-              }}
-              className="w-full pl-9 sm:pl-12 pr-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green bg-white shadow-sm"
-            />
-            {isSearching && (
-              <Loader2 className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-            )}
-          </div>
+      <div className="mb-6 sm:mb-8">
+        <label htmlFor="tidbit-search" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+          Search tidbits
+        </label>
+        <div className="relative">
+          <input
+            id="tidbit-search"
+            type="text"
+            placeholder="Search by keyword, title, tag, or day number..."
+            value={searchQuery}
+            onChange={(e) => {
+              if (!mounted) return
+              setSearchQuery(e.target.value)
+            }}
+            onKeyDown={(e) => {
+              // Prevent any form submission or enter key behavior
+              if (e.key === 'Enter') {
+                e.preventDefault()
+              }
+            }}
+            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green bg-white shadow-sm"
+          />
+          {isSearching && (
+            <Loader2 className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+          )}
         </div>
-
-        <div>
-          <label htmlFor="tidbit-number" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-            Search by Tidbit number
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-            <input
-              id="tidbit-number"
-              type="number"
-              min={1}
-              placeholder="Enter day number..."
-              value={numberQuery}
-              onChange={(e) => {
-                if (!mounted) return
-                setNumberQuery(e.target.value)
-                setSearchQuery('')
-              }}
-              className="w-full pl-9 sm:pl-12 pr-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-green focus:border-brand-green bg-white shadow-sm"
-            />
-          </div>
-        </div>
+        <p className="text-xs text-gray-500 mt-1">
+          Try: "recipes", "productivity tips", "day 1", "tidbit 5"
+        </p>
       </div>
 
       {searchState.loading && (
@@ -447,7 +386,6 @@ export default function TidbitSearch() {
                     </div>
                   )}
 
-                  {/* ✅ HYDRATION SAFE: Use formatDate instead of toLocaleDateString */}
                   <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-500">
                     Updated {formatDate(tidbit.updated_at)}
                   </p>
@@ -455,8 +393,8 @@ export default function TidbitSearch() {
 
                 <div className="sm:ml-4">
                   <button
-                    onClick={() => navigateToTidbit(tidbit)}
-                    className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-greenDark focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2"
+                    onClick={() => handleViewTidbit(tidbit)}
+                    className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2"
                   >
                     <Eye className="w-4 h-4" />
                     View Tidbit
@@ -467,11 +405,11 @@ export default function TidbitSearch() {
             </article>
           ))}
 
-          {searchState.searchResults.length === 0 && (
+          {searchState.searchResults.length === 0 && searchState.hasSearched && (
             <div className="text-center py-12">
-              <Search className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+              <Book className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No tidbits found</h3>
-              <p className="text-sm sm:text-base text-gray-600 mb-4">Try a different keyword or tidbit number above.</p>
+              <p className="text-sm sm:text-base text-gray-600 mb-4">Try a different keyword, or search for a specific day like "day 1".</p>
             </div>
           )}
         </div>
