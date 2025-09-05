@@ -28,6 +28,10 @@ const getCurrentTidbit = unstable_cache(
   async (): Promise<TodaysTip> => {
     try {
       const supabase = createServerClient();
+      if (!supabase) {
+        throw new Error('Database connection unavailable');
+      }
+
       const { data, error } = await supabase
         .from('tidbits')
         .select(
@@ -47,9 +51,10 @@ const getCurrentTidbit = unstable_cache(
         throw new Error('No current tidbit available');
       }
 
+      // Enhanced data validation and transformation
       return {
         day_number: data.day_number,
-        title: data.title,
+        title: data.title || 'Untitled Tidbit',
         walkthrough_intro: data.walkthrough_intro ?? '',
         what_you_need: data.what_you_need ?? '',
         video_url: data.video_url ?? null,
@@ -65,118 +70,117 @@ const getCurrentTidbit = unstable_cache(
     }
   },
   ['current-tidbit'],
-  { revalidate: 300 }
+  { 
+    revalidate: 300,
+    tags: ['tidbits', 'homepage'] 
+  }
 );
 
-// Metadata uses the same cached fetch
+// Enhanced metadata generation with better error handling
 export async function generateMetadata(): Promise<Metadata> {
-  try {
-    const t = await getCurrentTidbit();
-    const desc = (t.walkthrough_intro || '').slice(0, 160);
-    const siteName = 'Daily Tidbit';
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org';
+  const siteName = 'Daily Tidbit';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org';
+  
+  // Fallback metadata
+  const fallbackMetadata: Metadata = {
+    title: `${siteName} - AI for Real People`,
+    description: 'Learn how to use AI to make life easier, more creative, and more fun. One smart tidbit a day.',
+    keywords: [
+      'AI tutorial',
+      'artificial intelligence',
+      'daily tips',
+      'technology education',
+      'AI for beginners',
+      'practical AI',
+      'AI tools'
+    ],
+    authors: [{ name: 'Daily Tidbit', url: baseUrl }],
+    creator: 'Daily Tidbit',
+    publisher: 'Daily Tidbit',
+    category: 'Education',
+    classification: 'AI Education Platform',
+    openGraph: {
+      type: 'website',
+      url: baseUrl,
+      siteName,
+      title: `${siteName} - AI for Real People`,
+      description: 'Learn how to use AI to make life easier, more creative, and more fun. One smart tidbit a day.',
+      images: [{
+        url: `${baseUrl}/og-default.jpg`,
+        width: 1200,
+        height: 630,
+        alt: 'Daily Tidbit - AI for Real People',
+        type: 'image/jpeg',
+      }],
+      locale: 'en_US',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      site: '@dailytidbit',
+      creator: '@dailytidbit',
+      title: `${siteName} - AI for Real People`,
+      description: 'Learn how to use AI to make life easier, more creative, and more fun. One smart tidbit a day.',
+      images: [`${baseUrl}/og-default.jpg`],
+    },
+    alternates: {
+      canonical: baseUrl,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
+  };
 
+  try {
+    const tidbit = await getCurrentTidbit();
+    const description = (tidbit.walkthrough_intro || '').slice(0, 157) + '...';
+    const title = `Day ${tidbit.day_number}: ${tidbit.title}`;
+    
     return {
-      title: `Day ${t.day_number}: ${t.title} | ${siteName}`,
-      description: desc || `Learn AI with Day ${t.day_number}: ${t.title}. Practical AI tips for real people.`,
+      ...fallbackMetadata,
+      title: `${title} | ${siteName}`,
+      description: description || `Learn AI with Day ${tidbit.day_number}: ${tidbit.title}. Practical AI tips for real people.`,
       keywords: [
         'AI tutorial',
         'artificial intelligence',
         'daily tips',
         'technology education',
-        ...(t.tags || [])
+        `day ${tidbit.day_number}`,
+        ...(tidbit.tags || [])
       ],
-      authors: [{ name: 'Daily Tidbit' }],
-      creator: 'Daily Tidbit',
-      publisher: 'Daily Tidbit LLC',
       openGraph: {
-        type: 'website',
-        url: baseUrl,
-        siteName,
-        title: `Day ${t.day_number}: ${t.title}`,
-        description: desc || `Learn AI with Day ${t.day_number}: ${t.title}`,
-        images: t.image_url ? [{
-          url: t.image_url,
+        ...fallbackMetadata.openGraph,
+        title,
+        description: description || `Learn AI with Day ${tidbit.day_number}: ${tidbit.title}`,
+        images: tidbit.image_url ? [{
+          url: tidbit.image_url,
           width: 1200,
           height: 630,
-          alt: `Day ${t.day_number}: ${t.title} - Daily Tidbit`,
-        }] : [{
-          url: `${baseUrl}/og-default.jpg`,
-          width: 1200,
-          height: 630,
-          alt: 'Daily Tidbit - AI for Real People',
-        }],
+          alt: `Day ${tidbit.day_number}: ${tidbit.title} - Daily Tidbit`,
+          type: 'image/jpeg',
+        }] : fallbackMetadata.openGraph?.images || [],
       },
       twitter: {
-        card: 'summary_large_image',
-        site: '@dailytidbit',
-        creator: '@dailytidbit',
-        title: `Day ${t.day_number}: ${t.title}`,
-        description: desc || `Learn AI with Day ${t.day_number}: ${t.title}`,
-        images: t.image_url ? [t.image_url] : [`${baseUrl}/og-default.jpg`],
-      },
-      alternates: {
-        canonical: baseUrl,
-      },
-      robots: {
-        index: true,
-        follow: true,
-        googleBot: {
-          index: true,
-          follow: true,
-          'max-video-preview': -1,
-          'max-image-preview': 'large',
-          'max-snippet': -1,
-        },
+        ...fallbackMetadata.twitter,
+        title,
+        description: description || `Learn AI with Day ${tidbit.day_number}: ${tidbit.title}`,
+        images: tidbit.image_url ? [tidbit.image_url] : [`${baseUrl}/og-default.jpg`],
       },
     };
   } catch (error) {
-    console.error('Error generating metadata:', error);
-    const siteName = 'Daily Tidbit';
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org';
-    
-    return {
-      title: `${siteName} - AI for Real People`,
-      description: 'Learn how to use AI to make life easier, more creative, and more fun. One smart tidbit a day.',
-      keywords: [
-        'AI tutorial',
-        'artificial intelligence',
-        'daily tips',
-        'technology education',
-        'AI for beginners'
-      ],
-      authors: [{ name: 'Daily Tidbit' }],
-      creator: 'Daily Tidbit',
-      publisher: 'Daily Tidbit LLC',
-      openGraph: {
-        type: 'website',
-        url: baseUrl,
-        siteName,
-        title: `${siteName} - AI for Real People`,
-        description: 'Learn how to use AI to make life easier, more creative, and more fun.',
-        images: [{
-          url: `${baseUrl}/og-default.jpg`,
-          width: 1200,
-          height: 630,
-          alt: 'Daily Tidbit - AI for Real People',
-        }],
-      },
-      twitter: {
-        card: 'summary_large_image',
-        site: '@dailytidbit',
-        creator: '@dailytidbit',
-        title: `${siteName} - AI for Real People`,
-        description: 'Learn how to use AI to make life easier, more creative, and more fun.',
-        images: [`${baseUrl}/og-default.jpg`],
-      },
-      alternates: {
-        canonical: baseUrl,
-      },
-    };
+    console.error('Error generating metadata, using fallback:', error);
+    return fallbackMetadata;
   }
 }
 
-// Enhanced loading skeleton with better accessibility
+// Enhanced loading skeleton following design system
 function TodaysTidbitSkeleton() {
   return (
     <div 
@@ -184,39 +188,69 @@ function TodaysTidbitSkeleton() {
       role="status" 
       aria-busy="true" 
       aria-live="polite"
-      aria-label="Loading today's tidbit"
+      aria-label="Loading today's AI tidbit"
     >
-      {/* Video/Image Skeleton */}
+      {/* Day number indicator skeleton */}
+      <div className="text-center mb-6 sm:mb-8">
+        <div className="h-6 bg-gray-200 rounded-lg w-24 mx-auto mb-4"></div>
+        <div className="h-10 bg-gray-200 rounded-lg w-3/4 mx-auto mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+      </div>
+
+      {/* Video/Image placeholder with proper aspect ratio */}
       <div className="flex justify-center mb-6 sm:mb-8">
         <div className="relative max-w-3xl w-full px-4">
-          <div className="w-full max-w-md mx-auto h-64 bg-gray-200 rounded-2xl shadow-lg"></div>
+          <div className="w-full max-w-md mx-auto aspect-video bg-gray-200 rounded-2xl shadow-brand"></div>
         </div>
       </div>
 
-      {/* Info Cards Skeleton */}
+      {/* Info cards with brand styling */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 px-4">
-        <div className="bg-gray-100 p-4 sm:p-6 rounded-xl h-32 shadow-sm"></div>
-        <div className="bg-gray-100 p-4 sm:p-6 rounded-xl h-32 shadow-sm"></div>
+        <div className="bg-gray-100 p-4 sm:p-6 rounded-xl h-32 shadow-sm">
+          <div className="h-5 bg-gray-200 rounded w-1/3 mb-3"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          </div>
+        </div>
+        <div className="bg-gray-100 p-4 sm:p-6 rounded-xl h-32 shadow-sm">
+          <div className="h-5 bg-gray-200 rounded w-1/3 mb-3"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </div>
       </div>
 
-      {/* Main Content Skeleton */}
+      {/* Main content area */}
       <div className="px-4">
-        <div className="bg-gray-200 rounded-xl h-64 mb-4 sm:mb-6 shadow-sm"></div>
-        <div className="bg-gray-100 rounded-xl h-16 mb-6 sm:mb-8 shadow-sm"></div>
+        <div className="bg-gray-100 rounded-xl p-6 mb-4 sm:mb-6 shadow-sm">
+          <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="space-y-3">
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+          </div>
+        </div>
+        
+        {/* CTA button skeleton */}
+        <div className="text-center">
+          <div className="h-12 bg-gray-200 rounded-lg w-48 mx-auto shadow-sm"></div>
+        </div>
       </div>
       
-      {/* Screen reader text */}
+      {/* Accessible loading text */}
       <span className="sr-only">Loading today's AI tidbit content...</span>
     </div>
   );
 }
 
-// Enhanced error component with better design system integration
+// Enhanced error component with design system integration
 function TodaysTidbitError({ error }: { error?: string }) {
   return (
     <div className="max-w-2xl mx-auto px-4">
       <div
-        className="bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-2xl p-8 sm:p-12 text-center shadow-lg"
+        className="bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-2xl p-8 sm:p-12 text-center shadow-brand-lg"
         role="alert"
         aria-live="assertive"
       >
@@ -225,46 +259,53 @@ function TodaysTidbitError({ error }: { error?: string }) {
         </div>
         
         <h3 className="heading-subsection text-red-700 mb-4">
-          We couldn't load today's Tidbit
+          Unable to Load Today's Tidbit
         </h3>
         
-        <p className="body-large text-red-600 mb-6 max-w-lg mx-auto">
-          Please try refreshing the page. If this keeps happening, we might be updating our content or experiencing technical difficulties.
+        <p className="body-large text-red-600 mb-6 max-w-lg mx-auto leading-relaxed">
+          We're having trouble loading today's content. This might be due to a temporary issue or we could be updating our systems.
         </p>
         
+        <div className="space-y-4">
+          <div className="inline-block">
+            <RefreshButton />
+          </div>
+          
+          <p className="body-small text-red-500">
+            If this problem persists, please try again in a few minutes.
+          </p>
+        </div>
+        
+        {/* Development error details */}
         {error && process.env.NODE_ENV === 'development' && (
-          <details className="mb-6 text-left">
-            <summary className="body-small text-red-500 cursor-pointer hover:text-red-700">
-              Technical Details (Development)
+          <details className="mt-6 text-left">
+            <summary className="body-small text-red-500 cursor-pointer hover:text-red-700 transition-colors">
+              Technical Details (Development Only)
             </summary>
-            <pre className="body-small text-red-500 mt-2 p-3 bg-red-50 rounded-lg overflow-auto">
+            <pre className="body-small text-red-500 mt-2 p-3 bg-red-50 rounded-lg overflow-auto whitespace-pre-wrap">
               {error}
             </pre>
           </details>
         )}
-        
-        <div className="inline-block">
-          <RefreshButton />
-        </div>
       </div>
     </div>
   );
 }
 
-// Server Component that passes data to the client UI
+// Server Component that fetches and passes data to client
 async function TodaysTidbitServer() {
   try {
     const todaysTip = await getCurrentTidbit();
     return <TodaysTidbitClient todaysTip={todaysTip} />;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('TodaysTidbitServer error:', error);
+    console.error('TodaysTidbitServer error:', errorMessage, error);
     
     return <TodaysTidbitError error={errorMessage} />;
   }
 }
 
-// Main homepage (Server Component)
+// Main homepage server component
 export default async function HomePage() {
   return (
     <HomeClient>
@@ -273,15 +314,16 @@ export default async function HomePage() {
         <div className="fixed inset-0 bg-gradient-to-br from-green-200 via-green-100 to-blue-200"></div>
 
         <main className="relative z-10">
-          {/* Accessible heading structure */}
-          <h1 className="sr-only">Daily Tidbit - Today's AI Tidbit</h1>
+          {/* Semantic heading structure for accessibility */}
+          <h1 className="sr-only">Daily Tidbit - Learn AI One Tip at a Time</h1>
 
           <section 
             className="py-12 sm:py-20 text-center relative"
             aria-labelledby="todays-tidbit-heading"
           >
+            {/* Hidden heading for screen readers */}
             <h2 id="todays-tidbit-heading" className="sr-only">
-              Today's Featured Tidbit
+              Today's Featured AI Learning Tidbit
             </h2>
             
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">

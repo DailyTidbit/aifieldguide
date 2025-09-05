@@ -546,7 +546,7 @@ export default function PartnerPasswordSetupPage() {
 
           <div className="mt-8 pt-6 border-t border-gray-200 text-center">
             <p className="text-xs text-gray-500">
-              By setting up your password, you agree to Daily Tidbit&apos;s{' '}
+              By setting up your password, you agree to Daily Tidbit's{' '}
               <Link href="/terms" className="text-brand-green hover:underline">Terms of Service</Link>
               {' '}and{' '}
               <Link href="/privacy" className="text-brand-green hover:underline">Privacy Policy</Link>

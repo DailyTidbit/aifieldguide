@@ -146,7 +146,7 @@ const AIExplanationCarousel: React.FC = () => {
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            it&apos;s trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
+            it's trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
           </p>
           <p className="mb-3 sm:mb-4">
             Some models write, some generate images, others make music, synthesize voices, or even help with code.

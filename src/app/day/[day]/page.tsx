@@ -252,7 +252,7 @@ const SocialShare = ({ tidbit }: { tidbit: any }) => {
         </h3>
         
         <p className="body-large text-gray-700">
-          let&apos;s grow this community! 🌱
+          let's grow this community! 🌱
         </p>
         <p className="body-medium text-gray-600 mt-2">
           Share this AI tip and help others learn something new today

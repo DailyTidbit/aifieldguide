@@ -164,24 +164,24 @@ export default function Footer() {
           {/* Legal + Get in Touch link */}
           <div className="pt-4 border-t border-gray-300 space-y-2">
             <nav className="flex flex-wrap items-center justify-center gap-3 text-sm text-brand-blue" aria-label="Footer">
-              <Link href="/privacy" className="hover:underline hover:text-brand-blueDark transition-colors"
+              <Link href="/privacy" className="hover:underline hover:text-brand-blue-dark transition-colors"
                 onClick={() => handleFooterLinkClick('privacy_policy', '/privacy')}>
                 Privacy Policy
               </Link>
               <span className="text-gray-400 text-sm" aria-hidden="true">•</span>
-              <Link href="/accessibility" className="hover:underline hover:text-brand-blueDark transition-colors"
+              <Link href="/accessibility" className="hover:underline hover:text-brand-blue-dark transition-colors"
                 onClick={() => handleFooterLinkClick('accessibility_statement', '/accessibility')}>
                 Accessibility
               </Link>
               <span className="text-gray-400 text-sm" aria-hidden="true">•</span>
-              <Link href="/terms" className="hover:underline hover:text-brand-blueDark transition-colors"
+              <Link href="/terms" className="hover:underline hover:text-brand-blue-dark transition-colors"
                 onClick={() => handleFooterLinkClick('terms_conditions', '/terms')}>
                 Terms
               </Link>
               <span className="text-gray-400 text-sm" aria-hidden="true">•</span>
               <a
                 href="mailto:mike@dailytidbit.org"
-                className="hover:underline hover:text-brand-blueDark transition-colors"
+                className="hover:underline hover:text-brand-blue-dark transition-colors"
                 onClick={() => handleFooterLinkClick('email_contact', 'mailto:mike@dailytidbit.org')}
               >
                 Get in Touch

@@ -81,7 +81,7 @@ const RETRO_BADGES: Badge[] = [
   { id: 'game-saved', name: 'Game Saved', emoji: '💽', tagline: 'Press start to continue', tier: 'arcade', threshold: 50, theme: 'from-cyan-500 to-blue-500', type: 'tidbits' },
   
   // Old Web Explorer (51-100 tidbits)
-  { id: 'dialup-devotee', name: 'Dial-Up Devotee', emoji: '📞', tagline: "it&apos;s noisy, but it connects", tier: 'web', threshold: 60, theme: 'from-gray-500 to-slate-500', type: 'tidbits' },
+  { id: 'dialup-devotee', name: 'Dial-Up Devotee', emoji: '📞', tagline: "it's noisy, but it connects", tier: 'web', threshold: 60, theme: 'from-gray-500 to-slate-500', type: 'tidbits' },
   { id: 'sitebuilder', name: 'Sitebuilder', emoji: '🧱', tagline: "you&apos;re stacking bits", tier: 'web', threshold: 75, theme: 'from-orange-500 to-red-500', type: 'tidbits' },
   { id: 'web1-legend', name: 'Web 1.0 Legend', emoji: '🌍', tagline: 'A full century of tidbits?! 🫡', tier: 'web', threshold: 100, theme: 'from-violet-500 to-purple-500', type: 'tidbits' },
   

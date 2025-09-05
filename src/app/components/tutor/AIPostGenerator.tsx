@@ -90,7 +90,7 @@ TASK: Create a ${style.description} social media post that:
 
 1. **Content** (main post): Write an engaging ${style.id} post (max 280 characters) that:
    - Captures the essence of their AI writing improvement journey
-   - Mentions it&apos;s from Daily Tidbit #${tidbitNumber}
+   - Mentions it's from Daily Tidbit #${tidbitNumber}
    - Shows personality and authenticity
    - Would inspire others to try AI writing tools
    - ${style.id === 'excited' ? 'Uses enthusiastic language and emojis' : ''}

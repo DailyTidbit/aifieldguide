@@ -279,8 +279,8 @@ export default function Navigation() {
       }
       
       const colors = [
-        'from-brand-green to-brand-greenDark',
-        'from-brand-blue to-brand-blueDark',
+        'from-brand-green to-brand-green-dark',
+        'from-brand-blue to-brand-blue-dark',
         'from-brand-green to-brand-blue',
         'from-brand-blue to-brand-green'
       ]
@@ -579,7 +579,7 @@ export default function Navigation() {
               ) : shouldShowGuestUI ? (
                 <button 
                   onClick={openAuthModal} 
-                  className="bg-brand-green text-white px-4 py-2 rounded-lg hover:bg-brand-greenDark transition-colors font-medium text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+                  className="bg-brand-green text-white px-4 py-2 rounded-lg hover:bg-brand-green-dark transition-colors font-medium text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                 >
                   LOGIN
                 </button>

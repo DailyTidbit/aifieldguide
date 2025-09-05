@@ -61,7 +61,7 @@ export default function PartnerProfileSetupWizard({
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ? HYDRATION SAFE: Enhanced mounting and client checking
+  // HYDRATION SAFE: Enhanced mounting and client checking
   useEffect(() => {
     setMounted(true)
     
@@ -84,7 +84,7 @@ export default function PartnerProfileSetupWizard({
     return () => clearInterval(interval)
   }, [])
 
-  // ? HYDRATION SAFE: Get Supabase client safely
+  // HYDRATION SAFE: Get Supabase client safely
   const getClient = () => {
     if (!mounted || !clientReady) {
       return null
@@ -98,7 +98,7 @@ export default function PartnerProfileSetupWizard({
     }
   }
 
-  // ? Check if operations are ready
+  // Check if operations are ready
   const isWizardReady = mounted && clientReady
 
   const totalSteps = isWizardReady && partnerInfo.role === 'company_admin' ? 4 : 3
@@ -149,7 +149,7 @@ export default function PartnerProfileSetupWizard({
     }
   }, [isWizardReady, existingProfile])
 
-  // ? HYDRATION SAFE: Handle logo upload with enhanced guards
+  // HYDRATION SAFE: Handle logo upload with enhanced guards
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!isWizardReady) {
       setError('System not ready. Please try again in a moment.')
@@ -200,7 +200,7 @@ export default function PartnerProfileSetupWizard({
     }
   }
 
-  // ? HYDRATION SAFE: Save profile data with enhanced guards
+  // HYDRATION SAFE: Save profile data with enhanced guards
   const handleComplete = async () => {
     if (!isWizardReady) {
       setError('System not ready. Please try again in a moment.')
@@ -278,7 +278,7 @@ export default function PartnerProfileSetupWizard({
     }
   }
 
-  // ? HYDRATION SAFE: Validation for each step
+  // HYDRATION SAFE: Validation for each step
   const canProceed = () => {
     if (!isWizardReady) return false
     
@@ -316,7 +316,7 @@ export default function PartnerProfileSetupWizard({
     }
   }
 
-  // ? HYDRATION SAFE: Early return for SSR and client readiness
+  // HYDRATION SAFE: Early return for SSR and client readiness
   if (!isOpen) return null
   
   if (!mounted || !clientReady) {
@@ -325,7 +325,7 @@ export default function PartnerProfileSetupWizard({
         <div className="bg-white rounded-2xl max-w-2xl w-full p-8">
           <div className="flex items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-gray-600">
-              <Loader2 className="w-8 h-8 animate-spin text-[brand-blue]" />
+              <Loader2 className="w-8 h-8 animate-spin text-brand-blue" />
               <span className="text-sm">
                 {!mounted ? 'Loading...' : 'Connecting to services...'}
               </span>
@@ -345,8 +345,8 @@ export default function PartnerProfileSetupWizard({
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[brand-blue]/10 rounded-lg">
-                <Building2 className="w-6 h-6 text-[brand-blue]" />
+              <div className="p-2 bg-brand-blue/10 rounded-lg">
+                <Building2 className="w-6 h-6 text-brand-blue" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
@@ -369,14 +369,14 @@ export default function PartnerProfileSetupWizard({
               <div key={index} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   index + 1 <= currentStep 
-                    ? 'bg-[brand-blue] text-white' 
+                    ? 'bg-brand-blue text-white' 
                     : 'bg-gray-200 text-gray-500'
                 }`}>
                   {index + 1 < currentStep ? <Check className="w-4 h-4" /> : index + 1}
                 </div>
                 {index < totalSteps - 1 && (
                   <div className={`w-12 h-1 mx-2 rounded ${
-                    index + 1 < currentStep ? 'bg-[brand-blue]' : 'bg-gray-200'
+                    index + 1 < currentStep ? 'bg-brand-blue' : 'bg-gray-200'
                   }`} />
                 )}
               </div>
@@ -410,7 +410,7 @@ export default function PartnerProfileSetupWizard({
           {partnerInfo.role === 'company_admin' && currentStep === 1 && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-[brand-blue] to-[brand-green] rounded-full mx-auto mb-4 flex items-center justify-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-brand-blue to-brand-green rounded-full mx-auto mb-4 flex items-center justify-center">
                   <Building2 className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Company Information</h3>
@@ -430,7 +430,7 @@ export default function PartnerProfileSetupWizard({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[brand-blue] to-[brand-green] flex items-center justify-center">
+                      <div className="w-full h-full bg-gradient-to-br from-brand-blue to-brand-green flex items-center justify-center">
                         <Building2 className="w-12 h-12 text-white" />
                       </div>
                     )}
@@ -444,7 +444,7 @@ export default function PartnerProfileSetupWizard({
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingLogo || !isWizardReady}
-                    className="absolute bottom-0 right-0 p-3 bg-[brand-blue] text-white rounded-full shadow-lg hover:bg-brand-blueDark transition-colors disabled:opacity-50"
+                    className="absolute bottom-0 right-0 p-3 bg-brand-blue text-white rounded-full shadow-lg hover:bg-brand-blue-dark transition-colors disabled:opacity-50"
                   >
                     <Camera className="w-4 h-4" />
                   </button>
@@ -453,7 +453,7 @@ export default function PartnerProfileSetupWizard({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingLogo || !isWizardReady}
-                  className="mt-4 flex items-center gap-2 mx-auto px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-[brand-blue] hover:bg-blue-50 transition-colors disabled:opacity-50"
+                  className="mt-4 flex items-center gap-2 mx-auto px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-brand-blue hover:bg-blue-50 transition-colors disabled:opacity-50"
                 >
                   <Upload className="w-4 h-4" />
                   {companyData.logo_url ? 'Change Logo' : 'Upload Company Logo'}
@@ -481,7 +481,7 @@ export default function PartnerProfileSetupWizard({
                       required
                       value={companyData.support_email}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, support_email: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-blue]/20 focus:border-[brand-blue] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors"
                       placeholder="support@yourcompany.com"
                     />
                   </div>
@@ -498,7 +498,7 @@ export default function PartnerProfileSetupWizard({
                       type="email"
                       value={companyData.billing_email}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, billing_email: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-blue]/20 focus:border-[brand-blue] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors"
                       placeholder="billing@yourcompany.com"
                     />
                   </div>
@@ -515,7 +515,7 @@ export default function PartnerProfileSetupWizard({
                       type="email"
                       value={companyData.marketing_email}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, marketing_email: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-blue]/20 focus:border-[brand-blue] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors"
                       placeholder="marketing@yourcompany.com"
                     />
                   </div>
@@ -529,7 +529,7 @@ export default function PartnerProfileSetupWizard({
           {((partnerInfo.role === 'company_admin' && currentStep === 2) || (partnerInfo.role !== 'company_admin' && currentStep === 1)) && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-[brand-green] to-[brand-blue] rounded-full mx-auto mb-4 flex items-center justify-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full mx-auto mb-4 flex items-center justify-center">
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Your Information</h3>
@@ -548,7 +548,7 @@ export default function PartnerProfileSetupWizard({
                       required
                       value={memberData.title}
                       onChange={(e) => setMemberData(prev => ({ ...prev, title: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-green]/20 focus:border-[brand-green] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
                       placeholder="e.g. Marketing Manager, CEO, Developer"
                     />
                   </div>
@@ -565,7 +565,7 @@ export default function PartnerProfileSetupWizard({
                       type="tel"
                       value={memberData.phone}
                       onChange={(e) => setMemberData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-green]/20 focus:border-[brand-green] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
                       placeholder="+1 (555) 123-4567"
                     />
                   </div>
@@ -581,7 +581,7 @@ export default function PartnerProfileSetupWizard({
                     <select
                       value={memberData.timezone}
                       onChange={(e) => setMemberData(prev => ({ ...prev, timezone: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-green]/20 focus:border-[brand-green] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
                     >
                       <option value="">Select timezone</option>
                       {TIMEZONES.map(tz => (
@@ -603,7 +603,7 @@ export default function PartnerProfileSetupWizard({
                         type="email"
                         value={memberData.billing_email}
                         onChange={(e) => setMemberData(prev => ({ ...prev, billing_email: e.target.value }))}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-green]/20 focus:border-[brand-green] transition-colors"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
                         placeholder="your.email@company.com"
                       />
                     </div>
@@ -619,7 +619,7 @@ export default function PartnerProfileSetupWizard({
                         type="email"
                         value={memberData.marketing_email}
                         onChange={(e) => setMemberData(prev => ({ ...prev, marketing_email: e.target.value }))}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[brand-green]/20 focus:border-[brand-green] transition-colors"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
                         placeholder="your.email@company.com"
                       />
                     </div>
@@ -633,7 +633,7 @@ export default function PartnerProfileSetupWizard({
           {((partnerInfo.role === 'company_admin' && currentStep === 3) || (partnerInfo.role !== 'company_admin' && currentStep === 2)) && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-[brand-blue] to-[brand-green] rounded-full mx-auto mb-4 flex items-center justify-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-brand-blue to-brand-green rounded-full mx-auto mb-4 flex items-center justify-center">
                   <Bell className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Notification Preferences</h3>
@@ -653,10 +653,10 @@ export default function PartnerProfileSetupWizard({
                           ...prev, 
                           notify_new_messages: e.target.checked 
                         }))}
-                        className="mt-1 w-4 h-4 text-[brand-blue] border-gray-300 rounded focus:ring-[brand-blue]/20 focus:ring-2"
+                        className="mt-1 w-4 h-4 text-brand-blue border-gray-300 rounded focus:ring-brand-blue/20 focus:ring-2"
                       />
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900 group-hover:text-[brand-blue] transition-colors">
+                        <div className="font-medium text-gray-900 group-hover:text-brand-blue transition-colors">
                           New Messages & Support Updates
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
@@ -673,10 +673,10 @@ export default function PartnerProfileSetupWizard({
                           ...prev, 
                           notify_listing_changes: e.target.checked 
                         }))}
-                        className="mt-1 w-4 h-4 text-[brand-blue] border-gray-300 rounded focus:ring-[brand-blue]/20 focus:ring-2"
+                        className="mt-1 w-4 h-4 text-brand-blue border-gray-300 rounded focus:ring-brand-blue/20 focus:ring-2"
                       />
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900 group-hover:text-[brand-blue] transition-colors">
+                        <div className="font-medium text-gray-900 group-hover:text-brand-blue transition-colors">
                           Tool Listing Updates
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
@@ -689,7 +689,7 @@ export default function PartnerProfileSetupWizard({
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <Bell className="w-5 h-5 text-brand-blueDark flex-shrink-0 mt-0.5" />
+                    <Bell className="w-5 h-5 text-brand-blue-dark flex-shrink-0 mt-0.5" />
                     <div className="text-sm">
                       <div className="font-medium text-blue-900 mb-1">You can always change these later</div>
                       <div className="text-blue-700">
@@ -706,10 +706,10 @@ export default function PartnerProfileSetupWizard({
           {currentStep === totalSteps && (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-[brand-green] to-[brand-blue] rounded-full mx-auto mb-4 flex items-center justify-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full mx-auto mb-4 flex items-center justify-center">
                   <CheckCircle2 className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">you&apos;re All Set!</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">You&apos;re All Set!</h3>
                 <p className="text-gray-600">Review your information and complete setup</p>
               </div>
 
@@ -718,7 +718,7 @@ export default function PartnerProfileSetupWizard({
                 {partnerInfo.role === 'company_admin' && (
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-[brand-blue]" />
+                      <Building2 className="w-5 h-5 text-brand-blue" />
                       Company Information
                     </h4>
                     <div className="space-y-3 text-sm">
@@ -743,7 +743,7 @@ export default function PartnerProfileSetupWizard({
                 {/* Personal Summary */}
                 <div className="bg-gray-50 rounded-xl p-6">
                   <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5 text-[brand-green]" />
+                    <User className="w-5 h-5 text-brand-green" />
                     Your Information
                   </h4>
                   <div className="space-y-3 text-sm">
@@ -769,13 +769,13 @@ export default function PartnerProfileSetupWizard({
                 {/* Notifications Summary */}
                 <div className="bg-gray-50 rounded-xl p-6">
                   <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-[brand-blue]" />
+                    <Bell className="w-5 h-5 text-brand-blue" />
                     Notifications
                   </h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
                       {notificationData.notify_new_messages ? (
-                        <CheckCircle2 className="w-4 h-4 text-brand-greenDark" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-green-dark" />
                       ) : (
                         <X className="w-4 h-4 text-gray-400" />
                       )}
@@ -783,7 +783,7 @@ export default function PartnerProfileSetupWizard({
                     </div>
                     <div className="flex items-center gap-2">
                       {notificationData.notify_listing_changes ? (
-                        <CheckCircle2 className="w-4 h-4 text-brand-greenDark" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-green-dark" />
                       ) : (
                         <X className="w-4 h-4 text-gray-400" />
                       )}
@@ -818,7 +818,7 @@ export default function PartnerProfileSetupWizard({
             <button
               onClick={nextStep}
               disabled={!canProceed() || loading || !isWizardReady}
-              className="flex items-center gap-2 px-6 py-3 bg-[brand-blue] text-white rounded-lg hover:bg-brand-blueDark disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {loading ? (
                 <>

@@ -174,7 +174,7 @@ const valuePropsCards: ValuePropCardProps[] = [
   },
   {
     title: 'Why People Keep Coming Back',
-    description: "it&apos;s fast. One smart tidbit a day. it&apos;s real. Actual tools, real-life tasks. it&apos;s fun. Like a mini win, every time.",
+    description: "it's fast. One smart tidbit a day. it's real. Actual tools, real-life tasks. it's fun. Like a mini win, every time.",
     icon: 'Zap',
     accent: 'blue',
   },
@@ -192,7 +192,7 @@ const valuePropsCards: ValuePropCardProps[] = [
   },
   {
     title: 'Daily Tidbit = Fast, Useful, Actually Fun',
-    description: "60-second videos. With walkthroughs if you want 'em. From emails to ideas. Quick wins and big moves. And yeah — it&apos;s free.",
+    description: "60-second videos. With walkthroughs if you want 'em. From emails to ideas. Quick wins and big moves. And yeah — it's free.",
     icon: 'Gift',
     accent: 'pink',
   },
@@ -542,7 +542,7 @@ export default function StartHereClient() {
                 </p>
                 <p>
                   From writing better emails to making music, planning dinner to
-                  chasing big ideas — it&apos;s all easier than you think.
+                  chasing big ideas — it's all easier than you think.
                 </p>
                 <p>we&apos;ll show you how, one smart tip a day. Simple. Fast. Useful.</p>
               </div>

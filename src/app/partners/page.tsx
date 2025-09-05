@@ -514,7 +514,7 @@ export default function PartnersLanding() {
               Ready to amplify your AI tool?
             </h3>
             <p className="text-gray-600 mb-8">
-              Contact our team to get started with Daily Tidbit&apos;s partner program and reach thousands of engaged AI learners.
+              Contact our team to get started with Daily Tidbit's partner program and reach thousands of engaged AI learners.
             </p>
             <Link
               href="/partners/request-access"

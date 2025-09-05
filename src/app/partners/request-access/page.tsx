@@ -280,7 +280,7 @@ export default function RequestAccessPage() {
               </div>
               
               <h1 className="text-2xl font-semibold text-gray-900 mb-4">
-                Join Daily Tidbit&apos;s Partner Program
+                Join Daily Tidbit's Partner Program
               </h1>
               
               <p className="text-gray-600 leading-relaxed">

@@ -1,20 +1,69 @@
 ﻿/* === Tailwind v4 single import === */
 @import "tailwindcss";
 
-/* === Root Theme Variables === */
+/* === Tailwind v4 Theme Configuration === */
+@theme {
+  /* Brand Colors - generates utility classes like bg-brand-green, text-brand-blue, etc. */
+  --color-brand-green: #60A875;
+  --color-brand-green-dark: #4e8e61;
+  --color-brand-green-light: #7bc190;
+  --color-brand-blue: #59B1E3;
+  --color-brand-blue-dark: #4791bf;
+  --color-brand-blue-light: #7cc4eb;
+  
+  /* Custom Font Families */
+  --font-sans: var(--font-space-grotesk), system-ui, sans-serif;
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-mono: var(--font-geist-mono), Consolas, monospace;
+  
+  /* Custom Animations */
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-slide-up: slide-up 0.5s ease-out;
+  --animate-float: float 3s ease-in-out infinite;
+  
+  /* Custom Box Shadows */
+  --shadow-brand: 0 4px 14px 0 rgba(96, 168, 117, 0.15);
+  --shadow-brand-lg: 0 10px 28px 0 rgba(96, 168, 117, 0.2);
+}
+
+/* Define keyframes for animations */
+@keyframes fade-in {
+  from { 
+    opacity: 0; 
+    transform: scale(0.98); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0); 
+  }
+  50% { 
+    transform: translateY(-10px); 
+  }
+}
+
+/* === Root Theme Variables (for custom CSS usage) === */
 :root {
   --background: #ffffff;
   --foreground: #171717;
   
-  /* Daily Tidbit Brand Colors - FIXED: Use actual hex values */
-  --brand-green: #60A875;
-  --brand-green-dark: #4e8e61;
-  --brand-green-light: #7bc190;
-  --brand-blue: #59B1E3;
-  --brand-blue-dark: #4791bf;
-  --brand-blue-light: #7cc4eb;
-  
-  /* Typography Variables */
+  /* Font CSS Variables for custom CSS usage */
   --font-space-grotesk: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-playfair: 'Playfair Display', Georgia, serif;
 }
@@ -107,7 +156,7 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--brand-green);
+  border-color: var(--color-brand-green);
   box-shadow: 0 0 0 3px rgba(96, 168, 117, 0.1);
 }
 
@@ -208,7 +257,7 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--brand-green);
+  outline: 2px solid var(--color-brand-green);
   outline-offset: 2px;
 }
 
@@ -228,7 +277,7 @@ select:focus-visible {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-blue));
+  background: linear-gradient(135deg, var(--color-brand-green), var(--color-brand-blue));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -270,7 +319,7 @@ select:focus-visible {
 
 /* === Selection Styling === */
 ::selection {
-  background: var(--brand-blue);
+  background: var(--color-brand-blue);
   color: #ffffff;
 }
 

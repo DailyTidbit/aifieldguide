@@ -294,7 +294,7 @@ export default function SponsorAdsPage() {
             : item
         ))
       }
-      // Note: We don&apos;t fail if hold creation fails, as it&apos;s optional
+      // Note: We don&apos;t fail if hold creation fails, as it's optional
       
     } catch (holdError) {
       console.warn('Failed to create hold:', holdError)
