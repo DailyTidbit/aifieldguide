@@ -1,4 +1,4 @@
-// src/app/components/Navigation.tsx - COMPLETE HYDRATION FIX + ENHANCED SEARCH
+// src/app/components/Navigation.tsx - COMPLETE HYDRATION FIX
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
@@ -31,34 +31,6 @@ const trackEvent = (eventName: string, parameters: Record<string, any> = {}) => 
   } catch (error) {
     console.warn('Analytics tracking failed:', error)
   }
-}
-
-// ✅ ENHANCED: Day/Tidbit detection with comprehensive patterns
-const detectDayNumber = (query: string): number | null => {
-  if (!query) return null
-  
-  const trimmed = query.trim().toLowerCase()
-  
-  // Pattern matching for various day/tidbit formats
-  const patterns = [
-    /^(?:day|tidbit)\s*(\d+)$/,           // "day 1", "tidbit 1"
-    /^(?:day|tidbit)(\d+)$/,             // "day1", "tidbit1"
-    /^(\d+)$/,                           // Just numbers: "1", "42"
-    /^day\s+(\d+)$/,                     // "day 1" with spaces
-    /^tidbit\s+(\d+)$/,                  // "tidbit 1" with spaces
-  ]
-  
-  for (const pattern of patterns) {
-    const match = trimmed.match(pattern)
-    if (match) {
-      const dayNum = parseInt(match[1], 10)
-      if (isFinite(dayNum) && dayNum > 0 && dayNum <= 1000) { // reasonable bounds
-        return dayNum
-      }
-    }
-  }
-  
-  return null
 }
 
 // Helper function to normalize role types
@@ -190,7 +162,7 @@ export default function Navigation() {
     }
   }, [user, showAuthModal])
 
-  // ✅ ENHANCED SEARCH: Handle day/tidbit detection and general search
+  // HYDRATION SAFE: Search handling
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (!mounted || !searchQuery.trim()) return
@@ -198,33 +170,22 @@ export default function Navigation() {
     try {
       const queryTrimmed = searchQuery.trim()
       
-      // First check for day/tidbit patterns
-      const dayNumber = detectDayNumber(queryTrimmed)
-      if (dayNumber !== null) {
-        // Direct navigation to day page
-        router.push(`/day/${dayNumber}`)
-        trackEvent('search_day_redirect', {
-          query: queryTrimmed,
-          day_number: dayNumber,
-          source: 'navigation'
-        })
-        setSearchQuery('') // Clear search after redirect
-        return
+      const dayMatch = queryTrimmed.match(/^(?:(?:day|tidbit)\s+)?(\d+)$/i)
+      if (dayMatch) {
+        const dayNum = parseInt(dayMatch[1], 10)
+        if (isFinite(dayNum) && dayNum > 0) {
+          router.push(`/day/${dayNum}`)
+          return
+        }
       }
 
-      // For general search terms, go to search page
       router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
-      trackEvent('search_general', {
-        query: queryTrimmed,
-        source: 'navigation'
-      })
-      setSearchQuery('') // Clear search after redirect
     } catch (error) {
       console.error('Search navigation failed:', error)
     }
   }
 
-  // ✅ HYDRATION SAFE: Sign out handler
+  // HYDRATION SAFE: Sign out handler
   const handleSignOut = async () => {
     if (!mounted) return
     
@@ -517,16 +478,16 @@ export default function Navigation() {
 
             {/* Right - Search & Auth */}
             <div className="flex items-center gap-4">
-              {/* ✅ ENHANCED SEARCH */}
+              {/* Search */}
               <div className="hidden md:block relative">
                 <form onSubmit={handleSearch}>
                   <input
                     type="text"
-                    placeholder="search tidbits"
+                    placeholder="Search tips..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-48 px-4 py-2 pr-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
-                    aria-label="Search tips or navigate to specific day"
+                    aria-label="Search tips"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <Search className="w-4 h-4 text-gray-400" />
@@ -645,16 +606,15 @@ export default function Navigation() {
           {isMenuOpen && (
             <div className="lg:hidden border-t border-gray-200 py-4 bg-white/95 backdrop-blur-sm">
               <div className="flex flex-col space-y-4">
-                {/* ✅ ENHANCED MOBILE SEARCH */}
                 <form onSubmit={handleSearch} className="md:hidden">
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="search tidbits"
+                      placeholder="Search tips..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full px-4 py-3 pr-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
-                      aria-label="Search tips or navigate to specific day"
+                      aria-label="Search tips"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <Search className="w-4 h-4 text-gray-400" />

@@ -1,9 +1,9 @@
-﻿// app/components/ModalAuthForm.tsx - Simplified server actions
+﻿// app/components/ModalAuthForm.tsx - Clean version (debug removed)
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { signInAction, signUpAction, resetPasswordAction } from '../lib/auth-actions'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 
 interface ModalAuthFormProps {
   redirectTo?: string | null
@@ -20,7 +20,12 @@ export default function ModalAuthForm({
   const [mounted, setMounted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [loading, setLoading] = useState(false)
+  
+  // Form data
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
   
   const { signInWithOAuth, signInWithMagicLink } = useAuth()
 
@@ -29,34 +34,67 @@ export default function ModalAuthForm({
     setMounted(true)
   }, [])
 
-  // Handle form submission
+  // Direct Supabase auth (this approach worked)
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
     setMessage(null)
+    setLoading(true)
 
-    const formData = new FormData(event.currentTarget)
-    
-    startTransition(async () => {
-      try {
-        let result
-        if (mode === 'signin') {
-          result = await signInAction(null, formData)
-        } else if (mode === 'signup') {
-          result = await signUpAction(null, formData)
-        } else if (mode === 'reset') {
-          result = await resetPasswordAction(null, formData)
-        }
-
-        if (result?.error) {
-          setError(result.error)
-        } else if (result?.message) {
-          setMessage(result.message)
-        }
-      } catch (err) {
-        setError('An unexpected error occurred')
+    try {
+      const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        throw new Error('Authentication service not available')
       }
-    })
+
+      if (mode === 'signin') {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password
+        })
+        
+        if (error) throw error
+
+        if (data?.user) {
+          setMessage('Login successful!')
+          // Modal will close automatically via AuthModal.tsx
+        }
+        
+      } else if (mode === 'signup') {
+        if (!fullName.trim()) {
+          throw new Error('Full name is required')
+        }
+        
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim()
+            }
+          }
+        })
+        
+        if (error) throw error
+        setMessage('Account created! Check your email if confirmation is required.')
+        
+      } else if (mode === 'reset') {
+        const { error } = await supabase.auth.resetPasswordForEmail(
+          email.trim().toLowerCase(),
+          {
+            redirectTo: `${window.location.origin}/auth/reset`
+          }
+        )
+        
+        if (error) throw error
+        setMessage('Password reset email sent. Check your inbox.')
+      }
+      
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
@@ -127,21 +165,16 @@ export default function ModalAuthForm({
         )}
         
         <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            type="hidden"
-            name="redirectTo"
-            value={redirectTo || '/'}
-          />
-          
           <div>
             <label htmlFor="reset-email" className="sr-only">Email address</label>
             <input
               id="reset-email"
-              name="email"
               type="email"
               autoComplete="email"
               required
-              disabled={isPending}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:opacity-50"
               placeholder="Email address"
             />
@@ -149,17 +182,17 @@ export default function ModalAuthForm({
           
           <button
             type="submit"
-            disabled={isPending}
+            disabled={loading}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-green hover:bg-brand-greenDark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-colors body-bold disabled:opacity-50"
           >
-            {isPending ? 'Sending...' : 'Send reset instructions'}
+            {loading ? 'Sending...' : 'Send reset instructions'}
           </button>
         </form>
         
         <div className="text-center">
           <button
             onClick={() => setMode('signin')}
-            disabled={isPending}
+            disabled={loading}
             className="text-brand-blue hover:text-brand-blue body-medium disabled:opacity-50"
           >
             Back to sign in
@@ -201,21 +234,16 @@ export default function ModalAuthForm({
       )}
       
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          type="hidden"
-          name="redirectTo"
-          value={redirectTo || '/'}
-        />
-        
         <div>
           <label htmlFor="auth-email" className="sr-only">Email address</label>
           <input
             id="auth-email"
-            name="email"
             type="email"
             autoComplete="email"
             required
-            disabled={isPending}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:opacity-50"
             placeholder="Email address"
           />
@@ -226,11 +254,12 @@ export default function ModalAuthForm({
             <label htmlFor="auth-fullname" className="sr-only">Full Name</label>
             <input
               id="auth-fullname"
-              name="fullName"
               type="text"
               autoComplete="name"
               required
-              disabled={isPending}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              disabled={loading}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:opacity-50"
               placeholder="Full name"
             />
@@ -241,11 +270,12 @@ export default function ModalAuthForm({
           <label htmlFor="auth-password" className="sr-only">Password</label>
           <input
             id="auth-password"
-            name="password"
             type="password"
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
             required
-            disabled={isPending}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:opacity-50"
             placeholder={mode === 'signup' ? 'Password (8+ characters)' : 'Password'}
           />
@@ -253,10 +283,10 @@ export default function ModalAuthForm({
 
         <button
           type="submit"
-          disabled={isPending}
+          disabled={loading}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-green hover:bg-brand-greenDark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-colors body-bold disabled:opacity-50"
         >
-          {isPending ? 'Loading...' : (mode === 'signin' ? 'Sign in' : 'Sign up')}
+          {loading ? 'Loading...' : (mode === 'signin' ? 'Sign in' : 'Sign up')}
         </button>
 
         {mode === 'signin' && (
@@ -264,7 +294,7 @@ export default function ModalAuthForm({
             <button
               type="button"
               onClick={() => setMode('reset')}
-              disabled={isPending}
+              disabled={loading}
               className="text-brand-blue hover:text-brand-blue body-medium disabled:opacity-50"
             >
               Forgot password?
@@ -272,10 +302,9 @@ export default function ModalAuthForm({
             <button
               type="button"
               onClick={() => {
-                const email = (document.getElementById('auth-email') as HTMLInputElement)?.value
                 if (email) handleMagicLink(email)
               }}
-              disabled={isPending}
+              disabled={loading}
               className="text-brand-blue hover:text-brand-blue body-medium disabled:opacity-50"
             >
               Send magic link
@@ -298,7 +327,7 @@ export default function ModalAuthForm({
           <button
             type="button"
             onClick={() => handleOAuthSignIn('google')}
-            disabled={isPending}
+            disabled={loading}
             className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors body-medium disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -313,7 +342,7 @@ export default function ModalAuthForm({
           <button
             type="button"
             onClick={() => handleOAuthSignIn('apple')}
-            disabled={isPending}
+            disabled={loading}
             className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors body-medium disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -335,7 +364,7 @@ export default function ModalAuthForm({
                 setError(null)
                 setMessage(null)
               }}
-              disabled={isPending}
+              disabled={loading}
               className="text-brand-blue hover:text-brand-blue font-medium disabled:opacity-50"
             >
               Sign up
@@ -351,7 +380,7 @@ export default function ModalAuthForm({
                 setError(null)
                 setMessage(null)
               }}
-              disabled={isPending}
+              disabled={loading}
               className="text-brand-blue hover:text-brand-blue font-medium disabled:opacity-50"
             >
               Sign in

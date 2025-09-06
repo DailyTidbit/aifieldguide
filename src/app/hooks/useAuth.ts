@@ -1,57 +1,63 @@
-// app/hooks/useAuth.ts - FIXED CIRCULAR REFERENCE + FULLY HYDRATION SAFE
+// app/hooks/useAuth.ts - COMPLETELY FIXED VERSION
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { User as SupabaseUser } from '@supabase/supabase-js'
 import { usePathname } from 'next/navigation'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { useMounted } from '../lib/clientUtils'
 import type { AuthUser, Company, UseAuthReturn, AuthState } from '../types'
 
 export function useAuth(): UseAuthReturn {
-  // Hydration safety state
-  const [mounted, setMounted] = useState(false)
-  const [clientReady, setClientReady] = useState(false)
+  // Hydration safety from clientUtils
+  const mounted = useMounted()
   
-  // Auth state - CRITICAL FIX: Rename internal loading to avoid circular reference
+  // Auth state
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [authLoading, setAuthLoading] = useState(true) // ✅ FIXED: Renamed from 'loading'
+  const [authLoading, setAuthLoading] = useState(true)
   const [company, setCompany] = useState<Company | null>(null)
+  const [supabaseReady, setSupabaseReady] = useState(false)
   
-  // Refs to prevent infinite loops and manage subscriptions
+  // Refs to prevent infinite loops
   const initializedRef = useRef(false)
   const subscriptionRef = useRef<any>(null)
   const loadingRef = useRef(false)
 
   const pathname = usePathname()
 
-  // Hydration safety - mark as mounted and check client readiness
+  // Check Supabase availability after mount
   useEffect(() => {
-    setMounted(true)
-    
-    // Check if Supabase client is available
+    if (!mounted) return
+
     const checkClient = () => {
       try {
         const client = getSupabaseBrowserClient()
-        setClientReady(!!client)
+        setSupabaseReady(!!client)
+        return !!client
       } catch (error) {
-        console.warn('Supabase client not ready:', error)
-        setClientReady(false)
+        console.warn('Supabase client check failed:', error)
+        setSupabaseReady(false)
+        return false
       }
     }
-    
-    checkClient()
-    
-    // Recheck periodically in case client becomes available later
-    const interval = setInterval(checkClient, 1000)
-    
+
+    if (checkClient()) {
+      return // Client is ready immediately
+    }
+
+    // Retry if not ready
+    const interval = setInterval(() => {
+      if (checkClient()) {
+        clearInterval(interval)
+      }
+    }, 1000)
+
     return () => clearInterval(interval)
-  }, [])
+  }, [mounted])
 
   // Safe client getter
   const getClient = useCallback(() => {
-    if (!mounted || !clientReady) {
-      return null
-    }
+    if (!mounted || !supabaseReady) return null
     
     try {
       return getSupabaseBrowserClient()
@@ -59,24 +65,23 @@ export function useAuth(): UseAuthReturn {
       console.warn('Failed to get Supabase client:', error)
       return null
     }
-  }, [mounted, clientReady])
+  }, [mounted, supabaseReady])
 
-  // Compute derived states safely - FIXED: Use authLoading instead of loading
+  // Auth state computation
   const authState: AuthState = (() => {
-    if (!mounted || !clientReady || authLoading) return 'loading'
+    if (!mounted || !supabaseReady || authLoading) return 'loading'
     if (!user) return 'logged-out'
     if (!user.companyMembership) return 'no-company'
     if (!company) return 'no-company'
     return 'has-company-access'
   })()
 
-  const isCompanyAdmin = (mounted && clientReady) ? user?.companyMembership?.role === 'company_admin' : false
-  const isPartner = (mounted && clientReady) ? !!(user?.companyMembership && company) : false
-  const isAuthReady = mounted && clientReady
+  const isCompanyAdmin = mounted && supabaseReady ? user?.companyMembership?.role === 'company_admin' : false
+  const isPartner = mounted && supabaseReady ? !!(user?.companyMembership && company) : false
 
   // Load user and company data
   const loadUserData = useCallback(async (supabaseUser: SupabaseUser | null) => {
-    if (!isAuthReady || loadingRef.current) return
+    if (!mounted || !supabaseReady || loadingRef.current) return
 
     const supabase = getClient()
     if (!supabase) {
@@ -118,10 +123,6 @@ export function useAuth(): UseAuthReturn {
         ? membershipResult.value.data 
         : null
 
-      if (membershipResult.status === 'fulfilled' && membershipResult.value.error) {
-        console.warn('Membership check error:', membershipResult.value.error)
-      }
-
       // Get company data if membership exists
       let companyData: Company | null = null
       if (membership?.company_id) {
@@ -132,9 +133,7 @@ export function useAuth(): UseAuthReturn {
           .eq('status', 'active')
           .single()
 
-        if (companyError) {
-          console.warn('Company fetch error:', companyError)
-        } else if (companyResult) {
+        if (!companyError && companyResult) {
           companyData = companyResult
         }
       }
@@ -168,14 +167,6 @@ export function useAuth(): UseAuthReturn {
       setUser(authUser)
       setCompany(companyData)
 
-      console.log('Auth loaded:', {
-        userId: supabaseUser.id,
-        hasCompanyMembership: !!membership,
-        companyActive: companyData?.status === 'active',
-        role: membership?.role,
-        isPartner: !!(membership && companyData)
-      })
-
     } catch (error) {
       console.error('User data loading error:', error)
       
@@ -197,11 +188,11 @@ export function useAuth(): UseAuthReturn {
     } finally {
       loadingRef.current = false
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
-  // Initialize auth system - FIXED: Use setAuthLoading
+  // Initialize auth system
   useEffect(() => {
-    if (!isAuthReady || initializedRef.current) return
+    if (!mounted || !supabaseReady || initializedRef.current) return
 
     let isMounted = true
     initializedRef.current = true
@@ -209,7 +200,6 @@ export function useAuth(): UseAuthReturn {
     const initAuth = async () => {
       const supabase = getClient()
       if (!supabase) {
-        console.warn('Supabase client not available for auth initialization')
         if (isMounted) setAuthLoading(false)
         return
       }
@@ -233,7 +223,7 @@ export function useAuth(): UseAuthReturn {
 
     initAuth()
 
-    // Set up auth state change listener - FIXED: Use setAuthLoading
+    // Set up auth state change listener
     const supabase = getClient()
     if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -270,18 +260,18 @@ export function useAuth(): UseAuthReturn {
         subscriptionRef.current = null
       }
     }
-  }, [isAuthReady, pathname, loadUserData, getClient])
+  }, [mounted, supabaseReady, pathname, loadUserData, getClient])
 
-  // Reset initialization when auth readiness changes
+  // Reset initialization when readiness changes
   useEffect(() => {
-    if (!isAuthReady) {
+    if (!mounted || !supabaseReady) {
       initializedRef.current = false
     }
-  }, [isAuthReady])
+  }, [mounted, supabaseReady])
 
-  // Auth methods - all guarded by readiness checks - FIXED: Use setAuthLoading
+  // Auth methods
   const signIn = useCallback(async (email: string, password?: string) => {
-    if (!isAuthReady) {
+    if (!mounted || !supabaseReady) {
       throw new Error('Authentication system not ready')
     }
 
@@ -305,14 +295,13 @@ export function useAuth(): UseAuthReturn {
         if (error) throw error
       }
     } catch (error) {
-      console.error('Sign in error:', error)
       setAuthLoading(false)
       throw error
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
   const signInWithOAuth = useCallback(async (provider: 'google' | 'apple') => {
-    if (!isAuthReady || typeof window === 'undefined') {
+    if (!mounted || !supabaseReady || typeof window === 'undefined') {
       throw new Error('Authentication system not ready')
     }
 
@@ -329,14 +318,13 @@ export function useAuth(): UseAuthReturn {
       })
       if (error) throw error
     } catch (error) {
-      console.error('OAuth error:', error)
       setAuthLoading(false)
       throw error
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
   const signInWithMagicLink = useCallback(async (email: string, options: any = {}) => {
-    if (!isAuthReady) {
+    if (!mounted || !supabaseReady) {
       throw new Error('Authentication system not ready')
     }
 
@@ -356,15 +344,14 @@ export function useAuth(): UseAuthReturn {
       })
       if (error) throw error
     } catch (error) {
-      console.error('Magic link error:', error)
       throw error
     } finally {
       setAuthLoading(false)
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
   const signUp = useCallback(async (email: string, password: string) => {
-    if (!isAuthReady) {
+    if (!mounted || !supabaseReady) {
       throw new Error('Authentication system not ready')
     }
 
@@ -384,15 +371,14 @@ export function useAuth(): UseAuthReturn {
       })
       if (error) throw error
     } catch (error) {
-      console.error('Sign up error:', error)
       throw error
     } finally {
       setAuthLoading(false)
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
   const signOut = useCallback(async () => {
-    if (!isAuthReady) {
+    if (!mounted || !supabaseReady) {
       throw new Error('Authentication system not ready')
     }
 
@@ -408,10 +394,10 @@ export function useAuth(): UseAuthReturn {
       console.error('Sign out error:', error)
       throw error
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
   const resetPassword = useCallback(async (email: string) => {
-    if (!isAuthReady) {
+    if (!mounted || !supabaseReady) {
       throw new Error('Authentication system not ready')
     }
 
@@ -429,10 +415,10 @@ export function useAuth(): UseAuthReturn {
       console.error('Reset password error:', error)
       throw error
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
   const updatePassword = useCallback(async (password: string) => {
-    if (!isAuthReady) {
+    if (!mounted || !supabaseReady) {
       throw new Error('Authentication system not ready')
     }
 
@@ -441,35 +427,24 @@ export function useAuth(): UseAuthReturn {
       throw new Error('Authentication service unavailable')
     }
 
-    console.log('Starting password update...')
     try {
       const { error } = await supabase.auth.updateUser({
         password,
         data: { has_password: true },
       })
       
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
-      }
-      console.log('Password update successful')
+      if (error) throw error
     } catch (error) {
       console.error('Update password error:', error)
       throw error
     }
-  }, [getClient, isAuthReady])
+  }, [getClient, mounted, supabaseReady])
 
   const refreshAuth = useCallback(async () => {
-    if (!isAuthReady) {
-      console.warn('Cannot refresh auth - system not ready')
-      return
-    }
+    if (!mounted || !supabaseReady) return
 
     const supabase = getClient()
-    if (!supabase) {
-      console.warn('Cannot refresh auth - client unavailable')
-      return
-    }
+    if (!supabase) return
 
     try {
       const { data: { user: supabaseUser } } = await supabase.auth.getUser()
@@ -477,17 +452,16 @@ export function useAuth(): UseAuthReturn {
     } catch (error) {
       console.error('Auth refresh error:', error)
     }
-  }, [loadUserData, getClient, isAuthReady])
+  }, [loadUserData, getClient, mounted, supabaseReady])
 
   const checkCompanyAccess = useCallback(async () => {
-    if (!isAuthReady) return false
+    if (!mounted || !supabaseReady) return false
     return !!(user?.companyMembership && company)
-  }, [user, company, isAuthReady])
+  }, [user, company, mounted, supabaseReady])
 
   return {
     user,
-    // ✅ CRITICAL FIX: Use authLoading instead of loading to avoid circular reference
-    loading: !mounted || !clientReady || authLoading,
+    loading: !mounted || !supabaseReady || authLoading,
     authState,
     mounted,
     company,

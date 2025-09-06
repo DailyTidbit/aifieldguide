@@ -3,7 +3,6 @@
 
 import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
-import AuthForm from '../components/AuthForm'
 import PostForm from '../components/PostForm'
 import UserProfile from '../components/UserProfile'
 import ProfileSetupWizard from '../components/ProfileSetupWizard'

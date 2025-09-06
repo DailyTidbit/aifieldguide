@@ -1,4 +1,4 @@
-// src/app/components/AuthModal.tsx - COMPLETE HYDRATION FIX
+// src/app/components/AuthModal.tsx - FIXED: Better auth state handling
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -28,10 +28,20 @@ export default function AuthModal({
   const [clientMounted, setClientMounted] = useState(false)
   const dialogRef = useRef<HTMLDivElement | null>(null)
 
+  // Track initial auth state to detect changes
+  const [initialAuthState, setInitialAuthState] = useState<string | null>(null)
+
   // CRITICAL: Component must be mounted before any DOM operations
   useEffect(() => {
     setClientMounted(true)
   }, [])
+
+  // Set initial auth state when modal opens
+  useEffect(() => {
+    if (isOpen && mounted && !loading) {
+      setInitialAuthState(authState)
+    }
+  }, [isOpen, mounted, loading, authState])
 
   // HYDRATION SAFE: Focus trap + ESC + body scroll lock - Only after both mounted states
   useEffect(() => {
@@ -79,27 +89,45 @@ export default function AuthModal({
     }
   }, [isOpen, onClose, clientMounted, mounted])
 
-  // HYDRATION SAFE: Handle auth state changes - Wait for all mounted states
+  // FIXED: Handle auth state changes - Close modal on successful auth
   useEffect(() => {
     if (!clientMounted || !mounted || !isOpen || loading) return
+    if (!initialAuthState) return // Wait for initial state to be set
 
-    if (authState === 'has-company-access') {
-      // User is fully authenticated and has company access
-      onSuccess?.()
-      onClose()
-    } else if (authState === 'needs-password-setup') {
-      // User needs to complete password setup
-      onSuccess?.()
-      onClose()
-    } else if (user && !user.profile?.full_name) {
-      // User is authenticated but needs profile setup
-      setShowProfileSetup(true)
-    } else if (user && user.profile?.full_name) {
-      // User is authenticated and has profile
-      onSuccess?.()
-      onClose()
+    // Check if auth state improved from the initial state
+    const authImproved = (
+      (initialAuthState === 'logged-out' && authState !== 'logged-out') ||
+      (initialAuthState === 'loading' && authState !== 'loading' && authState !== 'logged-out')
+    )
+
+    if (authImproved) {
+      if (authState === 'has-company-access') {
+        // User is fully authenticated and has company access
+        console.log('Auth success: has-company-access')
+        onSuccess?.()
+        onClose()
+      } else if (authState === 'needs-password-setup') {
+        // User needs to complete password setup
+        console.log('Auth success: needs-password-setup')
+        onSuccess?.()
+        onClose()
+      } else if (user && !user.profile?.full_name) {
+        // User is authenticated but needs profile setup
+        console.log('Auth success: needs profile setup')
+        setShowProfileSetup(true)
+      } else if (user && user.profile?.full_name) {
+        // User is authenticated and has profile
+        console.log('Auth success: complete profile')
+        onSuccess?.()
+        onClose()
+      } else if (authState === 'no-company') {
+        // User is authenticated but needs company access
+        console.log('Auth success: no company access')
+        onSuccess?.()
+        onClose()
+      }
     }
-  }, [authState, user, loading, isOpen, onClose, onSuccess, clientMounted, mounted])
+  }, [authState, user, loading, isOpen, onClose, onSuccess, clientMounted, mounted, initialAuthState])
 
   const handleProfileSetupComplete = () => {
     setShowProfileSetup(false)
