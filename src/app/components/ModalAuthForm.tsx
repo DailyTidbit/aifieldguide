@@ -1,4 +1,4 @@
-﻿// app/components/ModalAuthForm.tsx - Clean version (debug removed)
+﻿// app/components/ModalAuthForm.tsx - Back to email/password only
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -22,19 +22,16 @@ export default function ModalAuthForm({
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   
-  // Form data
+  // Simple form data - back to email/password only
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
   
   const { signInWithOAuth, signInWithMagicLink } = useAuth()
 
-  // Hydration safety
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Direct Supabase auth (this approach worked)
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
@@ -57,26 +54,20 @@ export default function ModalAuthForm({
 
         if (data?.user) {
           setMessage('Login successful!')
-          // Modal will close automatically via AuthModal.tsx
         }
         
       } else if (mode === 'signup') {
-        if (!fullName.trim()) {
-          throw new Error('Full name is required')
+        if (password.length < 8) {
+          throw new Error('Password must be at least 8 characters')
         }
         
         const { data, error } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
-          password,
-          options: {
-            data: {
-              full_name: fullName.trim()
-            }
-          }
+          password
         })
         
         if (error) throw error
-        setMessage('Account created! Check your email if confirmation is required.')
+        setMessage('Account created! You may need to verify your email.')
         
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(
@@ -91,6 +82,7 @@ export default function ModalAuthForm({
       }
       
     } catch (err: any) {
+      console.error('Auth error:', err)
       setError(err.message || 'Authentication failed. Please try again.')
     } finally {
       setLoading(false)
@@ -121,7 +113,6 @@ export default function ModalAuthForm({
     }
   }
 
-  // Show minimal loading during hydration
   if (!mounted) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -141,9 +132,7 @@ export default function ModalAuthForm({
               className="text-gray-400 hover:text-gray-600 p-1"
               aria-label="Close"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              ✕
             </button>
           )}
         </div>
@@ -206,7 +195,7 @@ export default function ModalAuthForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="heading-subsection text-gray-900">
-          {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+          {mode === 'signin' ? 'Sign In' : 'Create Account'}
         </h3>
         {onClose && (
           <button
@@ -214,9 +203,7 @@ export default function ModalAuthForm({
             className="text-gray-400 hover:text-gray-600 p-1"
             aria-label="Close"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            ✕
           </button>
         )}
       </div>
@@ -249,23 +236,6 @@ export default function ModalAuthForm({
           />
         </div>
         
-        {mode === 'signup' && (
-          <div>
-            <label htmlFor="auth-fullname" className="sr-only">Full Name</label>
-            <input
-              id="auth-fullname"
-              type="text"
-              autoComplete="name"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              disabled={loading}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:opacity-50"
-              placeholder="Full name"
-            />
-          </div>
-        )}
-        
         <div>
           <label htmlFor="auth-password" className="sr-only">Password</label>
           <input
@@ -279,14 +249,17 @@ export default function ModalAuthForm({
             className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:opacity-50"
             placeholder={mode === 'signup' ? 'Password (8+ characters)' : 'Password'}
           />
+          {mode === 'signup' && password && password.length < 8 && (
+            <p className="text-xs text-gray-500 mt-1">Password must be at least 8 characters</p>
+          )}
         </div>
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (mode === 'signup' && password.length < 8)}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-green hover:bg-brand-greenDark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-colors body-bold disabled:opacity-50"
         >
-          {loading ? 'Loading...' : (mode === 'signin' ? 'Sign in' : 'Sign up')}
+          {loading ? 'Loading...' : (mode === 'signin' ? 'Sign in' : 'Create account')}
         </button>
 
         {mode === 'signin' && (
@@ -356,7 +329,7 @@ export default function ModalAuthForm({
       <div className="text-center">
         {mode === 'signin' ? (
           <p className="body-medium text-gray-600">
-            don't have an account?{' '}
+            Need an account?{' '}
             <button
               type="button"
               onClick={() => {

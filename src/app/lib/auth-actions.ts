@@ -1,4 +1,4 @@
-// src/app/lib/auth-actions.ts - Server actions with consistent return types
+// src/app/lib/auth-actions.ts - Updated with username assignment
 'use server'
 
 import { redirect } from 'next/navigation'
@@ -38,6 +38,23 @@ export async function signUpAction(prevState: AuthActionResult | null, formData:
       return { error: error.message }
     }
 
+    // Create profile with auto-assigned username (handled by trigger)
+    if (data.user && data.session) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          full_name: fullName.trim(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+        // Don't fail the signup, profile can be created later
+      }
+    }
+
     // If user was created but needs email confirmation
     if (data.user && !data.session) {
       redirect('/auth?message=Check your email to confirm your account')
@@ -66,13 +83,37 @@ export async function signInAction(prevState: AuthActionResult | null, formData:
   try {
     const supabase = await createServerSupabaseClient()
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     })
 
     if (error) {
       return { error: error.message }
+    }
+
+    // Ensure profile exists with username
+    if (data.user) {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('id', data.user.id)
+        .single()
+
+      if (!existingProfile) {
+        // Create profile if it doesn't exist
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+
+        if (profileError) {
+          console.error('Profile creation error during sign in:', profileError)
+        }
+      }
     }
 
     // Successful login - redirect
@@ -159,5 +200,56 @@ export async function updatePasswordAction(formData: FormData): Promise<never> {
     redirect('/')
   } catch (error) {
     redirect('/auth/reset?error=Failed to update password')
+  }
+}
+
+// New action to check username availability
+export async function checkUsernameAvailability(username: string): Promise<{
+  available: boolean
+  error?: string
+}> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Check format
+    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(username)) {
+      return {
+        available: false,
+        error: 'Username must be 3-30 characters and contain only letters, numbers, underscores, and hyphens'
+      }
+    }
+
+    // Check if reserved
+    const { data: reserved } = await supabase
+      .from('reserved_usernames')
+      .select('username')
+      .eq('username', username.toLowerCase())
+      .single()
+
+    if (reserved) {
+      return {
+        available: false,
+        error: 'This username is reserved and cannot be used'
+      }
+    }
+
+    // Check if taken
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .single()
+
+    if (existing) {
+      return {
+        available: false,
+        error: 'This username is already taken'
+      }
+    }
+
+    return { available: true }
+  } catch (error) {
+    // If we get here, likely means no match found (username available)
+    return { available: true }
   }
 }

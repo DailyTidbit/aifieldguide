@@ -1,520 +1,528 @@
+// src/app/components/ProfileSetupWizard.tsx - Updated with username auto-assignment and null safety
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient'
-import { useMounted } from '@/app/lib/clientUtils' // MANDATORY: Use the existing hook
-import { User, Camera, ArrowRight, ArrowLeft, Check, Sparkles, Globe, ChevronRight, Upload, Loader2, X } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { User, AlertCircle, CheckCircle2, Loader2, Info, Edit3, Lock } from 'lucide-react'
+import { getSupabaseBrowserClient } from '../lib/supabaseClient'
+import { useMounted } from '../lib/clientUtils'
 
-interface ProfileSetupProps {
+interface ProfileSetupWizardProps {
   userId: string
   onComplete: () => void
-  onSkip?: () => void
-  onDone?: () => void
+  onDone: () => void
 }
 
-// MANDATORY: Skeleton component for hydration safety
-function ProfileSetupSkeleton() {
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full">
-        <div className="p-6 border-b border-gray-200">
-          <div className="h-8 bg-gray-200 rounded w-1/2 mb-4 animate-pulse"></div>
-          <div className="flex items-center gap-2">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
-                {index < 2 && <div className="w-12 h-1 mx-2 rounded bg-gray-200 animate-pulse" />}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 animate-pulse"></div>
-            <div className="h-6 bg-gray-200 rounded w-1/2 mx-auto mb-2 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3 mx-auto animate-pulse"></div>
-          </div>
-          <div className="space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-            <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-            <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
-          </div>
-        </div>
-        <div className="p-6 border-t border-gray-200 flex justify-between">
-          <div className="h-10 bg-gray-200 rounded w-20 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded w-24 animate-pulse"></div>
-        </div>
-      </div>
-    </div>
-  )
+interface ProfileData {
+  username: string
+  full_name: string
+  bio: string
+  website: string
+  username_changed: boolean
 }
 
-export default function ProfileSetupWizard({ userId, onComplete, onSkip, onDone }: ProfileSetupProps) {
-  // MANDATORY: First line in every client component
+export default function ProfileSetupWizard({ userId, onComplete, onDone }: ProfileSetupWizardProps) {
   const mounted = useMounted()
-  
-  const [currentStep, setCurrentStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
-  // SAFE: Object-based state for hydration compatibility
-  const [formData, setFormData] = useState({ 
-    full_name: '', 
-    username: '', 
-    bio: '', 
-    website: '', 
-    avatar_url: '' 
+  const [success, setSuccess] = useState<string | null>(null)
+
+  // Form state
+  const [formData, setFormData] = useState<ProfileData>({
+    username: '',
+    full_name: '',
+    bio: '',
+    website: '',
+    username_changed: false
   })
-  
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const totalSteps = 3
 
-  // MANDATORY: Always show skeleton until mounted
-  if (!mounted) {
-    return <ProfileSetupSkeleton />
-  }
+  // Username validation state
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const [checkingUsername, setCheckingUsername] = useState(false)
+  const [originalUsername, setOriginalUsername] = useState('')
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    // MANDATORY: Protect all browser interactions
-    if (!mounted) return
-    
-    const file = event.target.files?.[0]
-    if (!file) return
-    
+  // Auto-assign username from pool
+  const assignUsernameFromPool = useCallback(async () => {
+    if (!mounted) return null
+
     try {
-      setUploadingAvatar(true)
-      setError(null)
-      
       const supabase = getSupabaseBrowserClient()
       if (!supabase) {
-        throw new Error('Service unavailable. Please try again.')
+        throw new Error('Supabase client not available')
       }
-      
-      const fileExt = file.name.split('.').pop()
-      const filePath = `avatars/${userId}.${fileExt}`
-      
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true })
-        
-      if (uploadError) throw uploadError
-      
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
-      setFormData((prev) => ({ ...prev, avatar_url: data.publicUrl }))
-    } catch (err: any) {
-      setError(err.message || 'Failed to upload avatar')
-    } finally {
-      setUploadingAvatar(false)
-    }
-  }
 
-  const handleComplete = async () => {
-    // MANDATORY: Prevent action during hydration
+      // Get a random unused username from the pool
+      const { data: availableUsernames, error: fetchError } = await supabase
+        .from('username_pool')
+        .select('id, username')
+        .is('assigned_to', null)
+        .limit(10) // Get 10 random options
+
+      if (fetchError) {
+        throw fetchError
+      }
+
+      if (!availableUsernames || availableUsernames.length === 0) {
+        throw new Error('No usernames available in pool')
+      }
+
+      // Pick a random username from the available ones
+      const randomIndex = Math.floor(Math.random() * availableUsernames.length)
+      const selectedUsername = availableUsernames[randomIndex]
+
+      // Mark it as assigned in the pool
+      const { error: assignError } = await supabase
+        .from('username_pool')
+        .update({
+          assigned_to: userId,
+          assigned_at: new Date().toISOString()
+        })
+        .eq('id', selectedUsername.id)
+
+      if (assignError) {
+        throw assignError
+      }
+
+      // Update the user's profile with the new username
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          username: selectedUsername.username,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+
+      if (profileError) {
+        // Rollback the username_pool assignment if profile update fails
+        await supabase
+          .from('username_pool')
+          .update({
+            assigned_to: null,
+            assigned_at: null
+          })
+          .eq('id', selectedUsername.id)
+        
+        throw profileError
+      }
+
+      return selectedUsername.username
+
+    } catch (err: any) {
+      console.error('Error assigning username:', err)
+      throw err
+    }
+  }, [userId, mounted])
+
+  // Load existing profile data
+  const loadProfile = useCallback(async () => {
     if (!mounted) return
 
     try {
       setLoading(true)
       setError(null)
-      
+
       const supabase = getSupabaseBrowserClient()
       if (!supabase) {
-        throw new Error('Service unavailable. Please try again.')
+        throw new Error('Supabase client not available')
       }
-      
-      // Check username availability if provided
-      if (formData.username) {
-        const { data: existingUser } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('username', formData.username)
-          .neq('id', userId)
-          .single()
-        
-        if (existingUser) {
-          throw new Error('Username already taken')
-        }
-      }
-      
-      const { error } = await supabase
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .update({
-          full_name: formData.full_name || null,
-          username: formData.username || null,
-          bio: formData.bio || null,
-          website: formData.website || null,
-          avatar_url: formData.avatar_url || null,
-          updated_at: new Date().toISOString(),
-        })
+        .select('username, full_name, bio, website, username_changed')
         .eq('id', userId)
-      
-      if (error) throw error
-      
-      // Call completion handlers
-      try { 
-        onComplete() 
-      } finally { 
-        onDone?.() 
+        .single()
+
+      if (profileError) {
+        throw profileError
+      }
+
+      if (profile) {
+        // If user doesn't have a username, assign one from the pool
+        if (!profile.username) {
+          try {
+            const assignedUsername = await assignUsernameFromPool()
+            profile.username = assignedUsername
+          } catch (assignError) {
+            console.error('Failed to assign username:', assignError)
+            setError('Failed to assign username. Please try refreshing the page.')
+            return
+          }
+        }
+
+        setFormData({
+          username: profile.username || '',
+          full_name: profile.full_name || '',
+          bio: profile.bio || '',
+          website: profile.website || '',
+          username_changed: profile.username_changed || false
+        })
+        setOriginalUsername(profile.username || '')
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to save profile')
+      console.error('Error loading profile:', err)
+      setError('Failed to load profile data')
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, mounted, assignUsernameFromPool])
 
-  const nextStep = () => { 
-    if (!mounted) return // MANDATORY: Guard all interactions
-    if (currentStep < totalSteps) {
-      setCurrentStep((s) => s + 1)
-    } else {
-      handleComplete()
+  // Check username availability
+  const checkUsernameAvailability = useCallback(async (username: string) => {
+    if (!mounted || !username || username === originalUsername) {
+      setUsernameError(null)
+      return
+    }
+
+    // Validate format
+    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(username)) {
+      setUsernameError('Username must be 3-30 characters and contain only letters, numbers, underscores, and hyphens')
+      return
+    }
+
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) return
+
+    setCheckingUsername(true)
+    setUsernameError(null)
+
+    try {
+      // Check if username is taken in profiles
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .neq('id', userId)
+        .single()
+
+      if (existing) {
+        setUsernameError('This username is already taken')
+        return
+      }
+
+      // Check if username is in the pool and assigned to someone else
+      const { data: poolUsername } = await supabase
+        .from('username_pool')
+        .select('assigned_to')
+        .eq('username', username)
+        .single()
+
+      if (poolUsername && poolUsername.assigned_to && poolUsername.assigned_to !== userId) {
+        setUsernameError('This username is already taken')
+      }
+    } catch (err) {
+      // Error likely means username is available (no match found)
+      setUsernameError(null)
+    } finally {
+      setCheckingUsername(false)
+    }
+  }, [mounted, originalUsername, userId])
+
+  // Debounced username check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.username && formData.username !== originalUsername) {
+        checkUsernameAvailability(formData.username)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [formData.username, checkUsernameAvailability, originalUsername])
+
+  // Load profile on mount
+  useEffect(() => {
+    if (mounted) {
+      loadProfile()
+    }
+  }, [mounted, loadProfile])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!mounted) return
+
+    // Validation
+    if (!formData.full_name.trim()) {
+      setError('Display name is required')
+      return
+    }
+
+    if (usernameError) {
+      setError('Please fix the username error before continuing')
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+      if (!supabase) {
+        throw new Error('Supabase client not available')
+      }
+
+      const updateData: any = {
+        full_name: formData.full_name.trim(),
+        bio: formData.bio.trim() || null,
+        website: formData.website.trim() || null,
+        updated_at: new Date().toISOString()
+      }
+
+      // If username is being changed, mark as changed and update pool
+      if (formData.username !== originalUsername) {
+        updateData.username = formData.username
+        updateData.username_changed = true
+        updateData.username_changed_at = new Date().toISOString()
+
+        // Update the username pool - unassign old username and assign new one if it exists in pool
+        if (originalUsername) {
+          // Unassign the old username
+          await supabase
+            .from('username_pool')
+            .update({
+              assigned_to: null,
+              assigned_at: null
+            })
+            .eq('username', originalUsername)
+            .eq('assigned_to', userId)
+        }
+
+        // If new username exists in pool, assign it
+        const { data: newUsernameInPool } = await supabase
+          .from('username_pool')
+          .select('id')
+          .eq('username', formData.username)
+          .single()
+
+        if (newUsernameInPool) {
+          await supabase
+            .from('username_pool')
+            .update({
+              assigned_to: userId,
+              assigned_at: new Date().toISOString()
+            })
+            .eq('id', newUsernameInPool.id)
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', userId)
+
+      if (updateError) {
+        throw updateError
+      }
+
+      setSuccess('Profile setup complete!')
+      setTimeout(() => {
+        onComplete()
+        onDone()
+      }, 1500)
+
+    } catch (err: any) {
+      console.error('Error saving profile:', err)
+      setError(err.message || 'Failed to save profile')
+    } finally {
+      setSaving(false)
     }
   }
 
-  const prevStep = () => { 
-    if (!mounted) return // MANDATORY: Guard all interactions
-    if (currentStep > 1) {
-      setCurrentStep((s) => s - 1)
+  const formatWebsiteForDisplay = (website: string) => {
+    if (!website || website.trim() === '') return ''
+    if (website.startsWith('http://') || website.startsWith('https://')) {
+      return website.replace(/^https?:\/\//, '')
     }
+    return website
   }
 
-  const canProceed = () => {
-    if (!mounted) return false // MANDATORY: Guard all state checks
-    return currentStep === 1 ? formData.full_name.trim().length > 0 : true
-  }
+  const canChangeUsername = !formData.username_changed
 
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Complete Your Profile</h2>
-            {onSkip && (
-              <button 
-                onClick={() => mounted && onSkip()} 
-                className="text-gray-500 hover:text-gray-700 text-sm transition-colors"
-              >
-                Skip for now
-              </button>
-            )}
-          </div>
-          
-          {/* Progress indicator */}
-          <div className="flex items-center gap-2">
-            {Array.from({ length: totalSteps }).map((_, index) => (
-              <div key={index} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  index + 1 <= currentStep 
-                    ? 'bg-brand-green text-white' 
-                    : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {index + 1 < currentStep ? <Check className="w-4 h-4" /> : index + 1}
-                </div>
-                {index < totalSteps - 1 && (
-                  <div className={`w-12 h-1 mx-2 rounded transition-colors ${
-                    index + 1 < currentStep ? 'bg-brand-green' : 'bg-gray-200'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Error display */}
-        {error && (
-          <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
-            <X className="w-5 h-5 text-red-600 flex-shrink-0" />
-            <span className="text-red-700 text-sm flex-1">{error}</span>
-            <button 
-              onClick={() => mounted && setError(null)} 
-              className="text-red-600 hover:text-red-800 transition-colors"
-              aria-label="Dismiss error"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Step content */}
-        <div className="p-6">
-          {currentStep === 1 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <User className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Let's get to know you!</h3>
-                <p className="text-gray-600">Tell us your name and choose a username</p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="full-name" className="block text-sm font-medium text-gray-700 mb-2">
-                    Display Name *
-                  </label>
-                  <input 
-                    id="full-name"
-                    type="text" 
-                    value={formData.full_name} 
-                    onChange={(e) => mounted && setFormData((p) => ({ ...p, full_name: e.target.value }))} 
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green text-lg transition-colors" 
-                    placeholder="Your full name" 
-                    autoFocus 
-                  />
-                  <p className="text-sm text-gray-500 mt-1">This is how your name will appear to others</p>
-                </div>
-                
-                <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                    Username (optional)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">@</span>
-                    <input 
-                      id="username"
-                      type="text" 
-                      value={formData.username} 
-                      onChange={(e) => mounted && setFormData((p) => ({ 
-                        ...p, 
-                        username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') 
-                      }))} 
-                      className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green text-lg transition-colors" 
-                      placeholder="username" 
-                    />
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">Your unique handle for Daily Tidbit</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <Camera className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Add your photo</h3>
-                <p className="text-gray-600">Help others recognize you on BitBoard</p>
-              </div>
-              
-              <div className="flex flex-col items-center space-y-6">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-full border-4 border-gray-200 shadow-lg bg-gray-100 overflow-hidden">
-                    {formData.avatar_url ? (
-                      <Image 
-                        src={formData.avatar_url} 
-                        alt="Avatar preview" 
-                        width={128} 
-                        height={128} 
-                        className="w-full h-full object-cover" 
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-brand-green to-brand-blue flex items-center justify-center">
-                        <span className="text-4xl font-bold text-white">
-                          {formData.full_name.charAt(0).toUpperCase() || 'U'}
-                        </span>
-                      </div>
-                    )}
-                    {uploadingAvatar && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <Loader2 className="w-6 h-6 text-white animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                  <button 
-                    onClick={() => mounted && fileInputRef.current?.click()} 
-                    className="absolute bottom-0 right-0 p-3 bg-brand-green text-white rounded-full shadow-lg hover:bg-brand-green-dark transition-colors disabled:opacity-50" 
-                    disabled={uploadingAvatar || !mounted}
-                    aria-label="Change avatar photo"
-                  >
-                    <Camera className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                <button 
-                  onClick={() => mounted && fileInputRef.current?.click()} 
-                  className="flex items-center gap-3 px-6 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-brand-green hover:bg-green-50 transition-colors disabled:opacity-50" 
-                  disabled={uploadingAvatar || !mounted}
-                >
-                  <Upload className="w-5 h-5 text-gray-500" />
-                  <span className="text-gray-700">
-                    {formData.avatar_url ? 'Change photo' : 'Upload a photo'}
-                  </span>
-                </button>
-                
-                <input 
-                  ref={fileInputRef} 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleAvatarUpload} 
-                  className="hidden" 
-                  aria-label="Upload avatar image"
-                />
-                
-                <p className="text-sm text-gray-500 text-center">
-                  Choose a clear photo of yourself. You can always change this later.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Tell your story</h3>
-                <p className="text-gray-600">Share what you're passionate about (optional)</p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-2">
-                    Bio
-                  </label>
-                  <textarea 
-                    id="bio"
-                    value={formData.bio} 
-                    onChange={(e) => mounted && setFormData((p) => ({ ...p, bio: e.target.value }))} 
-                    rows={4} 
-                    maxLength={160}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green transition-colors" 
-                    placeholder="Tell us about yourself, your interests in AI, or what you're working on..." 
-                  />
-                  <p className="text-sm text-gray-500 mt-1">{formData.bio.length}/160 characters</p>
-                </div>
-                
-                <div>
-                  <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2">
-                    Website or Portfolio
-                  </label>
-                  <div className="relative">
-                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input 
-                      id="website"
-                      type="url" 
-                      value={formData.website} 
-                      onChange={(e) => mounted && setFormData((p) => ({ ...p, website: e.target.value }))} 
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-brand-green transition-colors" 
-                      placeholder="https://yourwebsite.com" 
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer navigation */}
-        <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-          <button
-            onClick={prevStep}
-            disabled={currentStep === 1 || !mounted}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Previous
-          </button>
-          
-          <div className="flex items-center gap-3">
-            {onSkip && currentStep === totalSteps && (
-              <button 
-                onClick={() => mounted && onSkip()} 
-                className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Skip for now
-              </button>
-            )}
-            <button
-              onClick={nextStep}
-              disabled={!canProceed() || loading || !mounted}
-              className="flex items-center gap-2 px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-green-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : currentStep === totalSteps ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  Complete Setup
-                </>
-              ) : (
-                <>
-                  Next
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// MANDATORY: Skeleton component for ProfilePreview
-function ProfilePreviewSkeleton() {
-  return (
-    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
-      <div className="w-12 h-12 rounded-full bg-gray-200 animate-pulse"></div>
-      <div className="flex-1 space-y-2">
-        <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-        <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3"></div>
-      </div>
-    </div>
-  )
-}
-
-export function ProfilePreview({ profile }: { profile: any }) {
-  // MANDATORY: First line in every client component
-  const mounted = useMounted()
-  
-  // MANDATORY: Always show skeleton until mounted
   if (!mounted) {
-    return <ProfilePreviewSkeleton />
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-green" />
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-green mx-auto mb-4" />
+          <p className="text-gray-600">Setting up your profile...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-      <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-        {profile.avatar_url ? (
-          <Image 
-            src={profile.avatar_url} 
-            alt={profile.full_name || profile.username || 'User'} 
-            width={48} 
-            height={48} 
-            className="w-full h-full object-cover" 
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-brand-green to-brand-blue flex items-center justify-center">
-            <span className="text-lg font-bold text-white">
-              {(profile.full_name || profile.username || 'U').charAt(0).toUpperCase()}
-            </span>
+    <div className="space-y-6">
+      <div className="text-center">
+        <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full mx-auto mb-4 flex items-center justify-center">
+          <User className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Profile</h2>
+        <p className="text-gray-600">Tell us a bit about yourself to get started</p>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-red-800">{error}</div>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-green-600" />
+          <div className="text-sm text-green-800">{success}</div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Username Section */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3 mb-3">
+            <Info className="w-5 h-5 text-brand-blue flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-medium text-blue-900 mb-1">Your Username</h3>
+              <p className="text-sm text-blue-700">
+                {canChangeUsername
+                  ? "We've assigned you a nostalgic username! You can change it now if you'd like - but only once!"
+                  : "Your username has already been customized and cannot be changed again."
+                }
+              </p>
+            </div>
           </div>
-        )}
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        <h4 className="font-medium text-gray-900 truncate">
-          {profile.full_name || profile.username || 'Anonymous User'}
-        </h4>
-        {profile.username && (
-          <p className="text-sm text-gray-500 truncate">@{profile.username}</p>
-        )}
-        {profile.bio && (
-          <p className="text-xs text-gray-600 truncate mt-1">{profile.bio}</p>
-        )}
-      </div>
-      
-      <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                Username
+              </label>
+              {!canChangeUsername && (
+                <div title="Username cannot be changed">
+                  <Lock className="w-4 h-4 text-gray-400" />
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">@</span>
+              <input
+                id="username"
+                type="text"
+                value={formData.username}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, username: e.target.value.toLowerCase() }))
+                  setUsernameError(null)
+                }}
+                disabled={!canChangeUsername}
+                className={`w-full pl-8 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors ${!canChangeUsername
+                    ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
+                    : usernameError
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                      : 'border-gray-300'
+                  }`}
+                placeholder="your-username"
+              />
+              {checkingUsername && (
+                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+              )}
+            </div>
+
+            {usernameError && (
+              <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {usernameError}
+              </p>
+            )}
+
+            {formData.username && !usernameError && !checkingUsername && formData.username !== originalUsername && (
+              <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Username is available
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Display Name */}
+        <div>
+          <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
+            Display Name *
+          </label>
+          <input
+            id="full_name"
+            type="text"
+            value={formData.full_name}
+            onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+            className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
+            placeholder="How should we display your name?"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">This is how your name will appear to others</p>
+        </div>
+
+        {/* Bio */}
+        <div>
+          <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-2">
+            Bio
+          </label>
+          <textarea
+            id="bio"
+            value={formData.bio || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
+            rows={3}
+            className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors resize-none"
+            placeholder="Tell us a bit about yourself..."
+            maxLength={300}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {(formData.bio || '').length}/300 characters
+          </p>
+        </div>
+
+        {/* Website */}
+        <div>
+          <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2">
+            Website
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+              https://
+            </span>
+            <input
+              id="website"
+              type="text"
+              value={formatWebsiteForDisplay(formData.website || '')}
+              onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+              className="w-full pl-20 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-colors"
+              placeholder="yourwebsite.com"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Your personal or professional website</p>
+        </div>
+
+        {/* Submit Button */}
+        <div className="pt-4">
+          <button
+            type="submit"
+            disabled={saving || checkingUsername || !!usernameError || !formData.full_name.trim()}
+            className="w-full flex items-center justify-center gap-2 bg-brand-green text-white py-3 px-4 rounded-lg hover:bg-brand-green-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving Profile...
+              </>
+            ) : (
+              'Complete Setup'
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

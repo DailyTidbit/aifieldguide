@@ -1,4 +1,4 @@
-// app/hooks/useAuth.ts - COMPLETELY FIXED VERSION
+// app/hooks/useAuth.ts - Updated with username support
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -98,11 +98,11 @@ export function useAuth(): UseAuthReturn {
         return
       }
 
-      // Parallel data fetching
+      // Parallel data fetching - updated to include username fields
       const [profileResult, membershipResult] = await Promise.allSettled([
         supabase
           .from('profiles')
-          .select('full_name')
+          .select('username, full_name, username_changed, username_changed_at')
           .eq('id', supabaseUser.id)
           .single(),
         supabase
@@ -138,7 +138,7 @@ export function useAuth(): UseAuthReturn {
         }
       }
 
-      // Build auth user object
+      // Build auth user object with username support
       const authUser: AuthUser = {
         id: supabaseUser.id,
         email: supabaseUser.email,
@@ -154,13 +154,15 @@ export function useAuth(): UseAuthReturn {
         } : undefined,
         profile: profile ? { 
           id: supabaseUser.id,
-          username: null,
+          username: profile.username,
           full_name: profile.full_name,
           avatar_url: null,
           bio: null,
           website: null,
           created_at: null,
-          updated_at: null
+          updated_at: null,
+          username_changed: profile.username_changed,
+          username_changed_at: profile.username_changed_at
         } : undefined
       }
 
@@ -175,9 +177,9 @@ export function useAuth(): UseAuthReturn {
         setUser({
           id: supabaseUser.id,
           email: supabaseUser.email,
-          created_at: supabaseUser.created_at,
-          updated_at: supabaseUser.updated_at,
-          user_metadata: supabaseUser.user_metadata,
+          created_at: supabaseUser.created_at || new Date().toISOString(),
+          updated_at: supabaseUser.updated_at || new Date().toISOString(),
+          user_metadata: supabaseUser.user_metadata || {},
           profile: undefined,
           companyMembership: undefined,
           company: undefined,
@@ -269,7 +271,7 @@ export function useAuth(): UseAuthReturn {
     }
   }, [mounted, supabaseReady])
 
-  // Auth methods
+  // Auth methods (existing methods remain the same)
   const signIn = useCallback(async (email: string, password?: string) => {
     if (!mounted || !supabaseReady) {
       throw new Error('Authentication system not ready')

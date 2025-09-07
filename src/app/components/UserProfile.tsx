@@ -1,9 +1,11 @@
-﻿'use client'
+﻿// Updated UserProfile.tsx - Complete version with username support
+'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import PostModal from './PostModal'
 import TidbitProgressTracker from './TidbitProgressTracker'
+import ProfileSetupWizard from './ProfileSetupWizard'
 import { 
   User, 
   Edit3, 
@@ -28,7 +30,8 @@ import {
   Star,
   Award,
   Lock,
-  Pin
+  Pin,
+  AtSign
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -41,6 +44,8 @@ interface Profile {
   website: string | null
   created_at: string
   updated_at: string
+  username_changed: boolean
+  username_changed_at: string | null
 }
 
 interface ProfileStats {
@@ -50,10 +55,9 @@ interface ProfileStats {
   commentsGiven: number
   commentsReceived: number
   joinedDaysAgo: number
-  completedTidbits: number // NEW: Track completed tidbits for badges
+  completedTidbits: number
 }
 
-// Enhanced Badge System - Updated thresholds to include tidbit completion
 interface Badge {
   id: string
   name: string
@@ -62,7 +66,7 @@ interface Badge {
   tier: 'starter' | 'arcade' | 'web' | 'hacker' | 'voyager' | 'neural' | 'quantum'
   threshold: number
   theme: string
-  type: 'posts' | 'tidbits' | 'engagement' // NEW: Badge types
+  type: 'posts' | 'tidbits' | 'engagement'
 }
 
 const RETRO_BADGES: Badge[] = [
@@ -113,7 +117,6 @@ const RETRO_BADGES: Badge[] = [
   { id: 'engagement-engine', name: 'Engagement Engine', emoji: '⚡', tagline: 'Always sparking discussion', tier: 'hacker', threshold: 25, theme: 'from-blue-500 to-cyan-500', type: 'engagement' }
 ]
 
-// Enhanced Profile Component
 export default function UserProfile({ userId, isOwnProfile = false }: {
   userId: string
   isOwnProfile?: boolean
@@ -132,9 +135,11 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   const [selectedPost, setSelectedPost] = useState<any>(null)
   const [userBadges, setUserBadges] = useState<Badge[]>([])
   
-  // Form state
+  // Profile setup wizard state
+  const [showProfileSetup, setShowProfileSetup] = useState(false)
+  
+  // Form state (username is now read-only)
   const [formData, setFormData] = useState({
-    username: '',
     full_name: '',
     bio: '',
     website: ''
@@ -178,9 +183,15 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     return tidbitBadges.length > 0 ? tidbitBadges[tidbitBadges.length - 1] : null
   }
 
-  // Fetch profile data - FIXED with null safety
+  // Check if profile needs setup
+  const needsProfileSetup = (profile: Profile | null) => {
+    if (!profile) return false
+    return !profile.full_name || profile.full_name.trim() === ''
+  }
+
+  // Fetch profile data with better error handling
   const fetchProfile = async () => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return
     
     try {
       setLoading(true)
@@ -197,11 +208,36 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .eq('id', userId)
         .single()
 
-      if (profileError) throw profileError
+      if (profileError) {
+        // If profile doesn't exist, create one
+        if (profileError.code === 'PGRST116') {
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({ 
+              id: userId,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single()
+
+          if (createError) throw createError
+          setProfile(newProfile)
+          setShowProfileSetup(true)
+          return
+        }
+        throw profileError
+      }
 
       setProfile(profileData)
+      
+      // Check if profile needs setup
+      if (isOwnProfile && needsProfileSetup(profileData)) {
+        setShowProfileSetup(true)
+        return
+      }
+
       setFormData({
-        username: profileData.username || '',
         full_name: profileData.full_name || '',
         bio: profileData.bio || '',
         website: profileData.website || ''
@@ -217,9 +253,9 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Enhanced fetch stats with tidbit completion tracking - FIXED with null safety
+  // Enhanced fetch stats with tidbit completion tracking
   const fetchStats = async () => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return
     
     try {
       const supabase = getSupabaseBrowserClient()
@@ -272,7 +308,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
-      // NEW: Get completed tidbits count
+      // Get completed tidbits count
       const { count: completedTidbits } = await supabase
         .from('user_tidbit_progress')
         .select('*', { count: 'exact', head: true })
@@ -299,7 +335,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         commentsGiven: commentsGiven || 0,
         commentsReceived,
         joinedDaysAgo,
-        completedTidbits: completedTidbits || 0 // NEW: Include completed tidbits
+        completedTidbits: completedTidbits || 0
       }
 
       setStats(newStats)
@@ -326,9 +362,9 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     return `https://${website}`
   }
 
-  // Handle avatar upload - FIXED with null safety
+  // Handle avatar upload
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return
     
     const file = event.target.files?.[0]
     if (!file) return
@@ -389,9 +425,9 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Save profile changes - FIXED with null safety
+  // Save profile changes (username is read-only)
   const handleSave = async () => {
-    if (!mounted) return // Hydration guard
+    if (!mounted) return
     
     try {
       setSaving(true)
@@ -401,25 +437,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       if (!supabase) {
         throw new Error('Supabase client not available')
       }
-      
-      // Validate username uniqueness if changed
-      if (formData.username && formData.username !== profile?.username) {
-        const { data: existingUser } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('username', formData.username)
-          .neq('id', userId)
-          .single()
-
-        if (existingUser) {
-          throw new Error('Username already taken')
-        }
-      }
 
       const { error } = await supabase
         .from('profiles')
         .update({
-          username: formData.username || null,
           full_name: formData.full_name || null,
           bio: formData.bio || null,
           website: formatWebsiteForSave(formData.website),
@@ -439,6 +460,12 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
+  // Handle profile setup completion
+  const handleProfileSetupComplete = () => {
+    setShowProfileSetup(false)
+    fetchProfile() // Refresh the profile data
+  }
+
   // Handle post click
   const handlePostClick = (post: any) => {
     if (!mounted) return
@@ -452,7 +479,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     fetchProfile()
   }
 
-  // Handle logout - FIXED with null safety
+  // Handle logout
   const handleLogout = async () => {
     if (!mounted) return
     
@@ -471,6 +498,17 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       fetchProfile()
     }
   }, [userId, mounted])
+
+  // Show profile setup wizard if needed
+  if (mounted && showProfileSetup && isOwnProfile) {
+    return (
+      <ProfileSetupWizard
+        userId={userId}
+        onComplete={handleProfileSetupComplete}
+        onDone={handleProfileSetupComplete}
+      />
+    )
+  }
 
   // Hydration safety - show loading during hydration
   if (!mounted) {
@@ -543,7 +581,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
       {/* Profile Header */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Cover Image - Back to Original Gradient */}
+        {/* Cover Image */}
         <div className="relative h-32 sm:h-48 bg-gradient-to-r from-[#60A875] to-[#59B1E3]">
           <div className="absolute inset-0 bg-black/10"></div>
         </div>
@@ -612,18 +650,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                       placeholder="Your display name"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.username}
-                      onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base"
-                      placeholder="username"
-                    />
-                  </div>
                 </div>
               ) : (
                 <div>
@@ -631,13 +657,24 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                     {profile.full_name || profile.username || 'Anonymous User'}
                   </h1>
                   {profile.username && (
-                    <p className="text-base sm:text-lg text-gray-600 mb-2 sm:mb-4">@{profile.username}</p>
+                    <div className="flex items-center gap-2 mb-2 sm:mb-4">
+                      <p className="text-base sm:text-lg text-gray-600 flex items-center gap-1">
+                        <AtSign className="w-4 h-4" />
+                        {profile.username}
+                      </p>
+                      {profile.username_changed && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                          <Lock className="w-3 h-3" />
+                          Username locked
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Action Buttons - Mobile Friendly */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-2 lg:pb-4">
               {isOwnProfile ? (
                 editing ? (
@@ -654,7 +691,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                       onClick={() => {
                         setEditing(false)
                         setFormData({
-                          username: profile.username || '',
                           full_name: profile.full_name || '',
                           bio: profile.bio || '',
                           website: profile.website || ''
@@ -758,7 +794,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                       <Calendar className="w-4 h-4" />
                       Joined {stats?.joinedDaysAgo === 0 ? 'today' : `${stats?.joinedDaysAgo} days ago`}
                     </div>
-                    {/* Subtle Current Badge Display */}
+                    {/* Current Badge Display */}
                     {currentBadge && (
                       <div className="flex items-center gap-1 text-amber-600">
                         <span>{currentBadge.emoji}</span>
@@ -773,10 +809,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         </div>
       </div>
 
-      {/* NEW: Tidbit Progress Tracker */}
+      {/* Tidbit Progress Tracker */}
       <TidbitProgressTracker userId={userId} isOwnProfile={isOwnProfile} />
 
-      {/* Enhanced Stats Grid - Mobile Optimized */}
+      {/* Stats Grid */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
           <button
@@ -818,7 +854,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
             )}
           </button>
 
-          {/* Comments Received */}
           <button
             onClick={() => setActiveStatsFilter('received')}
             className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
@@ -832,7 +867,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
             )}
           </button>
           
-          {/* Comments Given */}
           <button
             onClick={() => setActiveStatsFilter('commented')}
             className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
@@ -846,7 +880,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
             )}
           </button>
 
-          {/* NEW: Completed Tidbits */}
           <div className="bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50">
             <div className="text-xl sm:text-2xl font-bold text-amber-600 mb-1">{stats.completedTidbits}</div>
             <div className="text-xs sm:text-sm text-amber-700">Tidbits Completed</div>
@@ -878,7 +911,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   )
 }
 
-// Component to display user's posts in a grid with filtering and privacy support - FIXED with null safety
+// UserPostsGrid component - keeping all the existing functionality
 function UserPostsGrid({ userId, filter = 'all', onPostClick }: { 
   userId: string
   filter?: 'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented' | 'received'
@@ -1018,7 +1051,6 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
       case 'commented':
         return commentedPosts
       case 'received':
-        // For received comments, show posts that have comments on them
         const postsWithComments = posts.filter(post => (post.comments_count || 0) > 0)
         return postsWithComments.sort((a, b) => (b.comments_count || 0) - (a.comments_count || 0))
       case 'top':
