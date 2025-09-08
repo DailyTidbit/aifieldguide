@@ -1,4 +1,4 @@
-﻿// app/components/ModalAuthForm.tsx - Back to email/password only
+﻿// app/components/ModalAuthForm.tsx - Complete working version with tabs
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -22,7 +22,7 @@ export default function ModalAuthForm({
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   
-  // Simple form data - back to email/password only
+  // Simple form data - email/password only
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   
@@ -63,11 +63,19 @@ export default function ModalAuthForm({
         
         const { data, error } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
-          password
+          password,
+          options: {
+            emailRedirectTo: redirectTo || `${window.location.origin}/auth`
+          }
         })
         
         if (error) throw error
-        setMessage('Account created! You may need to verify your email.')
+        
+        if (data?.user && !data?.session) {
+          setMessage('Account created! Please check your email to verify your account.')
+        } else if (data?.session) {
+          setMessage('Account created and logged in successfully!')
+        }
         
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(
@@ -83,7 +91,46 @@ export default function ModalAuthForm({
       
     } catch (err: any) {
       console.error('Auth error:', err)
-      setError(err.message || 'Authentication failed. Please try again.')
+      
+      // Handle specific Supabase auth errors with user-friendly messages
+      let userMessage = 'Authentication failed. Please try again.'
+      let suggestSignup = false
+      
+      if (err?.message) {
+        const errorMsg = err.message.toLowerCase()
+        
+        if (errorMsg.includes('invalid login credentials') || errorMsg.includes('invalid email or password')) {
+          userMessage = 'Invalid email or password. Please check your credentials and try again.'
+          // If in signin mode and credentials are invalid, suggest signup
+          if (mode === 'signin') {
+            suggestSignup = true
+          }
+        } else if (errorMsg.includes('email not confirmed')) {
+          userMessage = 'Please check your email and click the confirmation link before signing in.'
+        } else if (errorMsg.includes('too many requests')) {
+          userMessage = 'Too many login attempts. Please wait a moment before trying again.'
+        } else if (errorMsg.includes('user not found')) {
+          userMessage = 'No account found with this email address.'
+          suggestSignup = true
+        } else if (errorMsg.includes('signup disabled')) {
+          userMessage = 'Account creation is currently disabled. Please try again later.'
+        } else if (errorMsg.includes('email already registered') || errorMsg.includes('user already registered')) {
+          userMessage = 'An account with this email already exists. Try signing in instead.'
+        } else if (errorMsg.includes('password') && errorMsg.includes('weak')) {
+          userMessage = 'Password is too weak. Please choose a stronger password.'
+        } else if (errorMsg.includes('email') && errorMsg.includes('invalid')) {
+          userMessage = 'Please enter a valid email address.'
+        }
+      }
+      
+      setError(userMessage)
+      
+      // Auto-suggest signup for unregistered users
+      if (suggestSignup && mode === 'signin') {
+        setTimeout(() => {
+          setMessage('New user? You can create an account instead!')
+        }, 1000)
+      }
     } finally {
       setLoading(false)
     }
@@ -208,6 +255,42 @@ export default function ModalAuthForm({
         )}
       </div>
 
+      {/* Tab-style mode switcher */}
+      <div className="flex bg-gray-100 rounded-lg p-1">
+        <button
+          type="button"
+          onClick={() => {
+            setMode('signin')
+            setError(null)
+            setMessage(null)
+          }}
+          disabled={loading}
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            mode === 'signin'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode('signup')
+            setError(null)
+            setMessage(null)
+          }}
+          disabled={loading}
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            mode === 'signup'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Sign Up
+        </button>
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-3">
           <p className="body-small text-red-600">{error}</p>
@@ -324,42 +407,6 @@ export default function ModalAuthForm({
             <span className="ml-2">Apple</span>
           </button>
         </div>
-      </div>
-
-      <div className="text-center">
-        {mode === 'signin' ? (
-          <p className="body-medium text-gray-600">
-            Need an account?{' '}
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signup')
-                setError(null)
-                setMessage(null)
-              }}
-              disabled={loading}
-              className="text-brand-blue hover:text-brand-blue font-medium disabled:opacity-50"
-            >
-              Sign up
-            </button>
-          </p>
-        ) : (
-          <p className="body-medium text-gray-600">
-            Already have an account?{' '}
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signin')
-                setError(null)
-                setMessage(null)
-              }}
-              disabled={loading}
-              className="text-brand-blue hover:text-brand-blue font-medium disabled:opacity-50"
-            >
-              Sign in
-            </button>
-          </p>
-        )}
       </div>
     </div>
   )

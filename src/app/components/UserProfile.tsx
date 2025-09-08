@@ -1,4 +1,4 @@
-﻿// Updated UserProfile.tsx - Complete version with username support
+﻿// Updated UserProfile.tsx - Complete version with favorite AI tool support
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -6,16 +6,15 @@ import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import PostModal from './PostModal'
 import TidbitProgressTracker from './TidbitProgressTracker'
 import ProfileSetupWizard from './ProfileSetupWizard'
-import { 
-  User, 
-  Edit3, 
-  Save, 
-  X, 
-  Upload, 
-  Loader2, 
-  Check, 
+import {
+  User,
+  Edit3,
+  Save,
+  X,
+  Upload,
+  Loader2,
+  Check,
   AlertCircle,
-  Globe,
   MapPin,
   Calendar,
   Heart,
@@ -31,7 +30,8 @@ import {
   Award,
   Lock,
   Pin,
-  AtSign
+  AtSign,
+  ChevronDown
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -41,11 +41,19 @@ interface Profile {
   full_name: string | null
   avatar_url: string | null
   bio: string | null
-  website: string | null
+  favorite_ai_tool_id: string | null
   created_at: string
   updated_at: string
   username_changed: boolean
   username_changed_at: string | null
+}
+
+interface AITool {
+  id: string
+  name: string
+  company: string
+  category: string
+  description: string
 }
 
 interface ProfileStats {
@@ -75,7 +83,7 @@ const RETRO_BADGES: Badge[] = [
   { id: 'bit-curious', name: 'Bit Curious', emoji: '👀', tagline: "you're exploring...", tier: 'starter', threshold: 3, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
   { id: 'daily-dabbler', name: 'Daily Dabbler', emoji: '🧪', tagline: 'Starting to feel it?', tier: 'starter', threshold: 5, theme: 'from-green-500 to-emerald-500', type: 'tidbits' },
   { id: 'early-adapter', name: 'Early Adapter', emoji: '💾', tagline: "you're plugged in now", tier: 'starter', threshold: 10, theme: 'from-purple-500 to-violet-500', type: 'tidbits' },
-  
+
   // Arcade Era (11-50 tidbits)
   { id: 'bit-bouncer', name: 'Bit Bouncer', emoji: '🕹️', tagline: "you're bouncing back daily", tier: 'arcade', threshold: 15, theme: 'from-yellow-500 to-orange-500', type: 'tidbits' },
   { id: 'pixel-pusher', name: 'Pixel Pusher', emoji: '🎮', tagline: 'That rhythm tho', tier: 'arcade', threshold: 20, theme: 'from-indigo-500 to-purple-500', type: 'tidbits' },
@@ -83,28 +91,28 @@ const RETRO_BADGES: Badge[] = [
   { id: 'coinop-regular', name: 'Coin-Op Regular', emoji: '🪙', tagline: "You've earned your high score", tier: 'arcade', threshold: 30, theme: 'from-amber-500 to-yellow-500', type: 'tidbits' },
   { id: 'level-grinder', name: 'Level Grinder', emoji: '🧠', tagline: 'This is more than a phase', tier: 'arcade', threshold: 40, theme: 'from-rose-500 to-pink-500', type: 'tidbits' },
   { id: 'game-saved', name: 'Game Saved', emoji: '💽', tagline: 'Press start to continue', tier: 'arcade', threshold: 50, theme: 'from-cyan-500 to-blue-500', type: 'tidbits' },
-  
+
   // Old Web Explorer (51-100 tidbits)
   { id: 'dialup-devotee', name: 'Dial-Up Devotee', emoji: '📞', tagline: "it's noisy, but it connects", tier: 'web', threshold: 60, theme: 'from-gray-500 to-slate-500', type: 'tidbits' },
   { id: 'sitebuilder', name: 'Sitebuilder', emoji: '🧱', tagline: "you're stacking bits", tier: 'web', threshold: 75, theme: 'from-orange-500 to-red-500', type: 'tidbits' },
   { id: 'web1-legend', name: 'Web 1.0 Legend', emoji: '🌍', tagline: 'A full century of tidbits?! 🫡', tier: 'web', threshold: 100, theme: 'from-violet-500 to-purple-500', type: 'tidbits' },
-  
+
   // The Hacker's Lounge (101-250 tidbits)
   { id: 'command-champ', name: 'Command Line Champ', emoji: '⌨️', tagline: 'You speak fluent prompts now', tier: 'hacker', threshold: 125, theme: 'from-emerald-500 to-green-500', type: 'tidbits' },
   { id: 'syntax-sorcerer', name: 'Syntax Sorcerer', emoji: '✨', tagline: "you're remixing everything", tier: 'hacker', threshold: 150, theme: 'from-purple-500 to-indigo-500', type: 'tidbits' },
   { id: 'terminal-traveler', name: 'Terminal Traveler', emoji: '🧳', tagline: "you're in deep — and loving it", tier: 'hacker', threshold: 200, theme: 'from-blue-500 to-cyan-500', type: 'tidbits' },
   { id: 'root-access', name: 'Root Access', emoji: '🔑', tagline: 'You run this machine now', tier: 'hacker', threshold: 250, theme: 'from-red-500 to-orange-500', type: 'tidbits' },
-  
+
   // Bit Voyager (251-500 tidbits)
   { id: 'bitstream-surfer', name: 'Bitstream Surfer', emoji: '🏄', tagline: 'You make it look easy', tier: 'voyager', threshold: 300, theme: 'from-teal-500 to-cyan-500', type: 'tidbits' },
   { id: 'creative-compiler', name: 'Creative Compiler', emoji: '⚙️', tagline: 'Ideas. In. Code. In. Style.', tier: 'voyager', threshold: 400, theme: 'from-pink-500 to-rose-500', type: 'tidbits' },
   { id: 'warp-drive', name: 'Warp Drive Activated', emoji: '🚀', tagline: 'Halfway to four digits. Woah.', tier: 'voyager', threshold: 500, theme: 'from-indigo-500 to-violet-500', type: 'tidbits' },
-  
+
   // Neural Explorer (501-750 tidbits)
   { id: 'prompt-poet', name: 'Prompt Poet', emoji: '✍️', tagline: 'Your style? Unmistakable.', tier: 'neural', threshold: 600, theme: 'from-amber-500 to-orange-500', type: 'tidbits' },
   { id: 'language-modeler', name: 'Language Modeler', emoji: '📚', tagline: 'You could teach a model a thing or two', tier: 'neural', threshold: 700, theme: 'from-green-500 to-emerald-500', type: 'tidbits' },
   { id: 'synapse-syncer', name: 'Synapse Syncer', emoji: '🧬', tagline: "you're wired for this now", tier: 'neural', threshold: 750, theme: 'from-purple-500 to-pink-500', type: 'tidbits' },
-  
+
   // The Reflection Zone (751-1000 tidbits)
   { id: 'bit-philosopher', name: 'Bit Philosopher', emoji: '🪞', tagline: "You've seen it all. Now what?", tier: 'quantum', threshold: 800, theme: 'from-slate-500 to-gray-500', type: 'tidbits' },
   { id: 'echo-mapper', name: 'Echo Mapper', emoji: '🛰️', tagline: 'Your thoughts ripple across the board', tier: 'quantum', threshold: 900, theme: 'from-cyan-500 to-blue-500', type: 'tidbits' },
@@ -126,6 +134,8 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [stats, setStats] = useState<ProfileStats | null>(null)
+  const [favoriteAITool, setFavoriteAITool] = useState<AITool | null>(null)
+  const [aiTools, setAiTools] = useState<AITool[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -134,17 +144,17 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   const [activeStatsFilter, setActiveStatsFilter] = useState<'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented' | 'received'>('all')
   const [selectedPost, setSelectedPost] = useState<any>(null)
   const [userBadges, setUserBadges] = useState<Badge[]>([])
-  
+
   // Profile setup wizard state
   const [showProfileSetup, setShowProfileSetup] = useState(false)
-  
-  // Form state (username is now read-only)
+
+  // Form state (website replaced with favorite_ai_tool_id)
   const [formData, setFormData] = useState({
     full_name: '',
     bio: '',
-    website: ''
+    favorite_ai_tool_id: ''
   })
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -154,26 +164,26 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   // Enhanced badge calculation including tidbit completion
   const calculateEarnedBadges = (stats: ProfileStats) => {
     const earnedBadges: Badge[] = []
-    
+
     // Tidbit completion badges
-    const tidbitBadges = RETRO_BADGES.filter(badge => 
+    const tidbitBadges = RETRO_BADGES.filter(badge =>
       badge.type === 'tidbits' && stats.completedTidbits >= badge.threshold
     )
     earnedBadges.push(...tidbitBadges)
-    
+
     // Post count badges
-    const postBadges = RETRO_BADGES.filter(badge => 
+    const postBadges = RETRO_BADGES.filter(badge =>
       badge.type === 'posts' && stats.postsCount >= badge.threshold
     )
     earnedBadges.push(...postBadges)
-    
+
     // Engagement badges (comments + likes given)
     const engagementScore = stats.commentsGiven + stats.likesGiven
-    const engagementBadges = RETRO_BADGES.filter(badge => 
+    const engagementBadges = RETRO_BADGES.filter(badge =>
       badge.type === 'engagement' && engagementScore >= badge.threshold
     )
     earnedBadges.push(...engagementBadges)
-    
+
     return earnedBadges.sort((a, b) => a.threshold - b.threshold)
   }
 
@@ -189,10 +199,35 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     return !profile.full_name || profile.full_name.trim() === ''
   }
 
+  // Load AI tools
+  const loadAITools = async () => {
+    if (!mounted) return
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+      if (!supabase) return
+
+      const { data: tools, error } = await supabase
+        .from('ai_tools')
+        .select('id, name, company, category, description')
+        .eq('is_public', true)
+        .order('name')
+
+      if (error) {
+        console.error('Error loading AI tools:', error)
+        return
+      }
+
+      setAiTools(tools || [])
+    } catch (err) {
+      console.error('Error loading AI tools:', err)
+    }
+  }
+
   // Fetch profile data with better error handling
   const fetchProfile = async () => {
     if (!mounted) return
-    
+
     try {
       setLoading(true)
       setError(null)
@@ -213,7 +248,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         if (profileError.code === 'PGRST116') {
           const { data: newProfile, error: createError } = await supabase
             .from('profiles')
-            .insert({ 
+            .insert({
               id: userId,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
@@ -230,7 +265,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       }
 
       setProfile(profileData)
-      
+
       // Check if profile needs setup
       if (isOwnProfile && needsProfileSetup(profileData)) {
         setShowProfileSetup(true)
@@ -240,8 +275,21 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       setFormData({
         full_name: profileData.full_name || '',
         bio: profileData.bio || '',
-        website: profileData.website || ''
+        favorite_ai_tool_id: profileData.favorite_ai_tool_id || ''
       })
+
+      // Load favorite AI tool if it exists
+      if (profileData.favorite_ai_tool_id) {
+        const { data: toolData, error: toolError } = await supabase
+          .from('ai_tools')
+          .select('id, name, company, category, description')
+          .eq('id', profileData.favorite_ai_tool_id)
+          .single()
+
+        if (!toolError && toolData) {
+          setFavoriteAITool(toolData)
+        }
+      }
 
       // Fetch stats
       await fetchStats()
@@ -256,14 +304,14 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   // Enhanced fetch stats with tidbit completion tracking
   const fetchStats = async () => {
     if (!mounted) return
-    
+
     try {
       const supabase = getSupabaseBrowserClient()
       if (!supabase) {
         console.error('Supabase client not available')
         return
       }
-      
+
       // Get posts count
       const { count: postsCount } = await supabase
         .from('posts')
@@ -280,7 +328,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       let commentsReceived = 0
       if (userPosts && userPosts.length > 0) {
         const postIds = userPosts.map(post => post.id)
-        
+
         // Likes received
         const { count: likesCount } = await supabase
           .from('likes')
@@ -324,7 +372,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .eq('id', userId)
         .single()
 
-      const joinedDaysAgo = profileData 
+      const joinedDaysAgo = profileData
         ? Math.floor((new Date().getTime() - new Date(profileData.created_at).getTime()) / (1000 * 60 * 60 * 24))
         : 0
 
@@ -348,24 +396,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Enhanced website field handling
-  const handleWebsiteChange = (value: string) => {
-    if (!mounted) return
-    setFormData(prev => ({ ...prev, website: value }))
-  }
-
-  const formatWebsiteForSave = (website: string) => {
-    if (!website.trim()) return ''
-    if (website.startsWith('http://') || website.startsWith('https://')) {
-      return website
-    }
-    return `https://${website}`
-  }
-
   // Handle avatar upload
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!mounted) return
-    
+
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -391,13 +425,13 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
       if (!supabase) {
         throw new Error('Supabase client not available')
       }
-      
+
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { 
+        .upload(fileName, file, {
           upsert: true,
-          contentType: file.type 
+          contentType: file.type
         })
 
       if (uploadError) throw uploadError
@@ -425,10 +459,10 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
     }
   }
 
-  // Save profile changes (username is read-only)
+  // Save profile changes (favorite AI tool instead of website)
   const handleSave = async () => {
     if (!mounted) return
-    
+
     try {
       setSaving(true)
       setError(null)
@@ -443,7 +477,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         .update({
           full_name: formData.full_name || null,
           bio: formData.bio || null,
-          website: formatWebsiteForSave(formData.website),
+          favorite_ai_tool_id: formData.favorite_ai_tool_id || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
@@ -482,13 +516,13 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   // Handle logout
   const handleLogout = async () => {
     if (!mounted) return
-    
+
     const supabase = getSupabaseBrowserClient()
     if (!supabase) {
       console.error('Supabase client not available')
       return
     }
-    
+
     await supabase.auth.signOut()
     window.location.reload()
   }
@@ -496,6 +530,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   useEffect(() => {
     if (mounted) {
       fetchProfile()
+      loadAITools()
     }
   }, [userId, mounted])
 
@@ -562,6 +597,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
   }
 
   const currentBadge = getCurrentTierBadge(userBadges)
+  const selectedAITool = aiTools.find(tool => tool.id === formData.favorite_ai_tool_id)
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -607,7 +643,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                     </span>
                   </div>
                 )}
-                
+
                 {uploadingAvatar && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <Loader2 className="w-4 h-4 sm:w-6 sm:h-6 text-white animate-spin" />
@@ -662,12 +698,6 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                         <AtSign className="w-4 h-4" />
                         {profile.username}
                       </p>
-                      {profile.username_changed && (
-                        <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                          <Lock className="w-3 h-3" />
-                          Username locked
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -693,7 +723,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                         setFormData({
                           full_name: profile.full_name || '',
                           bio: profile.bio || '',
-                          website: profile.website || ''
+                          favorite_ai_tool_id: profile.favorite_ai_tool_id || ''
                         })
                       }}
                       className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm sm:text-base"
@@ -744,29 +774,40 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base"
                     placeholder="Tell us about yourself..."
+                    maxLength={300}
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {(formData.bio || '').length}/300 characters
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Website
+                    Favorite AI Tool
                   </label>
                   <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.website}
-                      onChange={(e) => handleWebsiteChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base"
-                      placeholder="yourwebsite.com"
-                    />
-                    {formData.website && !formData.website.startsWith('http') && (
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 text-sm pointer-events-none">
-                        https://
-                      </div>
-                    )}
+                    <select
+                      value={formData.favorite_ai_tool_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, favorite_ai_tool_id: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#60A875] focus:border-[#60A875] text-sm sm:text-base appearance-none bg-white"
+                    >
+                      <option value="">Select your favorite AI tool</option>
+                      {aiTools.map((tool) => (
+                        <option key={tool.id} value={tool.id}>
+                          {tool.name} {tool.company && `by ${tool.company}`}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    we'll automatically add https:// if needed
-                  </p>
+                  {selectedAITool && (
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                      <div className="font-medium text-sm text-gray-900">{selectedAITool.name}</div>
+                      {selectedAITool.company && (
+                        <div className="text-xs text-gray-600 mb-1">by {selectedAITool.company}</div>
+                      )}
+                      <div className="text-xs text-gray-600">{selectedAITool.description}</div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -777,18 +818,18 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
                       <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{profile.bio}</p>
                     </div>
                   )}
-                  
+
                   <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                    {profile.website && (
-                      <a
-                        href={profile.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 hover:text-[#59B1E3] transition-colors"
-                      >
-                        <Globe className="w-4 h-4" />
-                        Website
-                      </a>
+                    {favoriteAITool && (
+                      <div className="flex items-center gap-2 bg-gradient-to-r from-brand-green/10 to-brand-blue/10 px-3 py-2 rounded-lg">
+                        <span className="font-medium text-gray-900">Favorite AI Tool:</span>
+                        <div>
+                          <span className="font-medium text-gray-900">{favoriteAITool.name}</span>
+                          {favoriteAITool.company && (
+                            <span className="text-gray-600 ml-1">by {favoriteAITool.company}</span>
+                          )}
+                        </div>
+                      </div>
                     )}
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
@@ -817,9 +858,8 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
           <button
             onClick={() => setActiveStatsFilter('created')}
-            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'created' ? 'border-[#60A875] ring-2 ring-[#60A875]/20' : 'border-gray-200 hover:border-[#60A875]'
-            }`}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${activeStatsFilter === 'created' ? 'border-[#60A875] ring-2 ring-[#60A875]/20' : 'border-gray-200 hover:border-[#60A875]'
+              }`}
           >
             <div className="text-xl sm:text-2xl font-bold text-[#60A875] mb-1">{stats.postsCount}</div>
             <div className="text-xs sm:text-sm text-gray-600">Posts Created</div>
@@ -827,12 +867,11 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
               <div className="text-xs text-[#60A875] mt-1 font-medium">● Active</div>
             )}
           </button>
-          
+
           <button
             onClick={() => setActiveStatsFilter('top')}
-            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'top' ? 'border-[#59B1E3] ring-2 ring-[#59B1E3]/20' : 'border-gray-200 hover:border-[#59B1E3]'
-            }`}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${activeStatsFilter === 'top' ? 'border-[#59B1E3] ring-2 ring-[#59B1E3]/20' : 'border-gray-200 hover:border-[#59B1E3]'
+              }`}
           >
             <div className="text-xl sm:text-2xl font-bold text-[#59B1E3] mb-1">{stats.likesReceived}</div>
             <div className="text-xs sm:text-sm text-gray-600">Likes Received</div>
@@ -840,12 +879,11 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
               <div className="text-xs text-[#59B1E3] mt-1 font-medium">● Active</div>
             )}
           </button>
-          
+
           <button
             onClick={() => setActiveStatsFilter('liked')}
-            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'liked' ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-gray-200 hover:border-orange-500'
-            }`}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${activeStatsFilter === 'liked' ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-gray-200 hover:border-orange-500'
+              }`}
           >
             <div className="text-xl sm:text-2xl font-bold text-orange-500 mb-1">{stats.likesGiven}</div>
             <div className="text-xs sm:text-sm text-gray-600">Likes Given</div>
@@ -856,9 +894,8 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 
           <button
             onClick={() => setActiveStatsFilter('received')}
-            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'received' ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-gray-200 hover:border-purple-500'
-            }`}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${activeStatsFilter === 'received' ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-gray-200 hover:border-purple-500'
+              }`}
           >
             <div className="text-xl sm:text-2xl font-bold text-purple-500 mb-1">{stats.commentsReceived}</div>
             <div className="text-xs sm:text-sm text-gray-600">Comments Received</div>
@@ -866,12 +903,11 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
               <div className="text-xs text-purple-500 mt-1 font-medium">● Active</div>
             )}
           </button>
-          
+
           <button
             onClick={() => setActiveStatsFilter('commented')}
-            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${
-              activeStatsFilter === 'commented' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-gray-200 hover:border-indigo-500'
-            }`}
+            className={`bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm border transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${activeStatsFilter === 'commented' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-gray-200 hover:border-indigo-500'
+              }`}
           >
             <div className="text-xl sm:text-2xl font-bold text-indigo-500 mb-1">{stats.commentsGiven}</div>
             <div className="text-xs sm:text-sm text-gray-600">Comments Given</div>
@@ -896,7 +932,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
           <Grid3X3 className="w-5 h-5 sm:w-6 sm:h-6 text-[#60A875]" />
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recent Posts</h2>
         </div>
-        
+
         <UserPostsGrid userId={userId} filter={activeStatsFilter} onPostClick={handlePostClick} />
       </div>
 
@@ -912,7 +948,7 @@ export default function UserProfile({ userId, isOwnProfile = false }: {
 }
 
 // UserPostsGrid component - keeping all the existing functionality
-function UserPostsGrid({ userId, filter = 'all', onPostClick }: { 
+function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
   userId: string
   filter?: 'all' | 'created' | 'liked' | 'top' | 'timeline' | 'commented' | 'received'
   onPostClick?: (post: any) => void
@@ -931,13 +967,13 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
   useEffect(() => {
     const getCurrentUser = async () => {
       if (!mounted) return
-      
+
       const supabase = getSupabaseBrowserClient()
       if (!supabase) {
         console.error('Supabase client not available')
         return
       }
-      
+
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
     }
@@ -949,17 +985,17 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
   useEffect(() => {
     const fetchUserPosts = async () => {
       if (!mounted) return
-      
+
       try {
         setLoading(true)
-        
+
         const supabase = getSupabaseBrowserClient()
         if (!supabase) {
           console.error('Supabase client not available')
           setLoading(false)
           return
         }
-        
+
         // Get created posts
         const { data: createdPosts, error: postsError } = await supabase
           .from('posts')
@@ -1026,7 +1062,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
 
         if (!commentsError && userComments) {
           const commentedPostsData = userComments.map(comment => comment.posts).filter(Boolean)
-          const uniqueCommentedPosts = commentedPostsData.filter((post: any, index: number, self: any[]) => 
+          const uniqueCommentedPosts = commentedPostsData.filter((post: any, index: number, self: any[]) =>
             index === self.findIndex((p: any) => p.id === post.id)
           )
           setCommentedPosts(uniqueCommentedPosts)
@@ -1133,13 +1169,13 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
           <Grid3X3 className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">{getEmptyMessage()}</h3>
           <p className="text-gray-600 text-sm sm:text-base">
-            {filter === 'liked' 
+            {filter === 'liked'
               ? "Start liking posts to see them here!"
               : filter === 'commented'
-              ? "Start commenting on posts to see them here!"
-              : filter === 'top'
-              ? "Share amazing content to start receiving likes!"
-              : "Share your AI creations to build your collection!"
+                ? "Start commenting on posts to see them here!"
+                : filter === 'top'
+                  ? "Share amazing content to start receiving likes!"
+                  : "Share your AI creations to build your collection!"
             }
           </p>
         </div>
@@ -1153,7 +1189,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
         <h3 className="text-base sm:text-lg font-semibold text-gray-900">{getFilterTitle()}</h3>
         <span className="text-sm text-gray-500">{filteredPosts.length} posts</span>
       </div>
-      
+
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {(filter === 'created' ? filteredPosts : filteredPosts.slice(0, 12)).map((post) => (
           <div
@@ -1176,7 +1212,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
                 </p>
               </div>
             )}
-            
+
             {/* Privacy indicator for private posts */}
             {post.is_private && isOwnProfile && (
               <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
@@ -1184,7 +1220,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
                 Private
               </div>
             )}
-            
+
             {/* Pin indicator for pinned posts */}
             {post.is_pinned && (
               <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
@@ -1192,7 +1228,7 @@ function UserPostsGrid({ userId, filter = 'all', onPostClick }: {
                 Pinned
               </div>
             )}
-            
+
             {/* Hover overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 right-2 sm:right-3 text-white">
