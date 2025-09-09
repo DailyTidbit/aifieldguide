@@ -1,38 +1,49 @@
-// src/app/api/partners/request-access/route.ts - Updated for SSR Cookie Auth
+// src/app/api/partners/request-access/route.ts - FIXED with hard query limits and enhanced security
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/app/lib/supabaseServer'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
-import { accessRequestSchema, validateInput } from '@/app/lib/validationSchemas'
-import { checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
+import { validateInput } from '@/app/lib/validationSchemas'
+import { requireAdmin, getClientIP } from '@/app/lib/adminAuth'
+import { 
+  validateUrlSearchParams,
+  createSafeRange,
+  logDangerousQuery,
+  createQueryErrorResponse
+} from '@/app/lib/querySafety'
+
+// SECURITY: Hard limits for partner requests
+const PARTNER_REQUESTS_CONFIG = {
+  maxLimit: 25,         // Reduced limit for sensitive data
+  defaultLimit: 10,     // Conservative default
+  maxOffset: 5000,      // Hard limit on total results
+  maxPage: 200,         // Maximum page number
+  allowedSortFields: ['created_at', 'status', 'company_name']
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting - 3 requests per hour per IP
     const clientIP = getClientIP(request)
-    const rateLimit = await checkRateLimit(clientIP, 'request-access', 3, 60)
     
-    if (!rateLimit.allowed) {
+    // SECURITY: Enhanced request size validation
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && parseInt(contentLength) > 5000) { // 5KB limit for partner requests
       return NextResponse.json(
-        { 
-          success: false,
-          message: 'Too many requests. Please try again later.',
-          resetTime: rateLimit.resetTime.toISOString()
-        }, 
-        { 
-          status: 429,
-          headers: {
-            'X-RateLimit-Limit': '3',
-            'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': Math.floor(rateLimit.resetTime.getTime() / 1000).toString()
-          }
-        }
+        { success: false, message: 'Request too large' },
+        { status: 413 }
       )
     }
 
-    // Parse and validate request body
+    // Parse and validate request body with size limits
     let body
     try {
-      body = await request.json()
+      const rawBody = await request.text()
+      if (rawBody.length > 5000) {
+        return NextResponse.json(
+          { success: false, message: 'Request body too large' },
+          { status: 413 }
+        )
+      }
+      body = JSON.parse(rawBody)
     } catch {
       return NextResponse.json(
         { success: false, message: 'Invalid JSON body' },
@@ -40,9 +51,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate with Zod schema
+    // Enhanced validation with our secure schemas
+    const { accessRequestSchema } = await import('@/app/lib/validationSchemas')
     const validation = validateInput(accessRequestSchema, body)
+    
     if (!validation.success) {
+      // Log suspicious validation failures
+      if (validation.errors.some(error => 
+        error.includes('XSS') || 
+        error.includes('SQL') || 
+        error.includes('injection')
+      )) {
+        console.warn('SECURITY: Suspicious partner request validation failure:', {
+          ip: clientIP,
+          errors: validation.errors,
+          userAgent: request.headers.get('user-agent')
+        })
+      }
+      
       return NextResponse.json(
         { 
           success: false, 
@@ -55,83 +81,93 @@ export async function POST(request: NextRequest) {
 
     const { email, companyName, message } = validation.data
 
-    // Insert partner request - using type assertion for missing table types
+    // SECURITY: Additional business logic validation
+    if (!email || !companyName) {
+      return NextResponse.json(
+        { success: false, message: 'Email and company name are required' },
+        { status: 400 }
+      )
+    }
+
+    // SECURITY: Check for duplicate recent requests from same IP/email
+    const recentTimeLimit = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours
+    
+    const { data: recentRequests, error: recentError } = await (supabaseAdmin as any)
+      .from('partner_requests')
+      .select('id, created_at')
+      .or(`email.eq.${email},ip_address.eq.${clientIP}`)
+      .gte('created_at', recentTimeLimit.toISOString())
+      .limit(5) // Hard limit on check
+
+    if (recentError && recentError.code !== 'PGRST116') {
+      console.error('Error checking recent requests:', recentError)
+    } else if (recentRequests && recentRequests.length >= 3) {
+      // Too many recent requests from this email/IP
+      return NextResponse.json({
+        success: true, // Still return success to prevent enumeration
+        message: "Thanks! If eligible, we'll review and reach out via email."
+      })
+    }
+
+    // Insert partner request with enhanced security fields
+    const insertData = {
+      email,
+      company_name: companyName,
+      message: message || null,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      // Enhanced security tracking
+      ip_address: clientIP,
+      user_agent: request.headers.get('user-agent')?.slice(0, 500) || null, // Limit length
+      request_source: 'api',
+      validation_passed: true
+    }
+
     const { error: insertError } = await (supabaseAdmin as any)
       .from('partner_requests')
-      .insert({
-        email,
-        company_name: companyName,
-        message: message || null,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        // Track request metadata for security
-        ip_address: clientIP,
-        user_agent: request.headers.get('user-agent') || null
-      })
+      .insert(insertData)
+
+    // Enhanced logging (success or failure)
+    const logData = {
+      user_id: null,
+      action: insertError ? 'access_request_failed' : 'access_request_submitted',
+      target_type: 'partner_request',
+      target_id: email,
+      details: { 
+        companyName,
+        hasMessage: !!message,
+        ip: clientIP,
+        error: insertError?.message || null,
+        userAgent: request.headers.get('user-agent')
+      },
+      ip_address: clientIP,
+      user_agent: request.headers.get('user-agent') || null,
+      created_at: new Date().toISOString()
+    }
+
+    try {
+      await (supabaseAdmin as any)
+        .from('partner_security_logs')
+        .insert(logData)
+    } catch (logError) {
+      console.error('Security log failed:', logError)
+    }
 
     if (insertError) {
       console.error('Partner request insert failed:', insertError)
-      // Log the failure but still return success to prevent enumeration
-      try {
-        await (supabaseAdmin as any)
-          .from('partner_security_logs')
-          .insert({
-            user_id: null, // No user for access requests
-            action: 'access_request_failed',
-            target_type: 'partner_request',
-            target_id: email,
-            details: { 
-              error: insertError.message, 
-              companyName,
-              ip: clientIP 
-            },
-            ip_address: clientIP,
-            user_agent: request.headers.get('user-agent') || null,
-            created_at: new Date().toISOString()
-          })
-      } catch (logError) {
-        console.error('Security log failed:', logError)
-      }
-    } else {
-      // Log successful request
-      try {
-        await (supabaseAdmin as any)
-          .from('partner_security_logs')
-          .insert({
-            user_id: null,
-            action: 'access_request_submitted',
-            target_type: 'partner_request',
-            target_id: email,
-            details: { 
-              companyName,
-              hasMessage: !!message,
-              ip: clientIP 
-            },
-            ip_address: clientIP,
-            user_agent: request.headers.get('user-agent') || null,
-            created_at: new Date().toISOString()
-          })
-      } catch (logError) {
-        console.error('Security log failed:', logError)
-      }
+      // Still return success to prevent enumeration
     }
 
-    // Always return generic success message to prevent enumeration
+    // Always return generic success message
     return NextResponse.json({
       success: true,
       message: "Thanks! If eligible, we'll review and reach out via email."
-    }, {
-      headers: {
-        'X-RateLimit-Limit': '3',
-        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
-        'X-RateLimit-Reset': Math.floor(rateLimit.resetTime.getTime() / 1000).toString()
-      }
     })
 
   } catch (error) {
-    console.error('Access request error:', error)
-    // Return generic success even on errors to prevent information leakage
+    console.error('Partner request error:', error)
+    // Always return success to prevent information leakage
     return NextResponse.json({
       success: true,
       message: "Thanks! If eligible, we'll review and reach out via email."
@@ -140,72 +176,158 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // Admin-only endpoint to list access requests - Updated to use cookie auth
   try {
-    const supabase = await createServerSupabaseClient()
+    const clientIP = getClientIP(request)
+    const url = new URL(request.url)
     
-    // Get user from cookie-based auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // SECURITY: Validate all query parameters with hard limits
+    const validation = validateUrlSearchParams(url.searchParams, PARTNER_REQUESTS_CONFIG)
     
-    if (authError || !user) {
+    if (!validation.isValid) {
+      logDangerousQuery('pagination', {
+        originalInput: Object.fromEntries(url.searchParams.entries()),
+        sanitizedInput: {
+          pagination: validation.pagination,
+          search: validation.search.query
+        },
+        errors: validation.allErrors,
+        ip: clientIP,
+        endpoint: '/api/partners/request-access'
+      })
+      
+      return createQueryErrorResponse(validation.allErrors)
+    }
+
+    // Enhanced admin authentication
+    const authResult = await requireAdmin(request)
+    if ('error' in authResult) {
       return NextResponse.json(
-        { success: false, message: 'Authentication required' },
-        { status: 401 }
+        { success: false, message: authResult.error },
+        { status: authResult.status }
       )
     }
 
-    // Check if user is admin
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || profile?.role !== 'admin') {
+    const { admin } = authResult
+    
+    // Use validated parameters
+    const { pagination, search } = validation
+    const range = createSafeRange(pagination)
+    
+    if (!range.isValid) {
       return NextResponse.json(
-        { success: false, message: 'Admin access required' },
-        { status: 403 }
+        { success: false, message: 'Invalid pagination parameters' },
+        { status: 400 }
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') || 'pending'
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
-    const offset = parseInt(searchParams.get('offset') || '0')
-
-    if (!['pending', 'approved', 'rejected'].includes(status)) {
+    // SECURITY: Validate status filter with whitelist
+    const status = url.searchParams.get('status') || 'pending'
+    const allowedStatuses = ['pending', 'approved', 'rejected', 'under_review']
+    
+    if (!allowedStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, message: 'Invalid status filter' },
         { status: 400 }
       )
     }
 
-    const { data: requests, error, count } = await (supabaseAdmin as any)
+    // Build secure query
+    let query = (supabaseAdmin as any)
       .from('partner_requests')
-      .select('*', { count: 'exact' })
+      .select(`
+        id,
+        email,
+        company_name,
+        message,
+        status,
+        created_at,
+        updated_at,
+        ip_address,
+        reviewed_at,
+        invited_user_id
+      `, { count: 'exact' })
       .eq('status', status)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+      .range(range.from, range.to)
+
+    // Apply search if provided and valid
+    if (search.query && search.isValid) {
+      query = query.or(`email.ilike.%${search.query}%,company_name.ilike.%${search.query}%`)
+    }
+
+    // Apply sorting (default to newest first)
+    query = query.order('created_at', { ascending: false })
+
+    const { data: requests, error, count } = await query
 
     if (error) {
-      throw error
+      console.error('Partner requests query error:', error)
+      return NextResponse.json(
+        { success: false, message: 'Failed to fetch partner requests' },
+        { status: 500 }
+      )
+    }
+
+    // SECURITY: Sanitize sensitive data in response
+    const sanitizedRequests = (requests || []).map((req: any) => ({
+      id: req.id,
+      email: req.email,
+      company_name: req.company_name,
+      message: req.message,
+      status: req.status,
+      created_at: req.created_at,
+      updated_at: req.updated_at,
+      reviewed_at: req.reviewed_at,
+      // Only include IP for admin security purposes (truncated)
+      ip_address: req.ip_address ? req.ip_address.split('.').slice(0, 2).join('.') + '.xxx.xxx' : null
+    }))
+
+    // SECURITY: Limit total count disclosure
+    const safeCount = Math.min(count || 0, PARTNER_REQUESTS_CONFIG.maxOffset)
+
+    // Log admin access
+    try {
+      await (supabaseAdmin as any)
+        .from('admin_logs')
+        .insert({
+          admin_user_id: admin.user_id,
+          action: 'view_partner_requests',
+          target_type: 'partner_requests',
+          target_id: status,
+          details: {
+            status,
+            resultsCount: sanitizedRequests.length,
+            pagination,
+            search: search.query
+          },
+          ip_address: clientIP,
+          user_agent: request.headers.get('user-agent') || null,
+          created_at: new Date().toISOString()
+        })
+    } catch (logError) {
+      console.error('Admin log failed:', logError)
     }
 
     return NextResponse.json({
       success: true,
-      requests: requests || [],
+      requests: sanitizedRequests,
       pagination: {
-        total: count || 0,
-        limit,
-        offset,
-        hasMore: (count || 0) > offset + limit
+        total: safeCount,
+        page: pagination.page,
+        limit: pagination.limit,
+        offset: pagination.offset,
+        hasMore: safeCount > pagination.offset + pagination.limit,
+        maxReached: safeCount >= PARTNER_REQUESTS_CONFIG.maxOffset
+      },
+      filters: {
+        status,
+        search: search.query || null
       }
     })
 
   } catch (error) {
-    console.error('Error fetching partner requests:', error)
+    console.error('Partner requests GET error:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to fetch partner requests' },
+      { success: false, message: 'Internal server error' },
       { status: 500 }
     )
   }

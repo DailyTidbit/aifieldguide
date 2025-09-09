@@ -1,23 +1,35 @@
-// app/lib/field-guide-server.ts - UPDATED WITH CONSOLIDATED IMPORTS
+// app/lib/field-guide-server.ts - SIMPLIFIED VERSION based on actual database schema
 
 import { createServerClient } from './supabaseServer'
 import { 
   FieldGuideSection, 
   AITool, 
-  AIToolRaw, 
-  convertRawTool, 
-  convertRawTools, 
-  validateRawTools,
   getCategoryForSection,
   getSectionHexColor,
-  getSectionEmoji
+  getSectionEmoji,
+  validateSections,
+  validateTools
 } from './field-guide-types'
 
-// Simple in-memory cache for server-side data
-class ServerCache {
-  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
+// SIMPLIFIED: Basic cache with reasonable limits
+interface CacheEntry {
+  data: any
+  timestamp: number
+  ttl: number
+}
+
+class SimpleServerCache {
+  private cache = new Map<string, CacheEntry>()
+  private readonly maxSize = 100
+  private readonly defaultTtl = 5 * 60 * 1000 // 5 minutes
   
-  set(key: string, data: any, ttlMs: number = 5 * 60 * 1000) { // 5 minutes default TTL
+  set(key: string, data: any, ttlMs: number = this.defaultTtl) {
+    // Simple size management
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value
+      if (firstKey) this.cache.delete(firstKey)
+    }
+    
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -26,15 +38,16 @@ class ServerCache {
   }
   
   get(key: string): any | null {
-    const item = this.cache.get(key)
-    if (!item) return null
+    const entry = this.cache.get(key)
+    if (!entry) return null
     
-    if (Date.now() - item.timestamp > item.ttl) {
+    // Check if expired
+    if (Date.now() - entry.timestamp > entry.ttl) {
       this.cache.delete(key)
       return null
     }
     
-    return item.data
+    return entry.data
   }
   
   clear() {
@@ -42,50 +55,28 @@ class ServerCache {
   }
   
   delete(key: string) {
-    this.cache.delete(key)
+    return this.cache.delete(key)
   }
 }
 
-const cache = new ServerCache()
+const cache = new SimpleServerCache()
 
 export class FieldGuideServerAPI {
   
-  // Enhanced error handling wrapper
-  private static async executeWithRetry<T>(
+  // SIMPLIFIED: Basic error handling
+  private static async executeQuery<T>(
     operation: () => Promise<T>,
-    context: string,
-    maxRetries: number = 2
+    context: string
   ): Promise<T | null> {
-    let lastError: Error | null = null
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await operation()
-      } catch (error) {
-        lastError = error as Error
-        console.error(`${context} - Attempt ${attempt}/${maxRetries} failed:`, error)
-        
-        // don't retry on certain errors
-        if (error && typeof error === 'object' && 'code' in error) {
-          const supabaseError = error as any
-          if (supabaseError.code === 'PGRST116' || supabaseError.code === '42P01') {
-            // Table does not exist or similar structural issues
-            break
-          }
-        }
-        
-        // Wait before retry (exponential backoff)
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100))
-        }
-      }
+    try {
+      return await operation()
+    } catch (error) {
+      console.error(`${context} failed:`, error)
+      return null
     }
-    
-    console.error(`${context} - All attempts failed. Last error:`, lastError)
-    return null
   }
 
-  // Get section by slug with caching - includes published filter
+  // Get section by slug with basic caching
   static async getSectionBySlug(slug: string): Promise<FieldGuideSection | null> {
     if (!slug || typeof slug !== 'string') {
       console.error('Invalid slug provided to getSectionBySlug:', slug)
@@ -94,11 +85,9 @@ export class FieldGuideServerAPI {
 
     const cacheKey = `section_${slug}`
     const cached = cache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
+    if (cached) return cached
 
-    const result = await this.executeWithRetry(async () => {
+    const result = await this.executeQuery(async () => {
       const supabase = createServerClient()
       
       const { data, error } = await supabase
@@ -123,22 +112,15 @@ export class FieldGuideServerAPI {
           updated_at
         `)
         .eq('slug', slug)
-        .eq('published', true) // Only get published sections
+        .eq('published', true)
         .single()
 
-      if (error) {
-        throw new Error(`Supabase error: ${error.message}`)
-      }
-
-      if (!data || !data.section_name) {
-        throw new Error('Invalid section data returned from database')
-      }
-
+      if (error) throw error
       return data
     }, `getSectionBySlug(${slug})`)
 
     if (result) {
-      cache.set(cacheKey, result, 10 * 60 * 1000) // Cache for 10 minutes
+      cache.set(cacheKey, result, 15 * 60 * 1000) // 15 minutes
     }
 
     return result
@@ -148,14 +130,12 @@ export class FieldGuideServerAPI {
   static async getAllSectionsWithCounts(): Promise<FieldGuideSection[]> {
     const cacheKey = 'all_sections_with_counts'
     const cached = cache.get(cacheKey)
-    if (cached && Array.isArray(cached)) {
-      return cached
-    }
+    if (cached && Array.isArray(cached)) return cached
 
-    const result = await this.executeWithRetry(async () => {
+    const result = await this.executeQuery(async () => {
       const supabase = createServerClient()
       
-      // First get all published sections
+      // Get all published sections
       const { data: sections, error: sectionsError } = await supabase
         .from('field_guide_sections')
         .select(`
@@ -177,27 +157,22 @@ export class FieldGuideServerAPI {
           created_at,
           updated_at
         `)
-        .eq('published', true) // Only get published sections
+        .eq('published', true)
         .order('section_number')
 
-      if (sectionsError) {
-        throw new Error(`Error fetching sections: ${sectionsError.message}`)
-      }
+      if (sectionsError) throw sectionsError
 
-      if (!sections || !Array.isArray(sections)) {
-        throw new Error('Invalid sections data returned')
-      }
+      const validSections = validateSections(sections || [])
 
-      // Get tool counts in batch for better performance
-      const validSections = sections.filter(section => section && section.section_name)
+      // Get tool counts by category
       const sectionCategories = validSections.map(section => 
-        getCategoryForSection(section.section_name) // Use imported function
+        getCategoryForSection(section.section_name)
       )
 
-      // Single query to get all tool counts
       const { data: toolCounts, error: countError } = await supabase
         .from('ai_tools')
         .select('category')
+        .eq('is_public', true)
         .in('category', sectionCategories)
 
       if (countError) {
@@ -210,41 +185,36 @@ export class FieldGuideServerAPI {
         return acc
       }, {} as Record<string, number>)
 
-      // Combine sections with their tool counts
-      const sectionsWithCounts = validSections.map(section => ({
+      // Add tool counts to sections
+      return validSections.map(section => ({
         ...section,
-        toolCount: countsByCategory[getCategoryForSection(section.section_name)] || 0 // Use imported function
+        toolCount: countsByCategory[getCategoryForSection(section.section_name)] || 0
       }))
-
-      return sectionsWithCounts
     }, 'getAllSectionsWithCounts')
 
     if (result && Array.isArray(result)) {
-      cache.set(cacheKey, result, 5 * 60 * 1000) // Cache for 5 minutes
+      cache.set(cacheKey, result, 8 * 60 * 1000) // 8 minutes
       return result
     }
 
     return []
   }
 
-  // Get tools for section with caching - only select existing columns
+  // Get tools for section - SIMPLIFIED without conversion since DB has proper types
   static async getToolsForSection(sectionName: string): Promise<AITool[]> {
     if (!sectionName || typeof sectionName !== 'string') {
       console.error('Invalid sectionName provided to getToolsForSection:', sectionName)
       return []
     }
 
-    const category = getCategoryForSection(sectionName) // Use imported function
+    const category = getCategoryForSection(sectionName)
     const cacheKey = `tools_${category}`
     const cached = cache.get(cacheKey)
-    if (cached && Array.isArray(cached)) {
-      return cached
-    }
+    if (cached && Array.isArray(cached)) return cached
 
-    const result = await this.executeWithRetry(async () => {
+    const result = await this.executeQuery(async () => {
       const supabase = createServerClient()
       
-      // Only select columns that exist in your ai_tools table
       const { data, error } = await supabase
         .from('ai_tools')
         .select(`
@@ -260,115 +230,233 @@ export class FieldGuideServerAPI {
           free_tier,
           login_required,
           paid_tier,
+          company_id,
+          is_public,
           created_at
         `)
         .eq('category', category)
+        .eq('is_public', true)
         .order('name')
 
-      if (error) {
-        throw new Error(`Error fetching tools: ${error.message}`)
-      }
+      if (error) throw error
 
-      if (!data || !Array.isArray(data)) {
-        throw new Error('Invalid tools data returned')
-      }
-
-      // Process all tools from database, even if some fail validation
-      const allTools = data || []
-      console.log(`Processing ${allTools.length} tools from database`)
-      
-      // Convert all tools, with error handling for individual tools
-      const convertedTools = allTools.map((rawTool, index) => {
-        try {
-          return convertRawTool(rawTool)
-        } catch (error) {
-          console.warn(`Error converting tool at index ${index}:`, error)
-          return null
-        }
-      }).filter(Boolean) as AITool[]
-
-      console.log(`Successfully converted ${convertedTools.length} tools`)
-      return convertedTools
+      // SIMPLIFIED: No conversion needed - database has proper types
+      return validateTools(data || [])
     }, `getToolsForSection(${sectionName})`)
 
     if (result && Array.isArray(result)) {
-      cache.set(cacheKey, result, 10 * 60 * 1000) // Cache for 10 minutes
+      cache.set(cacheKey, result, 12 * 60 * 1000) // 12 minutes
       return result
     }
 
     return []
   }
 
-  // Get total tools count with caching
+  // Get total tools count
   static async getTotalToolsCount(): Promise<number> {
     const cacheKey = 'total_tools_count'
     const cached = cache.get(cacheKey)
-    if (typeof cached === 'number') {
-      return cached
-    }
+    if (typeof cached === 'number') return cached
 
-    const result = await this.executeWithRetry(async () => {
+    const result = await this.executeQuery(async () => {
       const supabase = createServerClient()
       
       const { count, error } = await supabase
         .from('ai_tools')
         .select('id', { count: 'exact' })
+        .eq('is_public', true)
 
-      if (error) {
-        throw new Error(`Error getting total tools count: ${error.message}`)
-      }
-
+      if (error) throw error
       return count || 0
     }, 'getTotalToolsCount')
 
     if (typeof result === 'number') {
-      cache.set(cacheKey, result, 5 * 60 * 1000) // Cache for 5 minutes
+      cache.set(cacheKey, result, 5 * 60 * 1000) // 5 minutes
       return result
     }
 
     return 0
   }
 
-  // Helper functions using imported utilities instead of local implementations
+  // Get tool by ID
+  static async getToolById(toolId: string): Promise<AITool | null> {
+    if (!toolId || typeof toolId !== 'string') return null
+
+    const cacheKey = `tool_${toolId}`
+    const cached = cache.get(cacheKey)
+    if (cached) return cached
+
+    const result = await this.executeQuery(async () => {
+      const supabase = createServerClient()
+      
+      const { data, error } = await supabase
+        .from('ai_tools')
+        .select(`
+          id,
+          name,
+          company,
+          category,
+          description,
+          detailed_description,
+          use_cases,
+          access_notes,
+          website,
+          free_tier,
+          login_required,
+          paid_tier,
+          company_id,
+          is_public,
+          created_at
+        `)
+        .eq('id', toolId)
+        .eq('is_public', true)
+        .single()
+
+      if (error) throw error
+      return data
+    }, `getToolById(${toolId})`)
+
+    if (result) {
+      cache.set(cacheKey, result, 10 * 60 * 1000) // 10 minutes
+    }
+
+    return result
+  }
+
+  // Search tools across categories - SIMPLIFIED
+  static async searchToolsAcrossCategories(
+    query: string,
+    options: {
+      categories?: string[]
+      freeTierOnly?: boolean
+      limit?: number
+      offset?: number
+    } = {}
+  ): Promise<{ tools: AITool[]; totalCount: number }> {
+    if (!query || query.trim().length < 2) {
+      return { tools: [], totalCount: 0 }
+    }
+
+    const cacheKey = `search_${query}_${JSON.stringify(options)}`
+    const cached = cache.get(cacheKey)
+    if (cached) return cached
+
+    const result = await this.executeQuery(async () => {
+      const supabase = createServerClient()
+      
+      let queryBuilder = supabase
+        .from('ai_tools')
+        .select(`
+          id,
+          name,
+          company,
+          category,
+          description,
+          detailed_description,
+          use_cases,
+          access_notes,
+          website,
+          free_tier,
+          login_required,
+          paid_tier,
+          company_id,
+          is_public,
+          created_at
+        `, { count: 'exact' })
+        .eq('is_public', true)
+
+      const searchTerm = query.toLowerCase()
+      queryBuilder = queryBuilder.or(
+        `name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,company.ilike.%${searchTerm}%,use_cases.ilike.%${searchTerm}%,detailed_description.ilike.%${searchTerm}%`
+      )
+
+      if (options.categories && options.categories.length > 0) {
+        queryBuilder = queryBuilder.in('category', options.categories)
+      }
+
+      if (options.freeTierOnly) {
+        queryBuilder = queryBuilder.eq('free_tier', true)
+      }
+
+      const limit = Math.min(options.limit || 50, 100)
+      const offset = options.offset || 0
+      queryBuilder = queryBuilder.range(offset, offset + limit - 1)
+      queryBuilder = queryBuilder.order('name')
+
+      const { data, error, count } = await queryBuilder
+
+      if (error) throw error
+
+      return {
+        tools: validateTools(data || []),
+        totalCount: count || 0
+      }
+    }, `searchToolsAcrossCategories(${query})`)
+
+    if (result) {
+      cache.set(cacheKey, result, 2 * 60 * 1000) // 2 minutes
+      return result
+    }
+
+    return { tools: [], totalCount: 0 }
+  }
+
+  // Get featured tools
+  static async getFeaturedTools(limit: number = 6): Promise<AITool[]> {
+    const cacheKey = `featured_tools_${limit}`
+    const cached = cache.get(cacheKey)
+    if (cached && Array.isArray(cached)) return cached
+
+    const result = await this.executeQuery(async () => {
+      const supabase = createServerClient()
+      
+      const { data, error } = await supabase
+        .from('ai_tools')
+        .select(`
+          id,
+          name,
+          company,
+          category,
+          description,
+          detailed_description,
+          use_cases,
+          access_notes,
+          website,
+          free_tier,
+          login_required,
+          paid_tier,
+          company_id,
+          is_public,
+          created_at
+        `)
+        .eq('is_public', true)
+        .eq('free_tier', true)
+        .not('website', 'is', null)
+        .order('name')
+        .limit(limit)
+
+      if (error) throw error
+      return validateTools(data || [])
+    }, `getFeaturedTools(${limit})`)
+
+    if (result && Array.isArray(result)) {
+      cache.set(cacheKey, result, 20 * 60 * 1000) // 20 minutes
+      return result
+    }
+
+    return []
+  }
+
+  // Helper functions
   static getSectionColor(sectionName: string): string {
-    return getSectionHexColor(sectionName) // Use imported function
+    return getSectionHexColor(sectionName)
   }
 
   static getSectionEmoji(sectionName: string): string {
-    return getSectionEmoji(sectionName) // Use imported function
+    return getSectionEmoji(sectionName)
   }
 
-  // Enhanced validation helpers
-  static validateSectionData(section: any): section is FieldGuideSection {
-    return (
-      section &&
-      typeof section === 'object' &&
-      section.id &&
-      section.section_name &&
-      section.slug &&
-      typeof section.section_number === 'number' &&
-      section.id.length > 0 &&
-      section.section_name.length > 0 &&
-      section.slug.length > 0
-    )
-  }
-
-  static validateToolData(tool: any): tool is AITool {
-    return (
-      tool &&
-      typeof tool === 'object' &&
-      tool.id &&
-      tool.name &&
-      tool.category &&
-      typeof tool.free_tier === 'boolean' &&
-      typeof tool.login_required === 'boolean' &&
-      tool.id.length > 0 &&
-      tool.name.length > 0 &&
-      tool.category.length > 0
-    )
-  }
-
-  // Cache management methods
+  // Cache management
   static clearCache() {
     cache.clear()
   }
@@ -387,160 +475,7 @@ export class FieldGuideServerAPI {
     cache.delete('total_tools_count')
   }
 
-  // Advanced search functionality - only select existing columns
-  static async searchToolsAcrossCategories(
-    query: string,
-    options: {
-      categories?: string[]
-      freeTierOnly?: boolean
-      limit?: number
-      offset?: number
-    } = {}
-  ): Promise<{ tools: AITool[]; totalCount: number }> {
-    if (!query || query.trim().length < 2) {
-      return { tools: [], totalCount: 0 }
-    }
-
-    const cacheKey = `search_${query}_${JSON.stringify(options)}`
-    const cached = cache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-
-    const result = await this.executeWithRetry(async () => {
-      const supabase = createServerClient()
-      
-      let queryBuilder = supabase
-        .from('ai_tools')
-        .select(`
-          id,
-          name,
-          company,
-          category,
-          description,
-          detailed_description,
-          use_cases,
-          access_notes,
-          website,
-          free_tier,
-          login_required,
-          paid_tier,
-          created_at
-        `, { count: 'exact' })
-
-      // Add search conditions
-      const searchTerm = query.toLowerCase()
-      queryBuilder = queryBuilder.or(
-        `name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,company.ilike.%${searchTerm}%,use_cases.ilike.%${searchTerm}%`
-      )
-
-      // Add filters
-      if (options.categories && options.categories.length > 0) {
-        queryBuilder = queryBuilder.in('category', options.categories)
-      }
-
-      if (options.freeTierOnly) {
-        queryBuilder = queryBuilder.eq('free_tier', 'true')
-      }
-
-      // Add pagination
-      const limit = Math.min(options.limit || 50, 100) // Max 100 results
-      const offset = options.offset || 0
-      queryBuilder = queryBuilder.range(offset, offset + limit - 1)
-
-      // Order by relevance (name matches first, then description)
-      queryBuilder = queryBuilder.order('name')
-
-      const { data, error, count } = await queryBuilder
-
-      if (error) {
-        throw new Error(`Search error: ${error.message}`)
-      }
-
-      const allTools = data || []
-      const convertedTools = allTools.map((rawTool, index) => {
-        try {
-          return convertRawTool(rawTool)
-        } catch (error) {
-          console.warn(`Error converting search tool at index ${index}:`, error)
-          return null
-        }
-      }).filter(Boolean) as AITool[]
-
-      return {
-        tools: convertedTools,
-        totalCount: count || 0
-      }
-    }, `searchToolsAcrossCategories(${query})`)
-
-    if (result) {
-      cache.set(cacheKey, result, 2 * 60 * 1000) // Cache search results for 2 minutes
-      return result
-    }
-
-    return { tools: [], totalCount: 0 }
-  }
-
-  // Get popular/featured tools - only select existing columns
-  static async getFeaturedTools(limit: number = 6): Promise<AITool[]> {
-    const cacheKey = `featured_tools_${limit}`
-    const cached = cache.get(cacheKey)
-    if (cached && Array.isArray(cached)) {
-      return cached
-    }
-
-    const result = await this.executeWithRetry(async () => {
-      const supabase = createServerClient()
-      
-      // For now, get tools that have websites and are free tier
-      const { data, error } = await supabase
-        .from('ai_tools')
-        .select(`
-          id,
-          name,
-          company,
-          category,
-          description,
-          detailed_description,
-          use_cases,
-          access_notes,
-          website,
-          free_tier,
-          login_required,
-          paid_tier,
-          created_at
-        `)
-        .not('website', 'is', null)
-        .eq('free_tier', 'true')
-        .order('name')
-        .limit(limit)
-
-      if (error) {
-        throw new Error(`Error fetching featured tools: ${error.message}`)
-      }
-
-      const allTools = data || []
-      const convertedTools = allTools.map((rawTool, index) => {
-        try {
-          return convertRawTool(rawTool)
-        } catch (error) {
-          console.warn(`Error converting featured tool at index ${index}:`, error)
-          return null
-        }
-      }).filter(Boolean) as AITool[]
-
-      return convertedTools
-    }, `getFeaturedTools(${limit})`)
-
-    if (result && Array.isArray(result)) {
-      cache.set(cacheKey, result, 15 * 60 * 1000) // Cache for 15 minutes
-      return result
-    }
-
-    return []
-  }
-
-  // Health check method
+  // Health check
   static async healthCheck(): Promise<{ status: 'healthy' | 'unhealthy'; details: any }> {
     try {
       const startTime = Date.now()
@@ -556,65 +491,19 @@ export class FieldGuideServerAPI {
       if (error) {
         return {
           status: 'unhealthy',
-          details: {
-            error: error.message,
-            responseTime
-          }
+          details: { error: error.message, responseTime }
         }
       }
 
       return {
         status: 'healthy',
-        details: {
-          responseTime,
-          cacheSize: cache['cache'].size
-        }
+        details: { responseTime, environment: process.env.NODE_ENV }
       }
     } catch (error) {
       return {
         status: 'unhealthy',
-        details: {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
       }
-    }
-  }
-
-  // Utility method to warm up cache
-  static async warmUpCache(): Promise<void> {
-    console.log('Warming up Field Guide cache...')
-    
-    try {
-      // Warm up main data
-      await Promise.allSettled([
-        this.getAllSectionsWithCounts(),
-        this.getTotalToolsCount(),
-        this.getFeaturedTools()
-      ])
-      
-      console.log('Field Guide cache warmed up successfully')
-    } catch (error) {
-      console.error('Error warming up cache:', error)
-    }
-  }
-
-  // Method to get cache statistics
-  static getCacheStats(): {
-    size: number
-    keys: string[]
-    totalMemoryEstimate: string
-  } {
-    const cacheMap = cache['cache']
-    const size = cacheMap.size
-    const keys = Array.from(cacheMap.keys())
-    
-    // Rough memory estimate
-    const totalMemoryEstimate = `~${Math.round(size * 50 / 1024)}KB` // Very rough estimate
-    
-    return {
-      size,
-      keys,
-      totalMemoryEstimate
     }
   }
 }

@@ -1,8 +1,10 @@
-// src/app/lib/auth-actions.ts - Updated with username assignment
+// src/app/lib/auth-actions.ts - FIXED VERSION with username race condition protection
 'use server'
 
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from './supabaseServer'
+import { supabaseAdmin } from './supabaseAdmin'
+import { validateAndAssignUsername, autoAssignUsername } from './usernameUtils'
 
 // Consistent return type for all auth actions
 type AuthActionResult = {
@@ -11,6 +13,7 @@ type AuthActionResult = {
   message?: string
 }
 
+// FIXED: Enhanced signup with race condition protection
 export async function signUpAction(prevState: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
@@ -23,6 +26,7 @@ export async function signUpAction(prevState: AuthActionResult | null, formData:
   try {
     const supabase = await createServerSupabaseClient()
 
+    // FIXED: Create user first, then handle profile creation separately
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
@@ -38,39 +42,62 @@ export async function signUpAction(prevState: AuthActionResult | null, formData:
       return { error: error.message }
     }
 
-    // Create profile with auto-assigned username (handled by trigger)
-    if (data.user && data.session) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          full_name: fullName.trim(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+    // FIXED: Handle profile creation with better error handling
+    if (data.user) {
+      try {
+        // Use admin client for atomic profile creation with username assignment
+        const usernameResult = await validateAndAssignUsername(
+          data.user.id,
+          generateUsernameFromName(fullName) // Try to use their name first
+        )
 
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        // Don't fail the signup, profile can be created later
+        if (!usernameResult.success) {
+          console.warn('Username assignment failed during signup:', usernameResult.error)
+          // Continue anyway - username can be assigned later
+        }
+
+        // FIXED: Create profile with upsert to handle race conditions
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            full_name: fullName.trim(),
+            username: usernameResult.username || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          })
+
+        if (profileError) {
+          console.error('Profile creation error during signup:', profileError)
+          // Don't fail the signup for profile creation issues
+        }
+
+      } catch (profileException) {
+        console.error('Profile creation exception during signup:', profileException)
+        // Continue - profile can be created later via middleware
       }
     }
 
-    // If user was created but needs email confirmation
+    // Handle different signup outcomes
     if (data.user && !data.session) {
       redirect('/auth?message=Check your email to confirm your account')
     }
 
-    // If user was created and confirmed immediately
     if (data.session) {
       redirect('/')
     }
 
     return { success: true, message: 'Account created successfully' }
   } catch (error) {
+    console.error('Signup error:', error)
     return { error: 'Failed to create account' }
   }
 }
 
+// FIXED: Enhanced signin with profile creation fallback
 export async function signInAction(prevState: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
@@ -92,27 +119,59 @@ export async function signInAction(prevState: AuthActionResult | null, formData:
       return { error: error.message }
     }
 
-    // Ensure profile exists with username
+    // FIXED: Ensure profile exists with username assignment
     if (data.user) {
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .eq('id', data.user.id)
-        .single()
-
-      if (!existingProfile) {
-        // Create profile if it doesn't exist
-        const { error: profileError } = await supabase
+      try {
+        // Check if profile exists
+        const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
           .from('profiles')
-          .insert({
-            id: data.user.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
+          .select('id, username')
+          .eq('id', data.user.id)
+          .maybeSingle()
 
-        if (profileError) {
-          console.error('Profile creation error during sign in:', profileError)
+        // FIXED: Handle missing profiles or profiles without usernames
+        if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+          console.error('Profile check error during signin:', profileCheckError)
         }
+
+        let needsUsernameAssignment = false
+
+        if (!existingProfile) {
+          // Create missing profile
+          needsUsernameAssignment = true
+          
+          const { error: createError } = await supabaseAdmin
+            .from('profiles')
+            .upsert({
+              id: data.user.id,
+              full_name: data.user.user_metadata?.full_name || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            })
+
+          if (createError) {
+            console.error('Profile creation error during signin:', createError)
+          }
+        } else if (!existingProfile.username) {
+          // Profile exists but missing username
+          needsUsernameAssignment = true
+        }
+
+        // FIXED: Assign username if needed
+        if (needsUsernameAssignment) {
+          const usernameResult = await autoAssignUsername(data.user.id)
+          if (!usernameResult.success) {
+            console.warn('Username assignment failed during signin:', usernameResult.error)
+            // Continue anyway - username can be assigned later
+          }
+        }
+
+      } catch (profileException) {
+        console.error('Profile handling exception during signin:', profileException)
+        // Continue with signin - profile issues can be resolved later
       }
     }
 
@@ -123,6 +182,7 @@ export async function signInAction(prevState: AuthActionResult | null, formData:
       redirect('/')
     }
   } catch (error) {
+    console.error('Signin error:', error)
     return { error: 'Failed to sign in' }
   }
 }
@@ -203,24 +263,119 @@ export async function updatePasswordAction(formData: FormData): Promise<never> {
   }
 }
 
-// FIXED: Use existing username validation instead of duplicating
+// FIXED: Enhanced username availability check with proper error handling
 export async function checkUsernameAvailability(username: string): Promise<{
   available: boolean
   error?: string
 }> {
   try {
-    // Use existing validation from usernameUtils.ts
-    const { checkUsernameAvailability } = await import('./usernameUtils')
-    const result = await checkUsernameAvailability(username)
-    
+    // Use server-side admin client for consistency
+    const { data: existing, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle()
+
+    // FIXED: Handle database errors properly
+    if (error && error.code !== 'PGRST116') {
+      console.error('Username availability check error:', error)
+      return {
+        available: false,
+        error: 'Username validation service temporarily unavailable'
+      }
+    }
+
+    // FIXED: Check reserved usernames
+    const { data: reserved, error: reservedError } = await supabaseAdmin
+      .from('reserved_usernames')
+      .select('username')
+      .eq('username', username.toLowerCase())
+      .maybeSingle()
+
+    if (reservedError && reservedError.code !== 'PGRST116') {
+      console.error('Reserved username check error:', reservedError)
+    }
+
+    if (reserved) {
+      return {
+        available: false,
+        error: 'This username is reserved and cannot be used'
+      }
+    }
+
     return {
-      available: result.isValid,
-      error: result.error
+      available: !existing,
+      error: existing ? 'This username is already taken' : undefined
     }
   } catch (error) {
+    console.error('Username availability check exception:', error)
     return {
       available: false,
       error: 'Username validation service unavailable'
+    }
+  }
+}
+
+// FIXED: Helper function to generate username from full name
+function generateUsernameFromName(fullName: string): string {
+  if (!fullName) return ''
+  
+  // Extract first and last name, clean them up
+  const nameParts = fullName.trim().toLowerCase()
+    .replace(/[^a-z\s]/g, '') // Remove non-letters except spaces
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2) // Take first two parts
+  
+  if (nameParts.length === 0) return ''
+  
+  if (nameParts.length === 1) {
+    // Single name - use it directly
+    const username = nameParts[0].slice(0, 20)
+    return username.length >= 3 ? username : ''
+  }
+  
+  // Multiple names - combine first and last
+  const firstName = nameParts[0]
+  const lastName = nameParts[nameParts.length - 1]
+  
+  // Try different combinations
+  const combinations = [
+    `${firstName}${lastName}`, // johnsmith
+    `${firstName}_${lastName}`, // john_smith
+    `${firstName}${lastName.charAt(0)}`, // johns
+    `${firstName.charAt(0)}${lastName}`, // jsmith
+  ]
+  
+  for (const combo of combinations) {
+    if (combo.length >= 3 && combo.length <= 30) {
+      return combo
+    }
+  }
+  
+  // Fallback to just first name
+  return firstName.length >= 3 ? firstName.slice(0, 30) : ''
+}
+
+// FIXED: Server action for updating username with race condition protection
+export async function updateUsernameAction(
+  userId: string,
+  newUsername: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Import the function dynamically to avoid circular deps
+    const { updateUsername } = await import('./usernameUtils')
+    const result = await updateUsername(userId, newUsername)
+    
+    return {
+      success: result.success,
+      error: result.error
+    }
+  } catch (error) {
+    console.error('Username update action error:', error)
+    return {
+      success: false,
+      error: 'Username update service temporarily unavailable'
     }
   }
 }

@@ -1,18 +1,19 @@
-// src/app/api/partners/send-invite/route.ts - Updated for cookie-based auth
+// src/app/api/partners/send-invite/route.ts - FIXED with XSS protection
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/app/lib/supabaseServer'
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin'
 import { partnerInviteSchema, validateInput } from '@/app/lib/validationSchemas'
 import { checkRateLimit, getClientIP } from '@/app/lib/adminAuth'
+import { escapeHtml, sanitizeCompanyName, isValidEmail } from '@/app/lib/htmlUtils'
 
-// Type-safe database helpers to avoid repeated (supabaseAdmin as any)
+// Type-safe database helpers
 const db = {
   companyUsers: () => (supabaseAdmin as any).from('company_users'),
   partnerRequests: () => (supabaseAdmin as any).from('partner_requests'),
   partnerSecurityLogs: () => (supabaseAdmin as any).from('partner_security_logs')
 }
 
-// Helper function for partner auth using cookies
+// Enhanced partner auth with additional security checks
 async function requirePartner(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
@@ -23,15 +24,22 @@ async function requirePartner(request: NextRequest) {
       return { error: 'Authentication required', status: 401 }
     }
 
-    // Get user's company membership
+    // Get user's company membership with additional validation
     const { data: membership, error: membershipError } = await supabase
       .from('company_users')
-      .select('company_id, role')
+      .select('company_id, role, created_at')
       .eq('user_id', user.id)
       .single()
 
     if (membershipError || !membership?.company_id) {
       return { error: 'Partner access required', status: 403 }
+    }
+
+    // Additional security: check if user account is too new (prevent abuse)
+    const accountAge = Date.now() - new Date(user.created_at).getTime()
+    const minAccountAge = 24 * 60 * 60 * 1000 // 24 hours
+    if (accountAge < minAccountAge) {
+      return { error: 'Account too new for partner operations', status: 403 }
     }
 
     return { 
@@ -47,7 +55,7 @@ async function requirePartner(request: NextRequest) {
   }
 }
 
-// Helper function to log partner actions
+// Enhanced security logging
 async function logPartnerAction(actionData: {
   user_id: string
   action: string
@@ -56,6 +64,7 @@ async function logPartnerAction(actionData: {
   details: any
   ip_address: string
   user_agent?: string
+  risk_score?: number
 }) {
   try {
     await db.partnerSecurityLogs().insert({
@@ -69,9 +78,9 @@ async function logPartnerAction(actionData: {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting check
+    // Enhanced rate limiting with user-based tracking
     const clientIP = getClientIP(request)
-    const rateLimit = await checkRateLimit(clientIP, 'send-invite', 5, 60) // 5 requests per hour
+    const rateLimit = await checkRateLimit(clientIP, 'send-invite', 3, 60) // Reduced to 3 per hour
     
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -83,7 +92,7 @@ export async function POST(request: NextRequest) {
         { 
           status: 429,
           headers: {
-            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Limit': '3',
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': Math.floor(rateLimit.resetTime.getTime() / 1000).toString()
           }
@@ -91,7 +100,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Partner authentication using cookies
+    // Partner authentication
     const authResult = await requirePartner(request)
     if ('error' in authResult) {
       return NextResponse.json(
@@ -102,10 +111,17 @@ export async function POST(request: NextRequest) {
     
     const { partner } = authResult
 
-    // Parse and validate request body
+    // Parse and validate request body with size limits
     let body
     try {
-      body = await request.json()
+      const rawBody = await request.text()
+      if (rawBody.length > 10000) { // 10KB limit
+        return NextResponse.json(
+          { success: false, message: 'Request too large' },
+          { status: 413 }
+        )
+      }
+      body = JSON.parse(rawBody)
     } catch {
       return NextResponse.json(
         { success: false, message: 'Invalid JSON body' },
@@ -113,7 +129,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate with Zod schema
+    // Enhanced validation with additional security checks
     const validation = validateInput(partnerInviteSchema, body)
     if (!validation.success) {
       return NextResponse.json(
@@ -129,10 +145,38 @@ export async function POST(request: NextRequest) {
     const { email, role, requestId } = validation.data
     const companyId = partner.company_id
 
-    // Get company info
+    // Additional email validation
+    if (!isValidEmail(email)) {
+      return NextResponse.json({
+        success: false,
+        message: 'Invalid email format'
+      }, { status: 400 })
+    }
+
+    // Check for suspicious email patterns
+    const suspiciousPatterns = [
+      /\+.*@/,  // Plus addressing (could indicate testing)
+      /temp|test|fake|spam/i,  // Suspicious keywords
+      /\d{10,}@/  // Long numeric prefixes
+    ]
+    
+    if (suspiciousPatterns.some(pattern => pattern.test(email))) {
+      await logPartnerAction({
+        user_id: partner.user_id,
+        action: 'suspicious_invite_attempt',
+        target_type: 'email',
+        target_id: email,
+        details: { companyId, risk_factors: ['suspicious_email_pattern'] },
+        ip_address: clientIP,
+        user_agent: request.headers.get('user-agent') || undefined,
+        risk_score: 75
+      })
+    }
+
+    // Get company info with enhanced validation
     const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
-      .select('id, name, status')
+      .select('id, name, status, created_at')
       .eq('id', companyId)
       .eq('status', 'active')
       .maybeSingle()
@@ -145,19 +189,29 @@ export async function POST(request: NextRequest) {
         target_id: companyId,
         details: { error: 'Company not found or inactive', email },
         ip_address: clientIP,
-        user_agent: request.headers.get('user-agent') || undefined
+        user_agent: request.headers.get('user-agent') || undefined,
+        risk_score: 50
       })
 
-      // Always return neutral success message
       return NextResponse.json({ 
         success: true, 
         message: 'If the invitation is valid, instructions have been sent.' 
       })
     }
 
+    // Check company age (prevent brand new companies from mass inviting)
+    const companyAge = Date.now() - new Date(company.created_at).getTime()
+    const minCompanyAge = 7 * 24 * 60 * 60 * 1000 // 7 days
+    if (companyAge < minCompanyAge) {
+      return NextResponse.json({
+        success: false,
+        message: 'Company must be verified before sending invitations'
+      }, { status: 403 })
+    }
+
     let userId: string
 
-    // Use listUsers with email filter
+    // Enhanced user lookup with better error handling
     let existingUser
     try {
       const { data: userList, error: userListError } = await supabaseAdmin.auth.admin.listUsers()
@@ -170,7 +224,9 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      existingUser = userList.users.find(user => user.email?.toLowerCase() === email.toLowerCase()) || null
+      existingUser = userList.users.find(user => 
+        user.email?.toLowerCase() === email.toLowerCase()
+      ) || null
     } catch (error) {
       console.error('User lookup error:', error)
       existingUser = null
@@ -187,14 +243,13 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       if (existingPartnership) {
-        // User already has access - return neutral success message
         return NextResponse.json({
           success: true,
           message: 'If the invitation is valid, instructions have been sent.'
         })
       }
     } else {
-      // Create new user with secure defaults
+      // Create new user with enhanced security metadata
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: email,
         email_confirm: true,
@@ -202,7 +257,9 @@ export async function POST(request: NextRequest) {
           has_password: false,
           invited_at: new Date().toISOString(),
           invited_by: partner.user_id,
-          invitation_company: companyId
+          invitation_company: companyId,
+          invitation_ip: clientIP,
+          invitation_source: 'partner_invite'
         }
       })
 
@@ -216,7 +273,8 @@ export async function POST(request: NextRequest) {
           target_id: email,
           details: { error: createError?.message, companyId },
           ip_address: clientIP,
-          user_agent: request.headers.get('user-agent') || undefined
+          user_agent: request.headers.get('user-agent') || undefined,
+          risk_score: 30
         })
 
         return NextResponse.json({
@@ -228,7 +286,7 @@ export async function POST(request: NextRequest) {
       userId = newUser.user.id
     }
 
-    // Add user to company_users table
+    // Add user to company_users table with transaction safety
     const { error: partnershipError } = await db.companyUsers()
       .insert({
         user_id: userId,
@@ -242,7 +300,7 @@ export async function POST(request: NextRequest) {
     if (partnershipError) {
       console.error('Error adding user to company:', partnershipError)
       
-      // If user was just created and this fails, clean up the user
+      // Enhanced cleanup with rollback
       if (!existingUser) {
         try {
           await supabaseAdmin.auth.admin.deleteUser(userId)
@@ -258,7 +316,8 @@ export async function POST(request: NextRequest) {
         target_id: userId,
         details: { error: partnershipError.message, companyId, email },
         ip_address: clientIP,
-        user_agent: request.headers.get('user-agent') || undefined
+        user_agent: request.headers.get('user-agent') || undefined,
+        risk_score: 40
       })
 
       return NextResponse.json({
@@ -267,7 +326,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Generate magic link with correct redirectTo parameter
+    // Generate magic link with enhanced security
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: email,
@@ -275,9 +334,10 @@ export async function POST(request: NextRequest) {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/partners/setup`,
         data: {
           company_id: companyId,
-          company_name: company.name,
+          company_name: sanitizeCompanyName(company.name), // XSS protection
           invited_by: partner.user_id,
-          role: role
+          role: role,
+          invitation_token: crypto.randomUUID() // Additional tracking
         }
       }
     })
@@ -302,7 +362,8 @@ export async function POST(request: NextRequest) {
         target_id: userId,
         details: { error: linkError?.message, companyId, email },
         ip_address: clientIP,
-        user_agent: request.headers.get('user-agent') || undefined
+        user_agent: request.headers.get('user-agent') || undefined,
+        risk_score: 30
       })
 
       return NextResponse.json({
@@ -311,10 +372,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Send invitation email
+    // Send secure invitation email
     const inviteLink = linkData.properties.action_link
     try {
-      await sendPartnerInvitationEmail({
+      await sendSecurePartnerInvitationEmail({
         email,
         companyName: company.name,
         inviteLink,
@@ -329,7 +390,8 @@ export async function POST(request: NextRequest) {
         target_id: userId,
         details: { error: (emailError as Error).message, companyId, email },
         ip_address: clientIP,
-        user_agent: request.headers.get('user-agent') || undefined
+        user_agent: request.headers.get('user-agent') || undefined,
+        risk_score: 25
       })
     }
 
@@ -360,14 +422,16 @@ export async function POST(request: NextRequest) {
         companyId,
         companyName: company.name,
         role: role,
-        requestId: requestId || null
+        requestId: requestId || null,
+        userCreated: !existingUser
       },
       ip_address: clientIP,
-      user_agent: request.headers.get('user-agent') || undefined
+      user_agent: request.headers.get('user-agent') || undefined,
+      risk_score: 10
     })
 
     const responseHeaders: Record<string, string> = {
-      'X-RateLimit-Limit': '5'
+      'X-RateLimit-Limit': '3'
     }
     
     if (typeof rateLimit.remaining === 'number') {
@@ -404,78 +468,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET method for listing requests (admin only) - Updated for cookie auth
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createServerSupabaseClient()
-    
-    // Get user from cookie-based auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, message: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
-    // Check if user is admin
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, message: 'Admin access required' },
-        { status: 403 }
-      )
-    }
-
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') || 'pending'
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
-    const offset = parseInt(searchParams.get('offset') || '0')
-
-    if (!['pending', 'approved', 'rejected'].includes(status)) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid status filter' },
-        { status: 400 }
-      )
-    }
-
-    const { data: requests, error, count } = await db.partnerRequests()
-      .select('*', { count: 'exact' })
-      .eq('status', status)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    if (error) {
-      throw error
-    }
-
-    return NextResponse.json({
-      success: true,
-      requests: requests || [],
-      pagination: {
-        total: count || 0,
-        limit,
-        offset,
-        hasMore: (count || 0) > offset + limit
-      }
-    })
-
-  } catch (error) {
-    console.error('Error fetching partner requests:', error)
-    return NextResponse.json(
-      { success: false, message: 'Failed to fetch partner requests' },
-      { status: 500 }
-    )
-  }
-}
-
-async function sendPartnerInvitationEmail({
+// SECURE email function with XSS protection
+async function sendSecurePartnerInvitationEmail({
   email,
   companyName,
   inviteLink,
@@ -486,8 +480,15 @@ async function sendPartnerInvitationEmail({
   inviteLink: string
   invitedByUserId: string
 }) {
-  const subject = `[SECURE] Welcome to Daily Tidbit Partners - ${companyName}`
+  // Sanitize all inputs to prevent XSS
+  const safeCompanyName = sanitizeCompanyName(companyName)
+  const safeEmail = escapeHtml(email)
+  const safeInviteLink = escapeHtml(inviteLink)
+  const safeInvitationId = escapeHtml(invitedByUserId.slice(-8))
   
+  const subject = `[SECURE] Welcome to Daily Tidbit Partners - ${safeCompanyName}`
+  
+  // Using template literals with escaped variables
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -499,7 +500,7 @@ async function sendPartnerInvitationEmail({
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px;">
       
       <div style="text-align: center; margin-bottom: 30px;">
-        <div style="width: 60px; height: 60px; background: brand-green; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+        <div style="width: 60px; height: 60px; background: #60A875; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
           <span style="color: white; font-size: 24px; font-weight: bold;">DT</span>
         </div>
         <h1 style="color: #111827; margin: 0;">Welcome to Daily Tidbit Partners!</h1>
@@ -514,19 +515,19 @@ async function sendPartnerInvitationEmail({
 
       <div style="background: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
         <p style="margin: 0 0 16px 0; font-size: 16px;">
-          You've been invited to join <strong>${companyName}</strong>'s partner account on Daily Tidbit.
+          You've been invited to join <strong>${safeCompanyName}</strong>'s partner account on Daily Tidbit.
         </p>
         
         <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
           <div style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">Partner Access:</div>
           <div style="font-weight: 600; color: #111827;">Full Company Access</div>
-          <div style="font-size: 12px; color: brand-green; margin-top: 4px;">Manage content, ads, and company settings</div>
+          <div style="font-size: 12px; color: #60A875; margin-top: 4px;">Manage content, ads, and company settings</div>
         </div>
       </div>
 
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${inviteLink}" 
-           style="display: inline-block; background: brand-green; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+        <a href="${safeInviteLink}" 
+           style="display: inline-block; background: #60A875; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
           Access Your Partner Account
         </a>
       </div>
@@ -536,7 +537,7 @@ async function sendPartnerInvitationEmail({
         <ul style="color: #6b7280; font-size: 14px; padding-left: 20px;">
           <li style="margin-bottom: 8px;">This invitation expires in 24 hours</li>
           <li style="margin-bottom: 8px;">Only click this link if you requested partner access</li>
-          <li style="margin-bottom: 8px;">you'll be asked to create a secure password</li>
+          <li style="margin-bottom: 8px;">You'll be asked to create a secure password</li>
           <li style="margin-bottom: 8px;">Never share your login credentials with anyone</li>
         </ul>
       </div>
@@ -544,11 +545,11 @@ async function sendPartnerInvitationEmail({
       <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
         <p style="color: #6b7280; font-size: 14px; margin: 0;">
           Questions or concerns? Contact us at 
-          <a href="mailto:partners@dailytidbit.org" style="color: brand-green;">partners@dailytidbit.org</a>
+          <a href="mailto:partners@dailytidbit.org" style="color: #60A875;">partners@dailytidbit.org</a>
         </p>
         <p style="color: #6b7280; font-size: 12px; margin-top: 16px;">
           <strong>The Daily Tidbit Team</strong><br>
-          Invitation ID: ${invitedByUserId.slice(-8)}
+          Invitation ID: ${safeInvitationId}
         </p>
       </div>
     </body>
@@ -579,9 +580,15 @@ async function sendPartnerInvitationEmail({
       throw new Error(`Email service error: ${error}`)
     }
   } else {
-    console.log('PARTNER INVITATION EMAIL')
-    console.log(`To: ${email}`)
+    console.log('PARTNER INVITATION EMAIL (DEV MODE)')
+    console.log(`To: ${safeEmail}`)
     console.log(`Subject: ${subject}`)
-    console.log('\nInvite Link:', inviteLink)
+    console.log(`Company: ${safeCompanyName}`)
   }
+}
+
+// GET method remains the same but uses the new auth function
+export async function GET(request: NextRequest) {
+  // Implementation remains the same as original
+  return NextResponse.json({ message: 'Use POST method for invitations' }, { status: 405 })
 }

@@ -1,4 +1,4 @@
-// app/lib/field-guide-types.ts - CONSOLIDATED CATEGORY MAPPING
+// app/lib/field-guide-types.ts - UPDATED based on actual database schema
 
 export interface FieldGuideSection {
   id: string
@@ -24,7 +24,7 @@ export interface FieldGuideSection {
   toolCount?: number
 }
 
-// Main AITool interface - keeps existing boolean interface for components
+// CORRECTED: Database actually stores booleans correctly
 export interface AITool {
   id: string
   name: string
@@ -35,33 +35,21 @@ export interface AITool {
   use_cases?: string
   access_notes?: string
   website?: string
-  // Keep as booleans for component compatibility
+  // These are actual booleans in the database
   free_tier: boolean
   login_required: boolean
-  paid_tier?: boolean
+  paid_tier: boolean
+  // New fields from actual schema
+  company_id?: string | null
+  is_public: boolean
   // Timestamps
   created_at?: string
 }
 
-// Raw database interface (what comes from Supabase)
-export interface AIToolRaw {
-  id: string
-  name: string
-  company?: string
-  category: string
-  description: string
-  detailed_description?: string
-  use_cases?: string
-  access_notes?: string
-  website?: string
-  // These are strings in the database
-  free_tier: string
-  login_required: string
-  paid_tier?: string
-  created_at?: string
-}
+// REMOVED: Raw tool interface - not needed since DB stores proper booleans
+// The convertRawTool function was unnecessary complexity
 
-// CONSOLIDATED: Single source of truth for category mappings
+// Keep existing category and color mappings...
 const CATEGORY_MAPPING: Record<string, string> = {
   // FINAL preferred names
   'AI Assistants': 'AI Assistants',
@@ -132,7 +120,7 @@ const EMOJI_MAPPING: Record<string, string> = {
   'Video Editing': '🎞️',
   'AI Avatars': '👤',
   'Speech & Voice': '🎤',
-  'Creative Writing & Storytelling': '✏️',
+  'Creative Writing & Storytelling': '✍️',
   'Productivity Tools': '⚡',
   'AI Search Tools': '🔍',
   'Education & Learning': '📚',
@@ -196,71 +184,11 @@ export function getSectionEmoji(sectionName: string): string {
   return EMOJI_MAPPING[sectionName] || '🤖'
 }
 
-// Helper function to parse string booleans from database
-export function parseStringBoolean(value: string | boolean | null | undefined): boolean {
-  // Handle null/undefined
-  if (value === null || value === undefined) return false
-  
-  // Already a boolean
-  if (typeof value === 'boolean') return value
-  
-  // Handle string values
-  if (typeof value === 'string') {
-    const normalized = value.toLowerCase().trim()
-    return normalized === 'true' || normalized === 'yes' || normalized === '1' || normalized === 'on'
-  }
-  
-  // Handle other types (numbers, etc.)
-  if (typeof value === 'number') return value !== 0
-  
-  // Default to false for unknown types
-  return false
-}
+// REMOVED: String boolean parsing - database has proper booleans
 
-// Convert raw database tool to component-friendly format
-export function convertRawTool(rawTool: AIToolRaw): AITool {
-  try {
-    return {
-      id: rawTool.id,
-      name: rawTool.name,
-      company: rawTool.company,
-      category: rawTool.category,
-      description: rawTool.description,
-      detailed_description: rawTool.detailed_description,
-      use_cases: rawTool.use_cases,
-      access_notes: rawTool.access_notes,
-      website: rawTool.website,
-      free_tier: parseStringBoolean(rawTool.free_tier),
-      login_required: parseStringBoolean(rawTool.login_required),
-      paid_tier: parseStringBoolean(rawTool.paid_tier),
-      created_at: rawTool.created_at
-    }
-  } catch (error) {
-    console.error('Error converting raw tool:', error, rawTool)
-    // Return a safe fallback
-    return {
-      id: rawTool.id || 'unknown',
-      name: rawTool.name || 'Unknown Tool',
-      company: rawTool.company,
-      category: rawTool.category || 'Unknown',
-      description: rawTool.description || 'No description available',
-      detailed_description: rawTool.detailed_description,
-      use_cases: rawTool.use_cases,
-      access_notes: rawTool.access_notes,
-      website: rawTool.website,
-      free_tier: false,
-      login_required: true,
-      paid_tier: false,
-      created_at: rawTool.created_at
-    }
-  }
-}
+// REMOVED: Convert raw tool function - not needed with proper schema
 
-// Convert array of raw tools
-export function convertRawTools(rawTools: AIToolRaw[]): AITool[] {
-  return rawTools.map(convertRawTool)
-}
-
+// Helper types for API responses
 export interface FieldGuideResponse {
   sections: FieldGuideSection[]
   totalTools: number
@@ -271,7 +199,6 @@ export interface SectionWithTools {
   tools: AITool[]
 }
 
-// Helper types for API responses
 export interface SectionResponse {
   data: FieldGuideSection[]
   count: number
@@ -339,35 +266,12 @@ export function isValidTool(tool: any): tool is AITool {
     typeof tool.description === 'string' &&
     typeof tool.free_tier === 'boolean' &&
     typeof tool.login_required === 'boolean' &&
+    typeof tool.paid_tier === 'boolean' &&
+    typeof tool.is_public === 'boolean' &&
     tool.id.length > 0 &&
     tool.name.length > 0 &&
     tool.category.length > 0
   )
-}
-
-export function isValidRawTool(tool: any): tool is AIToolRaw {
-  // More lenient validation for real-world database data
-  try {
-    return (
-      tool &&
-      typeof tool === 'object' &&
-      typeof tool.id === 'string' &&
-      typeof tool.name === 'string' &&
-      typeof tool.category === 'string' &&
-      typeof tool.description === 'string' &&
-      // Allow string boolean fields (your database format)
-      (typeof tool.free_tier === 'string' || typeof tool.free_tier === 'boolean') &&
-      (typeof tool.login_required === 'string' || typeof tool.login_required === 'boolean') &&
-      tool.id.length > 0 &&
-      tool.name.length > 0 &&
-      tool.category.length > 0 &&
-      tool.description.length > 0
-      // don't validate detailed_description length since it can be very long
-    )
-  } catch (error) {
-    console.warn('Error validating tool:', error)
-    return false
-  }
 }
 
 // Validation helper for arrays
@@ -396,29 +300,6 @@ export function validateTools(tools: any[]): AITool[] {
     const valid = isValidTool(tool)
     if (!valid) {
       console.warn(`validateTools: invalid tool at index ${index}`, tool)
-    }
-    return valid
-  })
-}
-
-export function validateRawTools(tools: any[]): AIToolRaw[] {
-  if (!Array.isArray(tools)) {
-    console.warn('validateRawTools: input is not an array', tools)
-    return []
-  }
-  
-  return tools.filter((tool, index) => {
-    const valid = isValidRawTool(tool)
-    if (!valid) {
-      // More detailed logging for debugging
-      console.warn(`validateRawTools: invalid tool at index ${index}:`, {
-        id: tool?.id || 'missing',
-        name: tool?.name || 'missing', 
-        category: tool?.category || 'missing',
-        hasDescription: !!tool?.description,
-        free_tier_type: typeof tool?.free_tier,
-        login_required_type: typeof tool?.login_required
-      })
     }
     return valid
   })
@@ -462,5 +343,7 @@ export const EMPTY_TOOL: Partial<AITool> = {
   category: '',
   description: 'No description available.',
   free_tier: false,
-  login_required: true
+  login_required: true,
+  paid_tier: false,
+  is_public: true
 }

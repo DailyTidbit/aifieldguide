@@ -1,15 +1,14 @@
-// src/app/lib/field-guide-api.ts - HYDRATION SAFE VERSION
+// src/app/lib/field-guide-api.ts - SIMPLIFIED VERSION for actual database schema
 'use client'
 
 import { getSupabaseBrowserClient } from './supabaseClient'
-import { FieldGuideSection, AITool, getCategoryForSection } from './field-guide-types'
+import { FieldGuideSection, AITool, getCategoryForSection, validateTools, validateSections } from './field-guide-types'
 
-// ✅ Add hydration safety to the Field Guide API
 export class FieldGuideAPI {
   private static isInitialized = false
   private static mounted = false
 
-  // ✅ Safe Supabase client getter
+  // Safe Supabase client getter
   private static getClient() {
     try {
       return getSupabaseBrowserClient()
@@ -19,25 +18,17 @@ export class FieldGuideAPI {
     }
   }
 
-  // ✅ Initialize only in browser
+  // Initialize only in browser
   private static async ensureInitialized(): Promise<boolean> {
-    if (typeof window === 'undefined') {
-      return false // Server-side, don't initialize
-    }
-
-    if (!this.mounted) {
-      // Wait for component to be mounted
-      return false
-    }
+    if (typeof window === 'undefined') return false
+    if (!this.mounted) return false
 
     if (!this.isInitialized) {
       try {
         const client = this.getClient()
-        if (!client) {
-          return false
-        }
+        if (!client) return false
 
-        // Verify Supabase client is ready
+        // Verify client is ready
         const { data, error } = await client.auth.getSession()
         this.isInitialized = true
       } catch (error) {
@@ -49,29 +40,43 @@ export class FieldGuideAPI {
     return this.isInitialized
   }
 
-  // ✅ Call this from components after mount
   static setMounted(mounted: boolean = true) {
     this.mounted = mounted
   }
 
   static async getAllSections(): Promise<FieldGuideSection[]> {
-    if (!(await this.ensureInitialized())) {
-      return [] // Return empty array for server-side or if not ready
-    }
+    if (!(await this.ensureInitialized())) return []
 
     const client = this.getClient()
-    if (!client) {
-      return []
-    }
+    if (!client) return []
 
     try {
       const { data, error } = await client
         .from('field_guide_sections')
-        .select('*')
+        .select(`
+          id,
+          section_number,
+          section_name,
+          slug,
+          intro,
+          summary,
+          use_cases,
+          how_they_work,
+          what_you_can_do,
+          better_results,
+          strengths,
+          limitations,
+          pro_tips,
+          title,
+          published,
+          created_at,
+          updated_at
+        `)
+        .eq('published', true)
         .order('section_number', { ascending: true })
 
       if (error) throw error
-      return data || []
+      return validateSections(data || [])
     } catch (error) {
       console.error('Error fetching sections:', error)
       return []
@@ -79,20 +84,35 @@ export class FieldGuideAPI {
   }
 
   static async getSectionBySlug(slug: string): Promise<FieldGuideSection | null> {
-    if (!(await this.ensureInitialized()) || !slug) {
-      return null
-    }
+    if (!(await this.ensureInitialized()) || !slug) return null
 
     const client = this.getClient()
-    if (!client) {
-      return null
-    }
+    if (!client) return null
 
     try {
       const { data, error } = await client
         .from('field_guide_sections')
-        .select('*')
+        .select(`
+          id,
+          section_number,
+          section_name,
+          slug,
+          intro,
+          summary,
+          use_cases,
+          how_they_work,
+          what_you_can_do,
+          better_results,
+          strengths,
+          limitations,
+          pro_tips,
+          title,
+          published,
+          created_at,
+          updated_at
+        `)
         .eq('slug', slug)
+        .eq('published', true)
         .single()
 
       if (error) return null
@@ -104,27 +124,39 @@ export class FieldGuideAPI {
   }
 
   static async getToolsForSection(sectionName: string): Promise<AITool[]> {
-    if (!(await this.ensureInitialized()) || !sectionName) {
-      return []
-    }
+    if (!(await this.ensureInitialized()) || !sectionName) return []
 
     const client = this.getClient()
-    if (!client) {
-      return []
-    }
+    if (!client) return []
 
-    // Use imported function instead of local implementation
     const category = getCategoryForSection(sectionName)
     
     try {
       const { data, error } = await client
         .from('ai_tools')
-        .select('*')
+        .select(`
+          id,
+          name,
+          company,
+          category,
+          description,
+          detailed_description,
+          use_cases,
+          access_notes,
+          website,
+          free_tier,
+          login_required,
+          paid_tier,
+          company_id,
+          is_public,
+          created_at
+        `)
         .eq('category', category)
+        .eq('is_public', true)
         .order('name', { ascending: true })
 
       if (error) throw error
-      return data || []
+      return validateTools(data || [])
     } catch (error) {
       console.error('Error fetching tools for section:', error)
       return []
@@ -132,19 +164,16 @@ export class FieldGuideAPI {
   }
 
   static async getAllToolsCount(): Promise<number> {
-    if (!(await this.ensureInitialized())) {
-      return 0
-    }
+    if (!(await this.ensureInitialized())) return 0
 
     const client = this.getClient()
-    if (!client) {
-      return 0
-    }
+    if (!client) return 0
 
     try {
       const { count, error } = await client
         .from('ai_tools')
         .select('*', { count: 'exact', head: true })
+        .eq('is_public', true)
 
       if (error) return 0
       return count || 0
@@ -155,20 +184,33 @@ export class FieldGuideAPI {
   }
 
   static async getToolById(toolId: string): Promise<AITool | null> {
-    if (!(await this.ensureInitialized()) || !toolId) {
-      return null
-    }
+    if (!(await this.ensureInitialized()) || !toolId) return null
 
     const client = this.getClient()
-    if (!client) {
-      return null
-    }
+    if (!client) return null
 
     try {
       const { data, error } = await client
         .from('ai_tools')
-        .select('*')
+        .select(`
+          id,
+          name,
+          company,
+          category,
+          description,
+          detailed_description,
+          use_cases,
+          access_notes,
+          website,
+          free_tier,
+          login_required,
+          paid_tier,
+          company_id,
+          is_public,
+          created_at
+        `)
         .eq('id', toolId)
+        .eq('is_public', true)
         .single()
 
       if (error) {
@@ -183,24 +225,37 @@ export class FieldGuideAPI {
   }
 
   static async getToolsByCategory(category: string): Promise<AITool[]> {
-    if (!(await this.ensureInitialized()) || !category) {
-      return []
-    }
+    if (!(await this.ensureInitialized()) || !category) return []
 
     const client = this.getClient()
-    if (!client) {
-      return []
-    }
+    if (!client) return []
 
     try {
       const { data, error } = await client
         .from('ai_tools')
-        .select('*')
+        .select(`
+          id,
+          name,
+          company,
+          category,
+          description,
+          detailed_description,
+          use_cases,
+          access_notes,
+          website,
+          free_tier,
+          login_required,
+          paid_tier,
+          company_id,
+          is_public,
+          created_at
+        `)
         .eq('category', category)
+        .eq('is_public', true)
         .order('name', { ascending: true })
 
       if (error) throw error
-      return data || []
+      return validateTools(data || [])
     } catch (error) {
       console.error('Error fetching tools by category:', error)
       return []
@@ -208,41 +263,53 @@ export class FieldGuideAPI {
   }
 
   static async getAllTools(): Promise<AITool[]> {
-    if (!(await this.ensureInitialized())) {
-      return []
-    }
+    if (!(await this.ensureInitialized())) return []
 
     const client = this.getClient()
-    if (!client) {
-      return []
-    }
+    if (!client) return []
 
     try {
       const { data, error } = await client
         .from('ai_tools')
-        .select('*')
+        .select(`
+          id,
+          name,
+          company,
+          category,
+          description,
+          detailed_description,
+          use_cases,
+          access_notes,
+          website,
+          free_tier,
+          login_required,
+          paid_tier,
+          company_id,
+          is_public,
+          created_at
+        `)
+        .eq('is_public', true)
         .order('name', { ascending: true })
 
       if (error) throw error
-      return data || []
+      return validateTools(data || [])
     } catch (error) {
       console.error('Error fetching all tools:', error)
       return []
     }
   }
 
-  // ✅ Utility method to check if API is ready
+  // Utility methods
   static isReady(): boolean {
     return typeof window !== 'undefined' && this.mounted && this.isInitialized
   }
 
-  // ✅ Enhanced method to check client availability
   static isClientAvailable(): boolean {
     return typeof window !== 'undefined' && this.getClient() !== null
   }
 }
 
-// ✅ React hook for hydration-safe Field Guide API usage
+// React hook for hydration-safe Field Guide API usage
 import { useState, useEffect } from 'react'
 
 export function useFieldGuideAPI() {
@@ -253,7 +320,6 @@ export function useFieldGuideAPI() {
     setMounted(true)
     FieldGuideAPI.setMounted(true)
     
-    // Check if Supabase client is available
     const checkClient = () => {
       const ready = FieldGuideAPI.isClientAvailable()
       setClientReady(ready)
@@ -261,7 +327,6 @@ export function useFieldGuideAPI() {
     
     checkClient()
     
-    // Recheck periodically in case client becomes available later
     const interval = setInterval(checkClient, 1000)
     
     return () => {
@@ -293,7 +358,7 @@ export function useFieldGuideAPI() {
   }
 }
 
-// ✅ Alternative hook using your existing Supabase hooks
+// Alternative hook using existing Supabase hooks
 import { useSupabaseBrowser } from './supabaseClient'
 
 export function useFieldGuideAPIWithClient() {

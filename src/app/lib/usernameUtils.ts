@@ -1,5 +1,6 @@
-// src/app/lib/usernameUtils.ts - Username utility functions
+// src/app/lib/usernameUtils.ts - FIXED VERSION with race condition protection
 import { getSupabaseBrowserClient } from './supabaseClient'
+import { supabaseAdmin } from './supabaseAdmin'
 
 export interface UsernameValidationResult {
   isValid: boolean
@@ -7,8 +8,26 @@ export interface UsernameValidationResult {
   suggestions?: string[]
 }
 
+export interface UsernameAssignmentResult {
+  success: boolean
+  username?: string
+  error?: string
+  retryAfter?: number
+  suggestions?: string[]
+}
+
+// FIXED: Enhanced format validation with reserved word checking
+const RESERVED_USERNAMES = new Set([
+  'admin', 'administrator', 'root', 'user', 'test', 'guest', 'null', 'undefined',
+  'api', 'www', 'mail', 'email', 'support', 'help', 'info', 'contact',
+  'about', 'privacy', 'terms', 'legal', 'blog', 'news', 'home', 'login',
+  'signup', 'register', 'auth', 'account', 'profile', 'settings', 'config',
+  'dashboard', 'panel', 'console', 'system', 'service', 'official',
+  'dailytidbit', 'daily-tidbit', 'tidbit', 'ai', 'artificial', 'intelligence'
+])
+
 /**
- * Validate username format
+ * FIXED: Enhanced username format validation
  */
 export function validateUsernameFormat(username: string): UsernameValidationResult {
   if (!username) {
@@ -23,6 +42,7 @@ export function validateUsernameFormat(username: string): UsernameValidationResu
     return { isValid: false, error: 'Username must be 30 characters or less' }
   }
 
+  // FIXED: More comprehensive regex
   if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
     return { 
       isValid: false, 
@@ -38,11 +58,25 @@ export function validateUsernameFormat(username: string): UsernameValidationResu
     return { isValid: false, error: 'Username cannot start or end with an underscore' }
   }
 
+  // FIXED: Check for consecutive special characters
+  if (/[-_]{2,}/.test(username)) {
+    return { isValid: false, error: 'Username cannot contain consecutive hyphens or underscores' }
+  }
+
+  // FIXED: Check reserved usernames
+  if (RESERVED_USERNAMES.has(username.toLowerCase())) {
+    return { 
+      isValid: false, 
+      error: 'This username is reserved and cannot be used',
+      suggestions: generateUsernameSuggestions(username)
+    }
+  }
+
   return { isValid: true }
 }
 
 /**
- * Check if username is available
+ * FIXED: Enhanced availability check with better error handling
  */
 export async function checkUsernameAvailability(
   username: string, 
@@ -59,12 +93,18 @@ export async function checkUsernameAvailability(
       return { isValid: false, error: 'Authentication service unavailable' }
     }
 
-    // Check if reserved
-    const { data: reserved } = await supabase
+    // FIXED: Check reserved usernames table with proper error handling
+    const { data: reserved, error: reservedError } = await supabase
       .from('reserved_usernames')
       .select('username')
       .eq('username', username.toLowerCase())
-      .single()
+      .maybeSingle()
+
+    // FIXED: Only treat actual database errors as failures
+    if (reservedError && reservedError.code !== 'PGRST116') {
+      console.error('Reserved username check failed:', reservedError)
+      return { isValid: false, error: 'Unable to validate username' }
+    }
 
     if (reserved) {
       return { 
@@ -74,7 +114,7 @@ export async function checkUsernameAvailability(
       }
     }
 
-    // Check if taken by another user
+    // FIXED: Check existing users with proper exclusion
     let query = supabase
       .from('profiles')
       .select('id')
@@ -84,7 +124,13 @@ export async function checkUsernameAvailability(
       query = query.neq('id', currentUserId)
     }
 
-    const { data: existing } = await query.single()
+    const { data: existing, error: existingError } = await query.maybeSingle()
+
+    // FIXED: Only treat actual database errors as failures
+    if (existingError && existingError.code !== 'PGRST116') {
+      console.error('Username availability check failed:', existingError)
+      return { isValid: false, error: 'Unable to validate username' }
+    }
 
     if (existing) {
       return { 
@@ -96,38 +142,193 @@ export async function checkUsernameAvailability(
 
     return { isValid: true }
   } catch (error) {
-    // If we get here, likely means no match found (username available)
-    return { isValid: true }
+    console.error('Username availability check exception:', error)
+    return { isValid: false, error: 'Username validation service temporarily unavailable' }
   }
 }
 
 /**
- * Generate username suggestions
+ * FIXED: Auto-assign username with race condition protection
+ */
+export async function autoAssignUsername(
+  userId: string,
+  baseUsername?: string,
+  maxRetries: number = 5
+): Promise<UsernameAssignmentResult> {
+  if (!userId) {
+    return { success: false, error: 'User ID is required' }
+  }
+
+  // Generate base username from email or use provided base
+  let username = baseUsername || generateRandomUsername()
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // FIXED: Use server-side admin client for atomic operations
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          id: userId,
+          username: username,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        })
+        .select('username')
+        .single()
+
+      if (!error && profile?.username) {
+        return { 
+          success: true, 
+          username: profile.username 
+        }
+      }
+
+      // FIXED: Handle constraint violations specifically
+      if (error?.code === '23505') { // Unique constraint violation
+        console.log(`Username ${username} taken, generating new one (attempt ${attempt})`)
+        username = generateUniqueUsername(username, attempt)
+        
+        // FIXED: Add exponential backoff for race conditions
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100))
+        }
+        continue
+      }
+
+      // FIXED: Handle other database errors
+      console.error(`Username assignment failed (attempt ${attempt}):`, error)
+      
+      if (attempt === maxRetries) {
+        return { 
+          success: false, 
+          error: 'Failed to assign username after multiple attempts',
+          retryAfter: 5000 // 5 seconds
+        }
+      }
+
+      // Try with a new username on next attempt
+      username = generateUniqueUsername(username, attempt)
+      
+    } catch (exception) {
+      console.error(`Username assignment exception (attempt ${attempt}):`, exception)
+      
+      if (attempt === maxRetries) {
+        return { 
+          success: false, 
+          error: 'Username assignment service temporarily unavailable',
+          retryAfter: 10000 // 10 seconds
+        }
+      }
+      
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 200))
+    }
+  }
+
+  return { 
+    success: false, 
+    error: 'Username assignment failed after all retry attempts',
+    retryAfter: 30000 // 30 seconds
+  }
+}
+
+/**
+ * FIXED: Generate unique username variants to avoid collisions
+ */
+function generateUniqueUsername(baseUsername: string, attempt: number): string {
+  const cleanBase = baseUsername.replace(/\d+$/, '') // Remove trailing numbers
+  
+  // Strategy varies by attempt number
+  switch (attempt % 4) {
+    case 1:
+      return `${cleanBase}${Math.floor(Math.random() * 1000)}`
+    case 2:
+      return `${cleanBase}_${Math.floor(Math.random() * 100)}`
+    case 3:
+      return `${cleanBase}${Date.now().toString().slice(-4)}`
+    default:
+      return generateRandomUsername()
+  }
+}
+
+/**
+ * FIXED: Enhanced username suggestions with better variety
  */
 export function generateUsernameSuggestions(baseUsername: string): string[] {
   const suggestions: string[] = []
-  const base = baseUsername.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const base = baseUsername.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)
   
-  // Add numbers
-  for (let i = 1; i <= 5; i++) {
-    suggestions.push(`${base}${i}`)
+  if (!base) {
+    // If base is empty, return random suggestions
+    return Array.from({ length: 5 }, () => generateRandomUsername())
   }
   
-  // Add random suffixes
-  const suffixes = ['_dev', '_pro', '_2024', '_x', '_official']
-  suffixes.forEach(suffix => {
-    suggestions.push(`${base}${suffix}`)
-  })
+  // Add numbers
+  for (let i = 1; i <= 3; i++) {
+    suggestions.push(`${base}${Math.floor(Math.random() * 1000)}`)
+  }
   
-  // Add prefixes
-  const prefixes = ['the_', 'real_', 'official_']
-  prefixes.forEach(prefix => {
-    if ((prefix + base).length <= 30) {
-      suggestions.push(`${prefix}${base}`)
+  // Add suffixes
+  const suffixes = ['_ai', '_pro', '_user', '_x', '_dev']
+  suffixes.slice(0, 2).forEach(suffix => {
+    const suggestion = `${base}${suffix}`
+    if (suggestion.length <= 30) {
+      suggestions.push(suggestion)
     }
   })
   
-  return suggestions.slice(0, 5) // Return max 5 suggestions
+  return suggestions.slice(0, 5)
+}
+
+/**
+ * FIXED: Enhanced random username generation
+ */
+export function generateRandomUsername(): string {
+  const adjectives = [
+    'quick', 'bright', 'clever', 'swift', 'bold', 'calm', 'wise', 'keen',
+    'smart', 'cool', 'fast', 'sharp', 'light', 'strong', 'clear', 'deep'
+  ]
+  const nouns = [
+    'fox', 'wolf', 'eagle', 'deer', 'bear', 'lion', 'owl', 'hawk',
+    'cat', 'dog', 'fish', 'bird', 'star', 'moon', 'sun', 'wave'
+  ]
+  
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)]
+  const noun = nouns[Math.floor(Math.random() * nouns.length)]
+  const number = Math.floor(Math.random() * 1000)
+  
+  return `${adjective}${noun}${number}`
+}
+
+/**
+ * FIXED: Server-side username validation for auth actions
+ */
+export async function validateAndAssignUsername(
+  userId: string, 
+  preferredUsername?: string
+): Promise<UsernameAssignmentResult> {
+  // If preferred username provided, try it first
+  if (preferredUsername) {
+    const validation = validateUsernameFormat(preferredUsername)
+    if (!validation.isValid) {
+      return { 
+        success: false, 
+        error: validation.error 
+      }
+    }
+
+    // Try to assign the preferred username
+    const result = await autoAssignUsername(userId, preferredUsername, 1)
+    if (result.success) {
+      return result
+    }
+  }
+
+  // Fall back to auto-generated username
+  return autoAssignUsername(userId)
 }
 
 /**
@@ -187,19 +388,70 @@ export function sanitizeUsername(input: string): string {
   return input
     .toLowerCase()
     .replace(/[^a-z0-9_-]/g, '')
+    .replace(/[-_]{2,}/g, '-') // Replace consecutive special chars
     .slice(0, 30)
 }
 
 /**
- * Generate random username
+ * FIXED: Update username with proper validation and constraints
  */
-export function generateRandomUsername(): string {
-  const adjectives = ['quick', 'bright', 'clever', 'swift', 'bold', 'calm', 'wise', 'keen']
-  const nouns = ['fox', 'wolf', 'eagle', 'deer', 'bear', 'lion', 'owl', 'hawk']
-  
-  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)]
-  const noun = nouns[Math.floor(Math.random() * nouns.length)]
-  const number = Math.floor(Math.random() * 1000)
-  
-  return `${adjective}${noun}${number}`
+export async function updateUsername(
+  userId: string,
+  newUsername: string
+): Promise<UsernameAssignmentResult> {
+  // Validate format
+  const validation = validateUsernameFormat(newUsername)
+  if (!validation.isValid) {
+    return { success: false, error: validation.error }
+  }
+
+  // Check if user can change username
+  try {
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('username_changed')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) {
+      return { success: false, error: 'Unable to verify username change eligibility' }
+    }
+
+    if (profile?.username_changed) {
+      return { success: false, error: 'Username has already been changed and cannot be modified again' }
+    }
+
+    // FIXED: Atomic update with constraint handling
+    const { data: updatedProfile, error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        username: newUsername,
+        username_changed: true,
+        username_changed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .eq('username_changed', false) // Additional safety check
+      .select('username')
+      .single()
+
+    if (updateError) {
+      if (updateError.code === '23505') {
+        return { 
+          success: false, 
+          error: 'This username is already taken',
+          suggestions: generateUsernameSuggestions(newUsername)
+        }
+      }
+      
+      console.error('Username update error:', updateError)
+      return { success: false, error: 'Failed to update username' }
+    }
+
+    return { success: true, username: updatedProfile.username }
+
+  } catch (error) {
+    console.error('Username update exception:', error)
+    return { success: false, error: 'Username update service temporarily unavailable' }
+  }
 }
