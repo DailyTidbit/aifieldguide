@@ -203,53 +203,24 @@ export async function updatePasswordAction(formData: FormData): Promise<never> {
   }
 }
 
-// New action to check username availability
+// FIXED: Use existing username validation instead of duplicating
 export async function checkUsernameAvailability(username: string): Promise<{
   available: boolean
   error?: string
 }> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    // Check format
-    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(username)) {
-      return {
-        available: false,
-        error: 'Username must be 3-30 characters and contain only letters, numbers, underscores, and hyphens'
-      }
+    // Use existing validation from usernameUtils.ts
+    const { checkUsernameAvailability } = await import('./usernameUtils')
+    const result = await checkUsernameAvailability(username)
+    
+    return {
+      available: result.isValid,
+      error: result.error
     }
-
-    // Check if reserved
-    const { data: reserved } = await supabase
-      .from('reserved_usernames')
-      .select('username')
-      .eq('username', username.toLowerCase())
-      .single()
-
-    if (reserved) {
-      return {
-        available: false,
-        error: 'This username is reserved and cannot be used'
-      }
-    }
-
-    // Check if taken
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .single()
-
-    if (existing) {
-      return {
-        available: false,
-        error: 'This username is already taken'
-      }
-    }
-
-    return { available: true }
   } catch (error) {
-    // If we get here, likely means no match found (username available)
-    return { available: true }
+    return {
+      available: false,
+      error: 'Username validation service unavailable'
+    }
   }
 }

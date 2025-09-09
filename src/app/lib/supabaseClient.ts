@@ -1,4 +1,4 @@
-// app/lib/supabaseClient.ts - FINAL SIMPLIFIED VERSION
+// app/lib/supabaseClient.ts - FINAL SIMPLIFIED VERSION WITH FIXED SINGLETON
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'
@@ -17,9 +17,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
-// Singleton client instance
+// FIXED: True singleton client instance with initialization guard
 let supabaseClientInstance: SupabaseClient | null = null
-let isInitialized = false
+let isInitializing = false
 
 // Primary client getter - returns null on server, client instance in browser
 export function getSupabaseBrowserClient(): SupabaseClient | null {
@@ -28,16 +28,25 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
     return null
   }
 
-  // Only create instance once and when actually needed
-  if (!supabaseClientInstance && !isInitialized) {
-    try {
-      supabaseClientInstance = createBrowserClient(supabaseUrl, supabaseAnonKey)
-      isInitialized = true
-    } catch (error) {
-      console.error('Failed to create Supabase browser client:', error)
-      isInitialized = true // Prevent retries
-      return null
-    }
+  // Return existing instance if available
+  if (supabaseClientInstance) {
+    return supabaseClientInstance
+  }
+
+  // Prevent multiple instances during initialization
+  if (isInitializing) {
+    return null
+  }
+
+  // Create instance only once
+  isInitializing = true
+  try {
+    supabaseClientInstance = createBrowserClient(supabaseUrl, supabaseAnonKey)
+  } catch (error) {
+    console.error('Failed to create Supabase browser client:', error)
+    supabaseClientInstance = null
+  } finally {
+    isInitializing = false
   }
 
   return supabaseClientInstance

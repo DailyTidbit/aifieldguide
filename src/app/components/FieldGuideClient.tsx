@@ -4,7 +4,8 @@
 import { useState, useEffect, useDeferredValue, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import React from 'react'
-import { useMounted, getSectionColorClasses, getSectionHexColor } from '../lib/clientUtils'
+import { useMounted } from '../lib/clientUtils'
+import { getSectionColorClasses, getSectionHexColor } from '../lib/field-guide-types'
 import { useAnalytics } from '../lib/analytics'
 
 // Types
@@ -223,7 +224,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
               🔍 Explore AI by Category
             </h2>
             <p className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-medium mb-8 font-sans">
-              Pick your adventure — each section is packed with hand-picked tools and real-world use cases.
+              Pick your adventure – each section is packed with hand-picked tools and real-world use cases.
             </p>
 
             {/* Enhanced Search */}
@@ -354,7 +355,7 @@ const EnhancedSectionCard = React.memo(function EnhancedSectionCard({
       href={`/field-guide/${section.slug}`}
       className={`group block motion-safe:animate-fade-in-up motion-reduce:transition-none ${delayClass}`}
       onClick={onClick}
-      aria-label={`Open ${section.section_name} — ${section.toolCount} tools available${matchingTools.length > 0 ? `, ${matchingTools.length} matching your search` : ''}`}
+      aria-label={`Open ${section.section_name} – ${section.toolCount} tools available${matchingTools.length > 0 ? `, ${matchingTools.length} matching your search` : ''}`}
     >
       <article className="bg-white p-8 rounded-3xl shadow-md motion-safe:hover:shadow-xl transition-all duration-500 motion-reduce:transform-none motion-safe:hover:scale-[1.02] border border-gray-100 relative overflow-hidden h-full">
         {/* Top accent bar */}

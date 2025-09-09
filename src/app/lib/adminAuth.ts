@@ -1,8 +1,9 @@
-// src/app/lib/adminAuth.ts - HYDRATION SAFE VERSION + TYPE FIXES
+// src/app/lib/adminAuth.ts - HYDRATION SAFE VERSION + FIXED RATE LIMITING
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from './supabaseAdmin'
+import { createRateLimit } from './rateLimit'
 
 export interface PartnerUser {
   user_id: string
@@ -28,6 +29,12 @@ export interface AuditLogEntry {
   ip_address?: string
   user_agent?: string
 }
+
+// FIXED: Use existing rate limiter instead of custom implementation
+const partnerRateLimit = createRateLimit({
+  maxRequests: 100,
+  windowMs: 15 * 60 * 1000 // 15 minutes
+})
 
 // ✅ Server-side partner authentication - NO HYDRATION ISSUES (server-only)
 export async function requirePartner(request: NextRequest): Promise<{ partner: PartnerUser } | { error: string; status: number }> {
@@ -164,30 +171,7 @@ export async function logPartnerAction(entry: AuditLogEntry): Promise<void> {
   }
 }
 
-// ✅ HYDRATION SAFE: Rate limiting with proper memory management
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
-
-// Cleanup function to prevent memory leaks
-const cleanupRateLimit = () => {
-  const now = Date.now()
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (value.resetTime < now) {
-      rateLimitStore.delete(key)
-    }
-  }
-}
-
-// ✅ Run cleanup periodically (only in server environment)
-if (typeof process !== 'undefined' && process.env) {
-  const cleanupInterval = setInterval(cleanupRateLimit, 5 * 60 * 1000) // Every 5 minutes
-  
-  // Cleanup on process termination
-  process.on('exit', () => {
-    clearInterval(cleanupInterval)
-    rateLimitStore.clear()
-  })
-}
-
+// FIXED: Use existing rate limiter to prevent memory leaks
 export async function checkRateLimit(
   identifier: string,
   endpoint: string,
@@ -195,36 +179,22 @@ export async function checkRateLimit(
   windowMinutes: number = 15
 ): Promise<{ allowed: boolean; remaining: number; resetTime: Date }> {
   try {
-    const now = Date.now()
-    const windowMs = windowMinutes * 60 * 1000
-    const key = `${identifier}:${endpoint}`
-    
-    // Clean expired entries periodically
-    if (rateLimitStore.size > 1000) { // Prevent memory bloat
-      cleanupRateLimit()
-    }
-    
-    let entry = rateLimitStore.get(key)
-    if (!entry || entry.resetTime < now) {
-      entry = { count: 0, resetTime: now + windowMs }
-      rateLimitStore.set(key, entry)
-    }
-    
-    if (entry.count >= limit) {
-      return {
-        allowed: false,
-        remaining: 0,
-        resetTime: new Date(entry.resetTime)
+    // Create mock request object for existing rate limiter
+    const mockRequest = {
+      headers: {
+        get: (key: string) => {
+          if (key === 'x-forwarded-for') return identifier
+          return null
+        }
       }
-    }
+    } as NextRequest
     
-    entry.count++
-    rateLimitStore.set(key, entry)
+    const result = await partnerRateLimit(mockRequest, endpoint)
     
     return {
-      allowed: true,
-      remaining: limit - entry.count,
-      resetTime: new Date(entry.resetTime)
+      allowed: result.success,
+      remaining: result.remaining,
+      resetTime: result.reset
     }
     
   } catch (error) {

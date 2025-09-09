@@ -2,7 +2,7 @@
 'use client'
 
 import { getSupabaseBrowserClient } from './supabaseClient'
-import { FieldGuideSection, AITool } from './field-guide-types'
+import { FieldGuideSection, AITool, getCategoryForSection } from './field-guide-types'
 
 // ✅ Add hydration safety to the Field Guide API
 export class FieldGuideAPI {
@@ -103,44 +103,6 @@ export class FieldGuideAPI {
     }
   }
 
-  // Enhanced category mapping with better error handling
-  static getCategoryForSection(sectionName: string): string {
-    if (!sectionName || typeof sectionName !== 'string') {
-      return 'Unknown'
-    }
-
-    const mapping: Record<string, string> = {
-      // FINAL preferred names
-      'AI Assistants': 'AI Assistants',
-      'Image Generation': 'Image Generation',
-      'Video Generation': 'Video Generation',
-      'Music Creation': 'Music Creation',
-      'Photo & Image Tools': 'Photo & Image Tools',
-      'Video Editing': 'Video Editing',
-      'AI Avatars': 'AI Avatars',
-      'Speech & Voice': 'Speech & Voice',
-      'Creative Writing & Storytelling': 'Creative Writing & Storytelling',
-      'Productivity Tools': 'Productivity Tools',
-      'AI Search Tools': 'AI Search Tools',
-      'Education & Learning': 'Education & Learning',
-      'Coding Assistants': 'Coding Assistants',
-      'Automation Tools': 'Automation Tools',
-      
-      // OLD names (backward compatibility)
-      'Language Models': 'Language Models',
-      'Music': 'Music',
-      'Music & Audio Tools': 'Music',
-      'AI Photo & Image Editors': 'AI Photo & Image Editors',
-      'Image Editing': 'AI Photo & Image Editors',
-      'Video Editing & Avatars': 'Video Editing & AI Avatars',
-      'Video Editing & AI Avatars': 'Video Editing & AI Avatars',
-      'Voice Synthesis': 'Voice Synthesis',
-      'AI Agents & Automation': 'AI Agents & Automation',
-      'Educational & Learning Tools': 'Education & Learning'
-    }
-    return mapping[sectionName] || sectionName
-  }
-
   static async getToolsForSection(sectionName: string): Promise<AITool[]> {
     if (!(await this.ensureInitialized()) || !sectionName) {
       return []
@@ -151,7 +113,8 @@ export class FieldGuideAPI {
       return []
     }
 
-    const category = this.getCategoryForSection(sectionName)
+    // Use imported function instead of local implementation
+    const category = getCategoryForSection(sectionName)
     
     try {
       const { data, error } = await client

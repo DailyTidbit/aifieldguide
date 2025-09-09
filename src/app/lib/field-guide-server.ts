@@ -1,7 +1,17 @@
-// app/lib/field-guide-server.ts - SCHEMA-AWARE VERSION
+// app/lib/field-guide-server.ts - UPDATED WITH CONSOLIDATED IMPORTS
 
 import { createServerClient } from './supabaseServer'
-import { FieldGuideSection, AITool, AIToolRaw, convertRawTool, convertRawTools, validateRawTools } from './field-guide-types'
+import { 
+  FieldGuideSection, 
+  AITool, 
+  AIToolRaw, 
+  convertRawTool, 
+  convertRawTools, 
+  validateRawTools,
+  getCategoryForSection,
+  getSectionHexColor,
+  getSectionEmoji
+} from './field-guide-types'
 
 // Simple in-memory cache for server-side data
 class ServerCache {
@@ -181,7 +191,7 @@ export class FieldGuideServerAPI {
       // Get tool counts in batch for better performance
       const validSections = sections.filter(section => section && section.section_name)
       const sectionCategories = validSections.map(section => 
-        this.getCategoryForSection(section.section_name)
+        getCategoryForSection(section.section_name) // Use imported function
       )
 
       // Single query to get all tool counts
@@ -203,7 +213,7 @@ export class FieldGuideServerAPI {
       // Combine sections with their tool counts
       const sectionsWithCounts = validSections.map(section => ({
         ...section,
-        toolCount: countsByCategory[this.getCategoryForSection(section.section_name)] || 0
+        toolCount: countsByCategory[getCategoryForSection(section.section_name)] || 0 // Use imported function
       }))
 
       return sectionsWithCounts
@@ -224,7 +234,7 @@ export class FieldGuideServerAPI {
       return []
     }
 
-    const category = this.getCategoryForSection(sectionName)
+    const category = getCategoryForSection(sectionName) // Use imported function
     const cacheKey = `tools_${category}`
     const cached = cache.get(cacheKey)
     if (cached && Array.isArray(cached)) {
@@ -319,121 +329,13 @@ export class FieldGuideServerAPI {
     return 0
   }
 
-  // Enhanced category mapping with validation
-  static getCategoryForSection(sectionName: string): string {
-    if (!sectionName || typeof sectionName !== 'string') {
-      console.warn('Invalid sectionName provided to getCategoryForSection:', sectionName)
-      return sectionName || 'Unknown'
-    }
-
-    const mapping: Record<string, string> = {
-      // FINAL preferred names (after migration)
-      'AI Assistants': 'AI Assistants',
-      'Image Generation': 'Image Generation',
-      'Video Generation': 'Video Generation',
-      'Music Creation': 'Music Creation',
-      'Photo & Image Tools': 'Photo & Image Tools',
-      'Video Editing': 'Video Editing',
-      'AI Avatars': 'AI Avatars',
-      'Speech & Voice': 'Speech & Voice',
-      'Creative Writing & Storytelling': 'Creative Writing & Storytelling',
-      'Productivity Tools': 'Productivity Tools',
-      'AI Search Tools': 'AI Search Tools',
-      'Education & Learning': 'Education & Learning',
-      'Coding Assistants': 'Coding Assistants',
-      'Automation Tools': 'Automation Tools',
-      
-      // OLD names (backward compatibility during migration)
-      'Language Models': 'Language Models',
-      'Music': 'Music',
-      'Music & Audio Tools': 'Music',
-      'AI Photo & Image Editors': 'AI Photo & Image Editors',
-      'Image Editing': 'AI Photo & Image Editors',
-      'Video Editing & Avatars': 'Video Editing & AI Avatars',
-      'Video Editing & AI Avatars': 'Video Editing & AI Avatars',
-      'Voice Synthesis': 'Voice Synthesis',
-      'AI Agents & Automation': 'AI Agents & Automation',
-      'Educational & Learning Tools': 'Education & Learning'
-    }
-    
-    const mappedCategory = mapping[sectionName] || sectionName
-    
-    if (!mapping[sectionName]) {
-      console.warn(`No category mapping found for section: ${sectionName}, using original name`)
-    }
-    
-    return mappedCategory
-  }
-
-  // Helper functions for colors and emojis (optimized)
+  // Helper functions using imported utilities instead of local implementations
   static getSectionColor(sectionName: string): string {
-    if (!sectionName || typeof sectionName !== 'string') {
-      return 'brand-green' // Default green
-    }
-
-    const colorMap: Record<string, string> = {
-      'AI Assistants': 'brand-green',
-      'Image Generation': 'brand-blue',
-      'Video Generation': '#F7936F',
-      'Music Creation': '#F39C12',
-      'Photo & Image Tools': '#9B59B6',
-      'Video Editing': '#E74C3C',
-      'AI Avatars': '#8E44AD',
-      'Speech & Voice': '#4A9B8E',
-      'Creative Writing & Storytelling': '#8E44AD',
-      'Productivity Tools': '#27AE60',
-      'AI Search Tools': '#3498DB',
-      'Education & Learning': '#E67E22',
-      'Coding Assistants': '#3B82F6',
-      'Automation Tools': '#2ECC71',
-      // Backward compatibility
-      'Language Models': 'brand-green',
-      'Music': '#F39C12',
-      'Music & Audio Tools': '#F39C12',
-      'AI Photo & Image Editors': '#9B59B6',
-      'Image Editing': '#9B59B6',
-      'Video Editing & Avatars': '#E74C3C',
-      'Video Editing & AI Avatars': '#E74C3C',
-      'Voice Synthesis': '#4A9B8E',
-      'AI Agents & Automation': '#2ECC71',
-      'Educational & Learning Tools': '#E67E22'
-    }
-    return colorMap[sectionName] || 'brand-green'
+    return getSectionHexColor(sectionName) // Use imported function
   }
 
   static getSectionEmoji(sectionName: string): string {
-    if (!sectionName || typeof sectionName !== 'string') {
-      return '🤖' // Default emoji
-    }
-
-    const emojiMap: Record<string, string> = {
-      'AI Assistants': '💬',
-      'Image Generation': '🎨',
-      'Video Generation': '🎬',
-      'Music Creation': '🎵',
-      'Photo & Image Tools': '🖼️',
-      'Video Editing': '🎞️',
-      'AI Avatars': '👤',
-      'Speech & Voice': '🎤',
-      'Creative Writing & Storytelling': '✍️',
-      'Productivity Tools': '⚡',
-      'AI Search Tools': '🔍',
-      'Education & Learning': '📚',
-      'Coding Assistants': '💻',
-      'Automation Tools': '🤖',
-      // Backward compatibility
-      'Language Models': '💬',
-      'Music': '🎵',
-      'Music & Audio Tools': '🎵',
-      'AI Photo & Image Editors': '🖼️',
-      'Image Editing': '🖼️',
-      'Video Editing & Avatars': '🎞️',
-      'Video Editing & AI Avatars': '🎞️',
-      'Voice Synthesis': '🎤',
-      'AI Agents & Automation': '🤖',
-      'Educational & Learning Tools': '📚'
-    }
-    return emojiMap[sectionName] || '🤖'
+    return getSectionEmoji(sectionName) // Use imported function
   }
 
   // Enhanced validation helpers
