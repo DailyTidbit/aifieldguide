@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
-import Link from "next/link";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { getSupabaseBrowserClient } from "../lib/supabaseClient";
-import { safeWindow } from "../lib/clientUtils";
+import { useMounted } from "../lib/clientUtils";
 import { Calendar, Loader2, Lock } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
-// Import our modular components
+// Import modular components
 import { FormattedMessage } from "./tutor/FormattedMessage";
 import { AIProviderSelector, API_PROVIDERS } from "./tutor/AIProviderSelector";
 import { TutorErrorDisplay, type ErrorState, type ErrorType } from "./tutor/TutorErrorDisplay";
@@ -54,7 +53,6 @@ interface TidbitTutorProps {
 
 type LoadingState = "idle" | "sending" | "posting" | "copying" | "loading_tidbit";
 
-// Skeleton component for loading state
 function TidbitTutorSkeleton({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className={embedded ? "w-full relative" : "relative max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"}>
@@ -81,10 +79,13 @@ export default function TidbitTutor({
   dayNumber,
   embedded = false,
 }: TidbitTutorProps) {
-  // ✅ CRITICAL: Primary hydration safety - must be first
-  const [mounted, setMounted] = useState(false);
-  const [clientReady, setClientReady] = useState(false);
+  // CRITICAL: Single hydration safety check
+  const mounted = useMounted();
+  const { user, loading: authLoading, mounted: authMounted } = useAuth();
 
+  // Consolidated ready state
+  const isReady = mounted && authMounted;
+  
   // Core state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -99,7 +100,7 @@ export default function TidbitTutor({
   const [lastSharedIndex, setLastSharedIndex] = useState<number | null>(null);
   const [showShareOptions, setShowShareOptions] = useState(false);
 
-  // Supabase integration state
+  // Tidbit data state
   const [tidbitData, setTidbitData] = useState<TidbitData | null>(null);
 
   // Smart starter text state
@@ -109,188 +110,157 @@ export default function TidbitTutor({
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Use safe auth hook
-  const { user, loading: authLoading, mounted: authMounted } = useAuth();
-
-  // ✅ CRITICAL: Mount detection - must be first useEffect
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // ✅ CRITICAL: Client readiness check with retry logic
-  useEffect(() => {
-    if (!mounted) return;
-    
-    const checkClient = () => {
-      try {
-        const client = getSupabaseBrowserClient();
-        setClientReady(!!client);
-      } catch (error) {
-        console.warn('Supabase client not ready:', error);
-        setClientReady(false);
-      }
-    };
-    
-    checkClient();
-    
-    // Retry every second until client is ready
-    if (!clientReady) {
-      const interval = setInterval(checkClient, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [mounted, clientReady]);
-
-  // OAuth redirect target - HYDRATION SAFE: Only after mounted
-  const redirectTo = useMemo(() => {
-    if (!mounted || typeof window === 'undefined') return null;
-    return window.location.href;
-  }, [mounted]);
-
-  // Derived values
-  const getCurrentProvider = () =>
-    API_PROVIDERS.find((p) => p.id === selectedProvider) || API_PROVIDERS[0];
+  // Memoized values
+  const currentProvider = useMemo(() => 
+    API_PROVIDERS.find((p) => p.id === selectedProvider) || API_PROVIDERS[0], 
+    [selectedProvider]
+  );
 
   const currentTidbitNumber = tidbitData?.day_number || tidbitNumber || 1;
   const currentTidbitTitle = tidbitData?.title || tidbitTitle || "Unknown Tidbit";
-  const currentPlaceholder =
-    tidbitData?.tutor_placeholder ||
-    (loadingState === "sending"
-      ? `${getCurrentProvider().name} is processing...`
-      : "Type your message...");
+  
+  const currentPlaceholder = useMemo(() => {
+    if (!isReady) return "Loading...";
+    if (!user) return "Sign in to use Tidbit Tutor";
+    if (loadingState === "sending") return `${currentProvider.name} is processing...`;
+    return tidbitData?.tutor_placeholder || "Type your message...";
+  }, [isReady, user, loadingState, currentProvider.name, tidbitData?.tutor_placeholder]);
 
-  // Load tidbit from Supabase - HYDRATION SAFE: Only after both mounted and client ready
-  useEffect(() => {
-    const loadTidbitData = async () => {
-      if (!autoLoadFromSupabase || !mounted || !clientReady) return;
+  // Load tidbit from Supabase
+  const loadTidbitData = useCallback(async () => {
+    if (!autoLoadFromSupabase || !mounted) return;
 
-      setLoadingState("loading_tidbit");
+    setLoadingState("loading_tidbit");
 
-      try {
-        const supabase = getSupabaseBrowserClient();
-        
-        // ✅ CRITICAL FIX: Handle null supabase client properly
-        if (!supabase) {
-          throw new Error('Supabase client not available');
-        }
-        
-        let query = supabase.from("tidbits").select("*").eq("status", "published");
+    try {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
+      
+      let query = supabase.from("tidbits").select("*").eq("status", "published");
 
-        if (dayNumber) {
-          query = query.eq("day_number", dayNumber);
-        } else if (tidbitNumber) {
-          query = query.eq("day_number", tidbitNumber);
+      if (dayNumber) {
+        query = query.eq("day_number", dayNumber);
+      } else if (tidbitNumber) {
+        query = query.eq("day_number", tidbitNumber);
+      } else {
+        query = query.order("day_number", { ascending: false }).limit(1);
+      }
+
+      const { data, error } = await query.single();
+
+      if (error) {
+        if ((error as any).code === "PGRST116") {
+          // No rows found, try latest published
+          const { data: latestData, error: latestError } = await supabase
+            .from("tidbits")
+            .select("*")
+            .eq("status", "published")
+            .order("day_number", { ascending: false })
+            .limit(1)
+            .single();
+          if (latestError) throw latestError;
+          setTidbitData(latestData);
         } else {
-          query = query.order("day_number", { ascending: false }).limit(1);
+          throw error;
         }
-
-        const { data, error } = await query.single();
-
-        if (error) {
-          // If "No rows" for specific, try latest published
-          if ((error as any).code === "PGRST116") {
-            const { data: latestData, error: latestError } = await supabase
-              .from("tidbits")
-              .select("*")
-              .eq("status", "published")
-              .order("day_number", { ascending: false })
-              .limit(1)
-              .single();
-            if (latestError) throw latestError;
-            setTidbitData(latestData);
-          } else {
-            throw error;
-          }
-        } else {
-          setTidbitData(data);
-        }
-      } catch (err: any) {
-        console.error("Failed to load tidbit:", err);
-        setError({
-          type: "tidbit_load",
-          message: "Failed to load tidbit information. Using default settings.",
-          retryAction: loadTidbitData,
-        });
-      } finally {
-        setLoadingState("idle");
+      } else {
+        setTidbitData(data);
       }
-    };
-
-    loadTidbitData();
-  }, [autoLoadFromSupabase, dayNumber, tidbitNumber, mounted, clientReady]);
-
-  // Set initial prefill/provider from tidbit - HYDRATION SAFE: Only after all states ready
-  useEffect(() => {
-    if (!mounted || !authMounted || !clientReady) return;
-    
-    if (tidbitData && messages.length === 0) {
-      if (tidbitData.tutor_prefill && shouldShowStarterText) {
-        setInput(tidbitData.tutor_prefill);
-      }
-      if (tidbitData.default_ai_provider) {
-        const valid = API_PROVIDERS.find((p) => p.id === tidbitData.default_ai_provider);
-        if (valid) setSelectedProvider(valid.id);
-      }
+    } catch (err: any) {
+      console.error("Failed to load tidbit:", err);
+      setError({
+        type: "tidbit_load",
+        message: "Failed to load tidbit information. Using default settings.",
+        retryAction: loadTidbitData,
+      });
+    } finally {
+      setLoadingState("idle");
     }
-  }, [tidbitData, messages.length, shouldShowStarterText, mounted, authMounted, clientReady]);
+  }, [autoLoadFromSupabase, dayNumber, tidbitNumber, mounted]);
 
-  // Starter text behavior on provider change - HYDRATION SAFE: Only after mounted
+  // Load tidbit on mount
   useEffect(() => {
-    if (!mounted) return;
+    if (isReady) {
+      loadTidbitData();
+    }
+  }, [isReady, loadTidbitData]);
+
+  // Set initial prefill/provider from tidbit
+  useEffect(() => {
+    if (!isReady || !tidbitData || messages.length > 0) return;
+    
+    if (tidbitData.tutor_prefill && shouldShowStarterText) {
+      setInput(tidbitData.tutor_prefill);
+    }
+    if (tidbitData.default_ai_provider) {
+      const valid = API_PROVIDERS.find((p) => p.id === tidbitData.default_ai_provider);
+      if (valid) setSelectedProvider(valid.id);
+    }
+  }, [isReady, tidbitData, messages.length, shouldShowStarterText]);
+
+  // Handle provider changes
+  useEffect(() => {
+    if (!isReady || !tidbitData?.tutor_prefill) return;
     
     const hasUsedThisProvider = hasUsedProvider.has(selectedProvider);
-    if (tidbitData?.tutor_prefill) {
-      if (!hasUsedThisProvider && !input.trim()) {
-        setInput(tidbitData.tutor_prefill);
-        setShouldShowStarterText(true);
-      } else if (hasUsedThisProvider && input === tidbitData.tutor_prefill) {
-        setInput("");
-        setShouldShowStarterText(false);
-      }
+    if (!hasUsedThisProvider && !input.trim()) {
+      setInput(tidbitData.tutor_prefill);
+      setShouldShowStarterText(true);
+    } else if (hasUsedThisProvider && input === tidbitData.tutor_prefill) {
+      setInput("");
+      setShouldShowStarterText(false);
     }
-  }, [selectedProvider, tidbitData?.tutor_prefill, hasUsedProvider, input, mounted]);
+  }, [selectedProvider, tidbitData?.tutor_prefill, hasUsedProvider, input, isReady]);
 
-  // Auto-clear error/success
+  // Auto-clear messages
   useEffect(() => {
     if (error) {
-      const t = setTimeout(() => setError(null), 5000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
     }
   }, [error]);
 
   useEffect(() => {
     if (successMessage) {
-      const t = setTimeout(() => setSuccessMessage(null), 3000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setSuccessMessage(null), 3000);
+      return () => clearTimeout(timer);
     }
   }, [successMessage]);
 
-  // Utility
-  const handleError = (type: ErrorType, message: string, retryAction?: () => void) => {
+  // Utility functions
+  const handleError = useCallback((type: ErrorType, message: string, retryAction?: () => void) => {
     setError({ type, message, retryAction });
     setLoadingState("idle");
-  };
-  const clearError = () => setError(null);
+  }, []);
 
-  // Auth modal handlers
-  const handleAuthSuccess = () => {
+  const clearError = useCallback(() => setError(null), []);
+
+  // Auth handlers
+  const handleAuthSuccess = useCallback(() => {
     if (!mounted) return;
     setSuccessMessage("Welcome! You can now use Tidbit Tutor.");
     setShowAuthModal(false);
-  };
+  }, [mounted]);
 
-  // Chat - HYDRATION SAFE: Only after all states ready
-  async function sendMessage() {
-    if (!mounted || !authMounted || !clientReady) return;
-    
-    // Block send when not logged in - show modal instead
+  // Input area click handler - for gated access
+  const handleInputAreaClick = useCallback(() => {
+    if (!isReady) return;
     if (!user) {
+      setShowAuthModal(true);
+    }
+  }, [isReady, user]);
+
+  // Send message function
+  const sendMessage = useCallback(async () => {
+    if (!isReady || !user) {
       setShowAuthModal(true);
       return;
     }
 
     if (!input.trim() || loadingState === "sending") return;
 
-    const currentProvider = getCurrentProvider();
     const userMessage: Message = {
       role: "user",
       content: input.trim(),
@@ -299,10 +269,8 @@ export default function TidbitTutor({
     };
 
     setMessages((prev) => [...prev, userMessage]);
-
     setHasUsedProvider((prev) => new Set([...prev, selectedProvider]));
     setShouldShowStarterText(false);
-
     setInput("");
     setLoadingState("sending");
     clearError();
@@ -338,12 +306,9 @@ export default function TidbitTutor({
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-
       onConversationUpdate?.(userMessage.content, data.assistant);
 
-      // Show share options after the first exchange
       if (messages.length >= 0) setShowShareOptions(true);
-
       setSuccessMessage(`${currentProvider.name} responded successfully!`);
     } catch (err) {
       console.error("Chat error:", err);
@@ -359,77 +324,63 @@ export default function TidbitTutor({
           errorMessage = "Server is temporarily unavailable. Please try again shortly.";
         } else if (err.message.match(/provider|API/i)) {
           errorType = "provider";
-          errorMessage = `${getCurrentProvider().name} is currently unavailable. Try switching providers.`;
+          errorMessage = `${currentProvider.name} is currently unavailable. Try switching providers.`;
         } else {
           errorMessage = err.message;
         }
       }
 
-      handleError(errorType, errorMessage, () => sendMessage());
+      handleError(errorType, errorMessage, sendMessage);
 
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `Sorry, I encountered an error with ${getCurrentProvider().name}. Please try again or switch providers.`,
+          content: `Sorry, I encountered an error with ${currentProvider.name}. Please try again or switch providers.`,
           timestamp: new Date(),
-          provider: getCurrentProvider().id,
+          provider: currentProvider.id,
         },
       ]);
     } finally {
       setLoadingState("idle");
     }
-  }
+  }, [isReady, user, input, loadingState, currentProvider, messages, selectedProvider, onConversationUpdate, clearError, handleError]);
 
-  // Copy - HYDRATION SAFE: Fixed navigator.clipboard access
-  const copyMessage = async (content: string, index: number) => {
-    if (!mounted || loadingState === "copying") return;
+  // Copy message function
+  const copyMessage = useCallback(async (content: string, index: number) => {
+    if (!isReady || loadingState === "copying") return;
 
     setLoadingState("copying");
     clearError();
 
     try {
-      // ✅ HYDRATION FIX: Safe clipboard access with proper feature detection
-      if (!mounted || typeof window === 'undefined' || !window.navigator?.clipboard) {
-        throw new Error("Clipboard not supported in this browser");
+      if (navigator?.clipboard) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        // Fallback method
+        const textArea = document.createElement("textarea");
+        textArea.value = content;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
       }
-
-      await window.navigator.clipboard.writeText(content);
+      
       setCopiedMessageIndex(index);
       setSuccessMessage("Message copied to clipboard!");
       setTimeout(() => setCopiedMessageIndex(null), 2000);
     } catch (err) {
       console.error("Copy failed:", err);
-      
-      // ✅ HYDRATION SAFE: Fallback copy method only after mount
-      try {
-        if (mounted && typeof document !== 'undefined') {
-          const textArea = document.createElement("textarea");
-          textArea.value = content;
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand("copy");
-          document.body.removeChild(textArea);
-          setSuccessMessage("Message copied to clipboard!");
-        }
-      } catch (fallbackErr) {
-        console.error("Fallback copy failed:", fallbackErr);
-        handleError(
-          "network",
-          "Failed to copy to clipboard. You can manually select and copy the text."
-        );
-      }
+      handleError("network", "Failed to copy to clipboard. You can manually select and copy the text.");
     } finally {
       setLoadingState("idle");
     }
-  };
+  }, [isReady, loadingState, clearError, handleError]);
 
-  // Share a specific exchange - HYDRATION SAFE: Only after all states ready
-  const shareSpecificConversation = async (userMsgIndex: number) => {
-    if (!mounted || !authMounted || !clientReady || loadingState === "posting") return;
-
-    if (!user) {
-      setShowAuthModal(true);
+  // Share conversation function
+  const shareSpecificConversation = useCallback(async (userMsgIndex: number) => {
+    if (!isReady || !user || loadingState === "posting") {
+      if (!user) setShowAuthModal(true);
       return;
     }
 
@@ -446,10 +397,8 @@ export default function TidbitTutor({
 
     try {
       const supabase = getSupabaseBrowserClient();
-      
-      // ✅ CRITICAL FIX: Handle null supabase client properly
       if (!supabase) {
-        throw new Error('Supabase client not available');
+        throw new Error('Database connection not available');
       }
       
       const { error: supabaseError } = await supabase.from("posts").insert({
@@ -470,10 +419,8 @@ export default function TidbitTutor({
 
       setLastSharedIndex(userMsgIndex + 1);
       setSuccessMessage("Conversation posted successfully!");
-
       setTimeout(() => setLastSharedIndex(null), 3000);
 
-      // ✅ HYDRATION SAFE: Window access only after mount
       if (mounted && typeof window !== 'undefined') {
         setTimeout(() => {
           const viewPost = window.confirm("View your post on BitBoard?");
@@ -488,67 +435,42 @@ export default function TidbitTutor({
     } finally {
       setLoadingState("idle");
     }
-  };
+  }, [isReady, user, loadingState, messages, currentTidbitNumber, currentTidbitTitle, tidbitData, mounted, handleError, clearError]);
 
-  // Provider change - HYDRATION SAFE: Only after mounted
-  const handleProviderChange = (providerId: string) => {
-    if (!mounted) return;
-    setSelectedProvider(providerId);
-  };
-
-  // Clear starter text - HYDRATION SAFE: Only after mounted
-  const handleClearPrefill = () => {
-    if (!mounted) return;
-    setInput("");
-    setShouldShowStarterText(false);
-  };
-
-  // Input area click handler - HYDRATION SAFE: Only after all states ready
-  const handleInputAreaClick = () => {
-    if (!mounted || !authMounted) return;
-    if (!user) {
-      setShowAuthModal(true);
-    }
-  };
-
-  // ✅ HYDRATION SAFETY: Show skeleton during any loading state
-  if (!mounted || !authMounted || !clientReady) {
+  // Early returns with proper hydration safety
+  if (!mounted) {
     return <TidbitTutorSkeleton embedded={embedded} />;
   }
 
-  const currentProvider = getCurrentProvider();
   const gated = !user;
 
   return (
     <>
       <div className={embedded ? "w-full relative" : "relative max-w-xl mx-auto p-6 border border-gray-200 rounded-xl bg-white shadow-sm"}>
-        {/* Header with BRAND COLORS */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center">
               <span className="text-white text-sm font-bold">#{currentTidbitNumber}</span>
             </div>
-            <h2
-              className={`${embedded ? "text-2xl" : "text-xl"} font-bold text-gray-900`}
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
+            <h2 className={`${embedded ? "text-2xl" : "text-xl"} font-bold text-gray-900 font-serif`}>
               Tidbit Tutor
             </h2>
           </div>
 
           <AIProviderSelector
             selectedProvider={selectedProvider}
-            onProviderChange={handleProviderChange}
+            onProviderChange={setSelectedProvider}
             showMenu={showProviderMenu}
             onToggleMenu={setShowProviderMenu}
             disabled={loadingState === "loading_tidbit" || gated}
           />
         </div>
 
-        {/* Login soft-gate banner with BRAND COLORS */}
+        {/* Login soft-gate banner */}
         {gated && <LoginCtaBanner onClick={() => setShowAuthModal(true)} />}
 
-        {/* Tidbit context with BRAND COLORS */}
+        {/* Tidbit context */}
         {tidbitData && (
           <div className="mb-4">
             <div className="flex items-start gap-2">
@@ -564,10 +486,7 @@ export default function TidbitTutor({
                       .split(",")
                       .slice(0, 3)
                       .map((tag, i) => (
-                        <span
-                          key={i}
-                          className="text-xs bg-brand-green/10 text-brand-green px-2 py-0.5 rounded"
-                        >
+                        <span key={i} className="text-xs bg-brand-green/10 text-brand-green px-2 py-0.5 rounded">
                           {tag.trim()}
                         </span>
                       ))}
@@ -578,7 +497,7 @@ export default function TidbitTutor({
           </div>
         )}
 
-        {/* Loading state for tidbit with BRAND COLORS */}
+        {/* Loading state */}
         {loadingState === "loading_tidbit" && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2">
@@ -588,11 +507,11 @@ export default function TidbitTutor({
           </div>
         )}
 
-        {/* Errors / Success */}
+        {/* Error/Success messages */}
         <TutorErrorDisplay error={error} onClearError={clearError} />
         <TutorSuccessDisplay message={successMessage} onClear={() => setSuccessMessage(null)} />
 
-        {/* Chat Area */}
+        {/* Chat area */}
         <TutorChatArea
           messages={messages}
           loadingState={loadingState}
@@ -604,45 +523,28 @@ export default function TidbitTutor({
           currentProvider={currentProvider}
         />
 
-        {/* Thinking hint when first sending with BRAND COLORS */}
-        {messages.length === 0 && loadingState === "sending" && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <div className="bg-white text-gray-800 border border-gray-200 p-3 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${currentProvider.color}`}></div>
-                <Loader2 className="w-4 h-4 text-brand-blue animate-spin" />
-                <span className="text-sm text-gray-600">{currentProvider.name} is thinking...</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Input Area with soft mask to block clicks */}
+        {/* Input area */}
         <div className="relative" onClick={gated ? handleInputAreaClick : undefined}>
           <TutorInputArea
             input={input}
             onInputChange={setInput}
             onSend={sendMessage}
-            placeholder={
-              gated
-                ? "Run today's tip with Tidbit Tutor. Create a free account or log in to use it."
-                : currentPlaceholder
-            }
+            placeholder={currentPlaceholder}
             loadingState={loadingState}
             currentProvider={currentProvider}
             hasPrefillText={tidbitData?.tutor_prefill === input && shouldShowStarterText}
-            onClearPrefill={handleClearPrefill}
+            onClearPrefill={() => {
+              setInput("");
+              setShouldShowStarterText(false);
+            }}
           />
 
           {gated && (
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 rounded-lg bg-white/60 backdrop-blur-[1px] cursor-pointer"
-            />
+            <div className="absolute inset-0 rounded-lg bg-white/60 backdrop-blur-[1px] cursor-pointer" />
           )}
         </div>
 
-        {/* Share to BitBoard */}
+        {/* Share component */}
         <ShareToBitBoard
           show={showShareOptions && messages.length >= 2}
           messages={messages}
@@ -651,7 +553,7 @@ export default function TidbitTutor({
           tidbitTitle={currentTidbitTitle}
           tidbitData={tidbitData}
           loadingState={loadingState}
-          onPost={() => { }}
+          onPost={() => {}}
           onSuccess={(message: string) => setSuccessMessage(message)}
           onError={handleError}
         />
@@ -661,7 +563,7 @@ export default function TidbitTutor({
           <div className="fixed inset-0 z-5" onClick={() => setShowProviderMenu(false)} />
         )}
 
-        {/* Full-window overlay (big CTA) with BRAND COLORS */}
+        {/* Full-window overlay (big CTA) */}
         {gated && (
           <FullScreenGate
             onPrimary={() => setShowAuthModal(true)}
@@ -677,13 +579,13 @@ export default function TidbitTutor({
         onSuccess={handleAuthSuccess}
         title="Unlock Tidbit Tutor"
         subtitle="Sign in to chat with AI and explore today's tip"
-        redirectTo={redirectTo}
+        redirectTo={mounted && typeof window !== 'undefined' ? window.location.href : null}
       />
     </>
   );
 }
 
-// Login CTA Banner with BRAND COLORS
+// Login CTA Banner component
 function LoginCtaBanner({ onClick }: { onClick?: () => void }) {
   return (
     <div
@@ -705,7 +607,7 @@ function LoginCtaBanner({ onClick }: { onClick?: () => void }) {
   );
 }
 
-// Full Screen Gate with BRAND COLORS
+// Full Screen Gate component
 function FullScreenGate({
   onPrimary,
   onSecondary,
@@ -717,9 +619,9 @@ function FullScreenGate({
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm p-6 text-center rounded-xl border border-gray-100">
       <div className="max-w-md w-full">
         <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-brand-green text-white flex items-center justify-center shadow-sm">
-          <span className="text-lg font-bold">🔒</span>
+          <Lock className="w-6 h-6" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2 font-serif">
           Run today's tip with Tidbit Tutor
         </h2>
         <p className="text-gray-700 mb-6">
@@ -729,7 +631,7 @@ function FullScreenGate({
         <div className="grid grid-cols-1 gap-2">
           <button
             onClick={onPrimary}
-            className="px-5 py-3 rounded-lg bg-brand-green text-white font-semibold hover:bg-brand-greenDark transition"
+            className="px-5 py-3 rounded-lg bg-brand-green text-white font-semibold hover:bg-brand-green-dark transition"
           >
             Sign in or Create Account
           </button>

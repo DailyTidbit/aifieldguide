@@ -25,7 +25,7 @@ export default function PostCard({
   onLike: (postId: string) => void
   onClick?: () => void
 }) {
-  // ✅ HYDRATION SAFETY: Primary mounted state
+  // Hydration safety: Primary mounted state
   const [mounted, setMounted] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
@@ -35,7 +35,7 @@ export default function PostCard({
     setMounted(true)
   }, [])
 
-  // ✅ HYDRATION SAFE: Deterministic background color selection - stable hash from post ID
+  // Hydration safe: Deterministic background color selection - stable hash from post ID
   const bgColor = useMemo(() => {
     if (!post.id) return bgColors[0]
     
@@ -46,23 +46,47 @@ export default function PostCard({
     return bgColors[Math.abs(hash) % bgColors.length]
   }, [post.id])
 
-  // ✅ HYDRATION SAFE: Stable content preview calculation
+  // Enhanced content preview: Shows user commentary + AI summary for better tiles
   const contentPreview = useMemo(() => {
     if (!post.content) return ''
     
-    // Check if content has user commentary (separated by ---)
+    // Check if this is an enhanced TidbitTutor post with structured data
+    if (post.type === 'tidbit_tutor_enhanced' && (post.user_commentary || post.ai_summary)) {
+      let combinedContent = ''
+      
+      // Add user commentary first if it exists
+      if (post.user_commentary) {
+        combinedContent += post.user_commentary.trim()
+      }
+      
+      // Add AI summary if it exists
+      if (post.ai_summary) {
+        // Add separator if we already have user commentary
+        if (combinedContent) {
+          combinedContent += '\n\n'
+        }
+        combinedContent += post.ai_summary.trim()
+      }
+      
+      // Apply character limit to the combined content
+      return combinedContent.length > 560 ? `${combinedContent.substring(0, 560)}...` : combinedContent
+    }
+    
+    // Legacy format handling (content with --- separator)
     const parts = post.content.split('\n\n---\n\n')
     if (parts.length > 1) {
-      // If there's commentary, show that instead of main content
-      const commentary = parts[1]
-      return commentary.length > 560 ? `${commentary.substring(0, 560)}...` : commentary
-    } else {
-      // No commentary, show main content
-      return post.content.length > 560 ? `${post.content.substring(0, 560)}...` : post.content
+      // For legacy posts, show user commentary first, then main content
+      const userCommentary = parts[1].trim()
+      const mainContent = parts[0].trim()
+      const combinedContent = `${userCommentary}\n\n${mainContent}`
+      return combinedContent.length > 560 ? `${combinedContent.substring(0, 560)}...` : combinedContent
     }
-  }, [post.content])
+    
+    // Standard post content
+    return post.content.length > 560 ? `${post.content.substring(0, 560)}...` : post.content
+  }, [post.content, post.type, post.user_commentary, post.ai_summary])
 
-  // ✅ HYDRATION SAFE: Stable media type detection with mounted guard
+  // Hydration safe: Stable media type detection with mounted guard
   const isAudioLink = useMemo(() => 
     mounted && typeof post.media_url === 'string' &&
     (post.media_url.includes('suno.ai') || post.media_url.includes('udio.com'))
@@ -77,12 +101,12 @@ export default function PostCard({
 
   const hasTextOnly = !hasImage && !isAudioLink && post.content
 
-  // ✅ HYDRATION SAFE: Format date with fallback
+  // Hydration safe: Format date with fallback
   const formattedDate = useMemo(() => {
     return formatDateSafe(post.created_at, 'Invalid date')
   }, [post.created_at])
 
-  // ✅ HYDRATION SAFETY: Show loading skeleton during SSR
+  // Hydration safety: Show loading skeleton during SSR
   if (!mounted) {
     return (
       <div className="break-inside-avoid mb-4 w-full">
@@ -116,14 +140,14 @@ export default function PostCard({
       onTouchEnd={() => setIsTouched(false)}
     >
       <div
-        className={`relative group rounded-xl shadow-sm overflow-hidden transition-all duration-300 cursor-pointer transform ${
+        className={`relative group rounded-xl shadow-md overflow-hidden transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl ${
           isTouched 
             ? 'scale-[0.98] shadow-lg' 
-            : 'hover:shadow-xl hover:scale-[1.02]'
+            : ''
         } ${hasImage ? 'bg-white' : 'bg-white'} border border-gray-100`}
         onClick={onClick}
       >
-        {/* Enhanced Media Section with Better Loading - BRAND COLORS FIXED */}
+        {/* Enhanced Media Section with Better Loading */}
         {(hasImage || isAudioLink) && (
           <div className="relative w-full h-64 bg-gray-50 flex items-center justify-center overflow-hidden">
             {hasImage ? (
@@ -182,31 +206,33 @@ export default function PostCard({
           </div>
         )}
 
-        {/* Enhanced Text Content Section - BRAND COLORS FIXED */}
+        {/* UPDATED: Enhanced Text Content Section with repositioned decorations */}
         {post.content && (
-          <div className={`p-6 text-gray-800 space-y-4 ${!hasImage && !isAudioLink ? bgColor : ''}`}>
+          <div className={`p-6 text-gray-800 space-y-4 relative ${!hasImage && !isAudioLink ? bgColor : ''}`}>
+            {/* MOVED: Sparkle decoration moved up and repositioned */}
+            {!hasImage && !isAudioLink && (
+              <div className="absolute top-2 right-4 opacity-15">
+                <Sparkles className="w-10 h-10 text-brand-green" />
+              </div>
+            )}
+
             {/* Main content with better typography */}
-            <div>
+            <div className="relative z-10">
               <div className="text-gray-800 leading-relaxed font-medium text-lg line-clamp-8 whitespace-pre-wrap">
                 {contentPreview}
               </div>
             </div>
 
-            {/* Add visual interest for text-only posts - BRAND COLORS FIXED */}
+            {/* Add visual interest for text-only posts - repositioned gradient */}
             {!hasImage && !isAudioLink && (
-              <div className="relative">
-                <div className="absolute top-4 right-4 opacity-20">
-                  <Sparkles className="w-12 h-12 text-brand-green" />
-                </div>
-                <div className="absolute bottom-4 left-4 opacity-10">
-                  <div className="w-16 h-16 bg-gradient-to-br from-brand-green to-brand-blue rounded-full"></div>
-                </div>
+              <div className="absolute bottom-12 left-4 opacity-8">
+                <div className="w-12 h-12 bg-gradient-to-br from-brand-green to-brand-blue rounded-full"></div>
               </div>
             )}
           </div>
         )}
 
-        {/* Enhanced User Info Bar - BRAND COLORS FIXED */}
+        {/* UPDATED: Enhanced User Info Bar with improved day badge */}
         <div className="px-6 pb-4">
           <div className="flex items-center justify-between">
             {/* Enhanced User info */}
@@ -234,7 +260,7 @@ export default function PostCard({
                     {post.user_full_name || (post.username ? `@${post.username}` : 'Anonymous')}
                   </span>
                   {post.tidbit && (
-                    <span className="text-xs bg-gradient-to-r from-brand-blue to-brand-blueDark text-white px-3 py-1 rounded-full font-bold hover:from-brand-blueDark hover:to-blue-600 transition-all duration-200 whitespace-nowrap shadow-sm">
+                    <span className="text-xs bg-brand-blue text-white px-3 py-1.5 rounded-full font-bold whitespace-nowrap shadow-sm border border-brand-blue-light">
                       Day {post.tidbit}
                     </span>
                   )}
@@ -246,7 +272,7 @@ export default function PostCard({
               </div>
             </div>
 
-            {/* Enhanced Action Buttons - BRAND COLORS FIXED */}
+            {/* Enhanced Action Buttons */}
             <div className="flex items-center gap-3">
               {/* Like Button */}
               <button
@@ -268,7 +294,7 @@ export default function PostCard({
                 <span className="text-sm font-semibold">{post.likes_count ?? 0}</span>
               </button>
 
-              {/* Comment Button - BRAND COLORS FIXED */}
+              {/* Comment Button */}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -291,9 +317,6 @@ export default function PostCard({
             </div>
           </div>
         )}
-
-        {/* Subtle Glow Effect on Hover - BRAND COLORS FIXED */}
-        <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-brand-green/5 to-brand-blue/5 pointer-events-none"></div>
       </div>
     </div>
   )

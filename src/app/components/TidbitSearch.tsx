@@ -279,7 +279,7 @@ export default function TidbitSearch() {
                      shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green"
         >
           <span role="img" aria-label="Conch shell" className="text-lg">
-            🐚
+            🚀
           </span>
           <span className="text-sm">FULL TIDBIT LIBRARY</span>
         </a>

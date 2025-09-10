@@ -1,5 +1,5 @@
 // ============================================================================
-// 1. FormattedMessage.tsx - Extract message formatting logic
+// FormattedMessage.tsx - Fixed version with proper Tailwind v4 colors
 // ============================================================================
 
 import React from 'react';
@@ -31,7 +31,7 @@ export function FormattedMessage({ content, className = "" }: FormattedTextProps
               const number = item.match(/^(\d+)\./)?.[1] || (i + 1).toString();
               return (
                 <li key={`item-${i}`} className="flex items-start gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 bg-[brand-green] text-white rounded-full text-sm font-bold flex-shrink-0 mt-0.5">
+                  <span className="flex items-center justify-center w-6 h-6 bg-brand-green text-white rounded-full text-sm font-bold flex-shrink-0 mt-0.5">
                     {number}
                   </span>
                   <span className="text-gray-700 leading-relaxed">
@@ -53,7 +53,7 @@ export function FormattedMessage({ content, className = "" }: FormattedTextProps
               const cleanItem = item.replace(/^[-•]\s*/, '').trim();
               return (
                 <li key={`bullet-${i}`} className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-[brand-blue] rounded-full flex-shrink-0 mt-2"></div>
+                  <div className="w-2 h-2 bg-brand-blue rounded-full flex-shrink-0 mt-2"></div>
                   <span className="text-gray-700 leading-relaxed">
                     {formatInlineText(cleanItem)}
                   </span>
@@ -67,8 +67,7 @@ export function FormattedMessage({ content, className = "" }: FormattedTextProps
       // Check for headers (lines ending with :)
       if (paragraph.trim().endsWith(':') && paragraph.length < 100) {
         return (
-          <h4 key={`header-${pIndex}`} className="text-lg font-semibold text-gray-900 mt-6 mb-3" 
-              style={{fontFamily: "'Playfair Display', serif"}}>
+          <h4 key={`header-${pIndex}`} className="text-lg font-semibold text-gray-900 mt-6 mb-3 font-serif">
             {formatInlineText(paragraph.replace(':', ''))}
           </h4>
         );

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Wand2, RefreshCw, Loader2, Edit3, X, Check } from 'lucide-react';
+import { useMounted } from '../../lib/clientUtils';
 import type { Message } from './TutorChatArea';
 
 interface AIPostGeneratorProps {
@@ -28,17 +29,12 @@ export function AIPostGenerator({
   onCancel
 }: AIPostGeneratorProps) {
   // Essential hydration safety
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [generating, setGenerating] = useState(false);
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<'casual' | 'professional' | 'excited' | 'detailed'>('casual');
   const [customizing, setCustomizing] = useState(false);
   const [customContent, setCustomContent] = useState('');
-
-  // Hydration safety - must be first useEffect
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const styles = [
     { id: 'casual' as const, name: 'Casual', emoji: '😊', description: 'Friendly and conversational' },
@@ -364,7 +360,7 @@ RESPOND ONLY with this JSON format:
                     {/* AI Reasoning */}
                     <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                       <div className="flex items-center gap-2 mb-1">
-                        <Sparkles className="w-4 h-4 text-brand-blueDark" />
+                        <Sparkles className="w-4 h-4 text-brand-blue-dark" />
                         <span className="text-sm font-medium text-blue-800">AI's Reasoning</span>
                       </div>
                       <p className="text-blue-700 text-sm">{selectedPost.reasoning}</p>

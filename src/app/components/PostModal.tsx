@@ -24,13 +24,15 @@ import {
   Unlock,
   Flag,
   Pin,
-  PinOff
+  PinOff,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import Image from 'next/image'
 import { isValidMediaUrl } from '../lib/clientUtils'
 import { formatDateSafe } from '../lib/clientUtils'
 
-// Enhanced Post type with comments
+// Enhanced Post type with new TidbitTutor fields
 export type Post = {
   id: string
   created_at: string
@@ -47,6 +49,18 @@ export type Post = {
   comments_enabled?: boolean
   is_pinned?: boolean
   is_private?: boolean
+  // New TidbitTutor enhanced fields
+  user_commentary?: string | null
+  ai_summary?: string | null
+  original_conversation?: string | null
+  conversation_metadata?: {
+    message_count: number
+    user_messages: number
+    ai_messages: number
+    providers_used: string[]
+    tidbit_number: number
+    tidbit_title: string
+  } | null
 }
 
 // Comment type
@@ -112,6 +126,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
   const [isPinned, setIsPinned] = useState(post.is_pinned ?? false)
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [showOriginalConvo, setShowOriginalConvo] = useState(false) // Enhanced conversation toggle
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
 
   // Mount detection
@@ -455,7 +470,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
     }
   }
 
-  // FIXED: Enhanced share functionality using safeWindow
+  // Enhanced share functionality using safeWindow
   const handleShare = async () => {
     if (!mounted || typeof window === 'undefined') return
 
@@ -522,7 +537,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
         {/* Mobile-First Stacked Layout */}
         <div className="flex flex-col h-full max-h-[95vh]">
-          {/* Header with Close Button - Brand Colors Fixed */}
+          {/* Header with Close Button */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* User avatar with proper aspect ratio */}
@@ -682,56 +697,165 @@ export default function PostModal({ post, onClose }: PostModalProps) {
 
           {/* Content and Comments Container */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Main Content Section with Brand Colors */}
+            {/* ENHANCED: Main Content Section with Better Order */}
             <div className="p-4 sm:p-6 border-b border-gray-200">
               {post.content && (
                 <div className="space-y-4">
                   {(() => {
-                    // Split content to separate main content from user commentary
-                    const parts = post.content.split('\n\n---\n\n');
-                    if (parts.length > 1) {
-                      const mainContent = parts[0];
-                      const userCommentary = parts[1];
-                      
+                    // Check if this is an enhanced TidbitTutor post
+                    if (post.type === 'tidbit_tutor_enhanced' && (post.user_commentary || post.ai_summary)) {
+                      // Enhanced post with structured data - BETTER ORDER
                       return (
                         <>
-                          {/* User Commentary with Brand Colors */}
-                          <div className="bg-gradient-to-r from-brand-blue/5 to-brand-blue/10 border-l-4 border-brand-blue p-4 rounded-lg">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="w-6 h-6 bg-brand-blue rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs font-bold">💭</span>
+                          {/* 1. User Commentary Section FIRST */}
+                          {post.user_commentary && (
+                            <div className="bg-gradient-to-r from-brand-blue/5 to-brand-blue/10 border-l-4 border-brand-blue p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="w-6 h-6 bg-brand-blue rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">💭</span>
+                                </div>
+                                <span className="text-sm font-semibold text-brand-blue">Personal Thoughts</span>
                               </div>
-                              <span className="text-sm font-semibold text-brand-blue">Personal Thoughts</span>
-                            </div>
-                            <div className="whitespace-pre-wrap text-brand-blueDark leading-relaxed text-base">
-                              {userCommentary}
-                            </div>
-                          </div>
-                          
-                          {/* Show main content in collapsed/expandable section */}
-                          <details className="group bg-gray-50 rounded-lg overflow-hidden">
-                            <summary className="cursor-pointer p-4 hover:bg-gray-100 transition-colors flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <MessageCircle className="w-4 h-4 text-gray-600" />
-                                <span className="font-medium text-gray-700">View Original Conversation</span>
-                              </div>
-                              <span className="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
-                            </summary>
-                            <div className="p-4 pt-0 bg-white border-t border-gray-200">
-                              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm sm:text-base font-mono bg-gray-50 p-4 rounded-lg">
-                                {mainContent}
+                              <div className="whitespace-pre-wrap text-brand-blue-dark leading-relaxed text-base">
+                                {post.user_commentary}
                               </div>
                             </div>
-                          </details>
+                          )}
+
+                          {/* 2. AI Summary Section SECOND */}
+                          {post.ai_summary && (
+                            <div className="bg-gradient-to-r from-brand-green/5 to-brand-green/10 border-l-4 border-brand-green p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="w-6 h-6 bg-brand-green rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">🤖</span>
+                                </div>
+                                <span className="text-sm font-semibold text-brand-green">AI Summary</span>
+                              </div>
+                              <div className="whitespace-pre-wrap text-brand-green-dark leading-relaxed text-base">
+                                {post.ai_summary}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 3. Original Conversation Toggle THIRD */}
+                          {post.original_conversation && (
+                            <div className="bg-gray-50 rounded-lg overflow-hidden">
+                              <button
+                                onClick={() => setShowOriginalConvo(!showOriginalConvo)}
+                                className="w-full cursor-pointer p-4 hover:bg-gray-100 transition-colors flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <MessageCircle className="w-4 h-4 text-gray-600" />
+                                  <span className="font-medium text-gray-700">View Original Conversation</span>
+                                  {post.conversation_metadata && (
+                                    <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
+                                      {post.conversation_metadata.message_count} messages
+                                    </span>
+                                  )}
+                                </div>
+                                {showOriginalConvo ? (
+                                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                                )}
+                              </button>
+                              
+                              {/* 4. Original Conversation Content FOURTH (when expanded) */}
+                              {showOriginalConvo && (
+                                <div className="p-4 pt-0 bg-white border-t border-gray-200">
+                                  {/* Conversation Metadata */}
+                                  {post.conversation_metadata && (
+                                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                        <div className="text-center">
+                                          <div className="font-semibold text-gray-900">{post.conversation_metadata.user_messages}</div>
+                                          <div className="text-gray-600">User Messages</div>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="font-semibold text-gray-900">{post.conversation_metadata.ai_messages}</div>
+                                          <div className="text-gray-600">AI Responses</div>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="font-semibold text-gray-900">{post.conversation_metadata.providers_used?.length || 1}</div>
+                                          <div className="text-gray-600">AI Models</div>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="font-semibold text-gray-900">#{post.tidbit}</div>
+                                          <div className="text-gray-600">Daily Tidbit</div>
+                                        </div>
+                                      </div>
+                                      {post.conversation_metadata.providers_used && (
+                                        <div className="mt-2 pt-2 border-t border-gray-200">
+                                          <div className="text-xs text-gray-600 mb-1">AI Models Used:</div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {post.conversation_metadata.providers_used.map((provider, i) => (
+                                              <span key={i} className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                                                {provider}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Original Conversation Text */}
+                                  <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm font-mono bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                                    {post.original_conversation}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </>
                       );
                     } else {
-                      // No commentary, show content as normal
-                      return (
-                        <div className="whitespace-pre-wrap text-gray-800 text-base leading-relaxed">
-                          {post.content}
-                        </div>
-                      );
+                      // Legacy post handling - check for old format with separator
+                      const parts = post.content.split('\n\n---\n\n');
+                      if (parts.length > 1) {
+                        const mainContent = parts[0];
+                        const userCommentary = parts[1];
+                        
+                        return (
+                          <>
+                            {/* User Commentary */}
+                            <div className="bg-gradient-to-r from-brand-blue/5 to-brand-blue/10 border-l-4 border-brand-blue p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="w-6 h-6 bg-brand-blue rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">💭</span>
+                                </div>
+                                <span className="text-sm font-semibold text-brand-blue">Personal Thoughts</span>
+                              </div>
+                              <div className="whitespace-pre-wrap text-brand-blue-dark leading-relaxed text-base">
+                                {userCommentary}
+                              </div>
+                            </div>
+                            
+                            {/* Show main content in collapsed/expandable section */}
+                            <details className="group bg-gray-50 rounded-lg overflow-hidden">
+                              <summary className="cursor-pointer p-4 hover:bg-gray-100 transition-colors flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <MessageCircle className="w-4 h-4 text-gray-600" />
+                                  <span className="font-medium text-gray-700">View Original Conversation</span>
+                                </div>
+                                <span className="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                              </summary>
+                              <div className="p-4 pt-0 bg-white border-t border-gray-200">
+                                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm sm:text-base font-mono bg-gray-50 p-4 rounded-lg">
+                                  {mainContent}
+                                </div>
+                              </div>
+                            </details>
+                          </>
+                        );
+                      } else {
+                        // Standard post content
+                        return (
+                          <div className="whitespace-pre-wrap text-gray-800 text-base leading-relaxed">
+                            {post.content}
+                          </div>
+                        );
+                      }
                     }
                   })()}
                 </div>
@@ -743,7 +867,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 </div>
               )}
 
-              {/* Enhanced Like and Comment buttons with Brand Colors */}
+              {/* Enhanced Like and Comment buttons */}
               <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
                 <button
                   onClick={handleLike}
@@ -812,7 +936,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3 group">
-                        {/* Comment avatar with Brand Colors */}
+                        {/* Comment avatar */}
                         {comment.user_avatar ? (
                           <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                             <Image
@@ -859,7 +983,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
               </div>
             </div>
 
-            {/* Enhanced Comment Input with Brand Colors */}
+            {/* Enhanced Comment Input */}
             {currentUser && commentsEnabled ? (
               <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
                 <div className="flex gap-3">
@@ -890,7 +1014,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                       <button
                         onClick={handleSubmitComment}
                         disabled={!newComment.trim() || isSubmittingComment}
-                        className="px-3 sm:px-4 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium text-sm sm:text-base"
+                        className="px-3 sm:px-4 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium text-sm sm:text-base"
                       >
                         {isSubmittingComment ? (
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -912,7 +1036,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 {isOwnPost && (
                   <button
                     onClick={toggleCommentsEnabled}
-                    className="text-sm text-brand-green hover:text-brand-greenDark font-medium"
+                    className="text-sm text-brand-green hover:text-brand-green-dark font-medium"
                   >
                     Enable comments
                   </button>
@@ -923,7 +1047,7 @@ export default function PostModal({ post, onClose }: PostModalProps) {
                 <p className="text-gray-600 mb-3 text-sm sm:text-base">Sign in to join the conversation</p>
                 <button 
                   onClick={onClose}
-                  className="px-4 sm:px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors font-medium text-sm sm:text-base"
+                  className="px-4 sm:px-6 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-green-dark transition-colors font-medium text-sm sm:text-base"
                 >
                   Sign In
                 </button>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Copy, Share2, Check, Loader2 } from 'lucide-react';
+import { useMounted } from '../../lib/clientUtils';
 import { FormattedMessage } from './FormattedMessage';
 import { API_PROVIDERS } from './AIProviderSelector';
 
@@ -34,12 +35,7 @@ export function TutorChatArea({
   currentProvider
 }: TutorChatAreaProps) {
   // Essential hydration safety
-  const [mounted, setMounted] = useState(false);
-
-  // Hydration safety - must be first useEffect
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   // Hydration-safe calculations
   const hasMessages = mounted ? messages.length > 0 : false;
@@ -68,7 +64,7 @@ export function TutorChatArea({
             <div
               className={`p-3 rounded-lg max-w-[85%] relative ${
                 msg.role === "user"
-                  ? "bg-[brand-green] text-white ml-auto"
+                  ? "bg-brand-green text-white ml-auto"
                   : "bg-white text-gray-800 border border-gray-200"
               }`}
             >
@@ -98,7 +94,7 @@ export function TutorChatArea({
                     disabled={loadingState === 'copying'}
                   >
                     {copiedMessageIndex === i ? (
-                      <Check className="w-3 h-3 text-brand-greenDark" />
+                      <Check className="w-3 h-3 text-brand-green-dark" />
                     ) : loadingState === 'copying' ? (
                       <Loader2 className="w-3 h-3 text-gray-600 animate-spin" />
                     ) : (
@@ -112,8 +108,8 @@ export function TutorChatArea({
                       onClick={() => onShareConversation(i - 1)}
                       className={`p-1 rounded shadow-md transition-colors disabled:opacity-50 ${
                         lastSharedIndex === i
-                          ? 'bg-brand-green hover:bg-brand-greenDark'
-                          : 'bg-[brand-blue] hover:bg-brand-blueDark'
+                          ? 'bg-brand-green hover:bg-brand-green-dark'
+                          : 'bg-brand-blue hover:bg-brand-blue-dark'
                       }`}
                       title="Share this conversation to BitBoard"
                       disabled={loadingState === 'posting'}
@@ -139,7 +135,7 @@ export function TutorChatArea({
         <div className="bg-white text-gray-800 border border-gray-200 p-3 rounded-lg max-w-[85%]">
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${currentProvider.color}`}></div>
-            <Loader2 className="w-4 h-4 text-[brand-blue] animate-spin" />
+            <Loader2 className="w-4 h-4 text-brand-blue animate-spin" />
             <span className="text-sm text-gray-600">{currentProvider.name} is thinking...</span>
           </div>
         </div>

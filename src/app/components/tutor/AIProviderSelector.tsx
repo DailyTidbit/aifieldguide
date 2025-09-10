@@ -1,5 +1,5 @@
 ﻿// ============================================================================
-// 2. AIProviderSelector.tsx - Extract AI provider selection logic
+// AIProviderSelector.tsx - Fixed version with proper Tailwind v4 colors
 // ============================================================================
 
 import React from 'react';
@@ -151,7 +151,7 @@ export function AIProviderSelector({
                       <p className="text-xs text-gray-600 mt-1">{provider.description}</p>
                     </div>
                     {selectedProvider === provider.id && (
-                      <Check className="w-4 h-4 text-brand-blueDark flex-shrink-0" />
+                      <Check className="w-4 h-4 text-brand-blue-dark flex-shrink-0" />
                     )}
                   </div>
                 </button>
