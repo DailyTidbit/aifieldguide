@@ -1,4 +1,5 @@
-// src/app/api/tidbits/route.ts - FIXED with hard query limits and enhanced security
+// src/app/api/tidbits/route.ts - FIXED with proper error handling and structure
+import { NextRequest } from 'next/server'
 import { createPublicServerClient } from '@/app/lib/supabaseServer'
 import { 
   validatePagination, 
@@ -19,7 +20,7 @@ const TIDBITS_CONFIG = {
   maxSearchLength: 100  // Maximum search query length
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     
@@ -98,27 +99,52 @@ export async function GET(req: Request) {
     const supabase = createPublicServerClient()
 
     // SECURITY: Build query with validated parameters only
+    // Note: This endpoint should query 'tidbits' table, not 'posts'
     let query = supabase
-      .from('posts')
-      .select('id, created_at, user_id, content, media_url, tidbit, is_private')
-      .eq('is_private', false)
+      .from('tidbits')
+      .select('id, day_number, title, image_url, tags, estimated_time, created_at', { count: 'exact' })
       .range(range.from, range.to)
 
     // SECURITY: Apply search filter only if valid
     if (searchValidation.query && searchValidation.isValid) {
       // Use parameterized search to prevent injection
-      query = query.or(`content.ilike.%${searchValidation.query}%,tidbit.ilike.%${searchValidation.query}%`)
+      query = query.or(`title.ilike.%${searchValidation.query}%`)
     }
 
-    // SECURITY: Apply consistent sorting (prevent order manipulation)
-    query = query.order('created_at', { ascending: false })
+    // Handle sorting
+    const sort = searchParams.get('sort') || 'newest'
+    switch (sort) {
+      case 'oldest':
+        query = query.order('day_number', { ascending: true })
+        break
+      case 'alphabetical':
+        query = query.order('title', { ascending: true })
+        break
+      case 'reverse-alphabetical':
+        query = query.order('title', { ascending: false })
+        break
+      case 'newest':
+      default:
+        query = query.order('day_number', { ascending: false })
+        break
+    }
 
-    const { data: posts, error } = await query
+    // Handle filters
+    const filters = searchParams.getAll('filters')
+    if (filters.length > 0) {
+      // Apply tag filters - this assumes tags are stored as an array in the tidbits table
+      const tagConditions = filters.map(filter => `tags.cs.{${filter}}`).join(',')
+      if (tagConditions) {
+        query = query.or(tagConditions)
+      }
+    }
+
+    const { data: tidbits, error, count } = await query
 
     if (error) {
       console.error('Tidbits fetch error:', error)
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch posts' }), 
+        JSON.stringify({ error: 'Failed to fetch tidbits' }), 
         { 
           status: 500,
           headers: { 'content-type': 'application/json' }
@@ -126,38 +152,21 @@ export async function GET(req: Request) {
       )
     }
 
-    // SECURITY: Batch fetch profiles with limits to avoid N+1 queries
-    const userIds = [...new Set((posts ?? []).map(p => p.user_id).filter(Boolean))] as string[]
-    
-    // Limit the number of profile queries
-    const limitedUserIds = userIds.slice(0, 100) // Hard limit on profile lookups
-    
-    const { data: profiles } = limitedUserIds.length > 0
-      ? await supabase
-          .from('profiles')
-          .select('id, username, avatar_url')
-          .in('id', limitedUserIds)
-          .limit(100) // Additional safety limit
-      : { data: [] as any[] }
-
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) ?? [])
-    
     // SECURITY: Sanitize output data
-    const payload = (posts ?? []).map(p => ({
-      id: p.id,
-      created_at: p.created_at,
-      user_id: p.user_id,
-      content: p.content?.slice(0, 5000) || '', // Limit content length in response
-      media_url: p.media_url,
-      tidbit: p.tidbit?.slice(0, 1000) || '', // Limit tidbit length
-      username: profileMap.get(p.user_id || '')?.username ?? 'anonymous',
-      user_avatar: profileMap.get(p.user_id || '')?.avatar_url ?? null,
+    const payload = (tidbits ?? []).map(t => ({
+      id: t.id,
+      day_number: t.day_number,
+      title: t.title?.slice(0, 200) || '', // Limit title length in response
+      image_url: t.image_url,
+      tags: Array.isArray(t.tags) ? t.tags.slice(0, 10) : [], // Limit number of tags
+      estimated_time: t.estimated_time,
+      created_at: t.created_at
     }))
 
     // SECURITY: Enhanced response headers
     const responseHeaders = {
       'content-type': 'application/json',
-      'cache-control': 'public, s-maxage=120, stale-while-revalidate=600',
+      'cache-control': 'public, s-maxage=300, stale-while-revalidate=600',
       'x-content-type-options': 'nosniff',
       'x-frame-options': 'DENY',
       'x-ratelimit-limit': TIDBITS_CONFIG.maxLimit.toString(),
@@ -165,17 +174,24 @@ export async function GET(req: Request) {
     }
 
     // SECURITY: Include pagination metadata with limits
+    const safeCount = Math.min(count || 0, TIDBITS_CONFIG.maxOffset)
     const responseData = {
       data: payload,
+      count: safeCount,
+      page: pageValidation.page,
+      perPage: pageValidation.limit,
+      hasMore: safeCount > pageValidation.offset + pageValidation.limit,
       pagination: {
         page: pageValidation.page,
         limit: pageValidation.limit,
         offset: pageValidation.offset,
-        hasMore: payload.length === pageValidation.limit,
+        hasMore: safeCount > pageValidation.offset + pageValidation.limit,
         maxPageReached: pageValidation.page >= TIDBITS_CONFIG.maxPage,
         maxOffsetReached: pageValidation.offset >= TIDBITS_CONFIG.maxOffset
       },
       search: searchValidation.query || null,
+      sort: sort,
+      filters: filters,
       resultCount: payload.length
     }
 

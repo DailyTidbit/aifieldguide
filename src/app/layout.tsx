@@ -4,7 +4,7 @@ import Navigation from "./components/Navigation";
 import CookieConsentManager from "./components/CookieConsentManager";
 import Footer from "./components/Footer";
 import "./globals.css";
-import './lib/startup-validator'
+import './lib/startup-validator';
 
 // Environment validation - runs on startup in development
 if (process.env.NODE_ENV === 'development') {

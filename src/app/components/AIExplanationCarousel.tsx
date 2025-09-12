@@ -11,7 +11,6 @@ interface AISlideProps {
   hasButton?: boolean;
   buttonText?: string;
   buttonAction?: () => void;
-  stepNumber: number;
 }
 
 const AISlide: React.FC<AISlideProps> = ({ 
@@ -20,8 +19,7 @@ const AISlide: React.FC<AISlideProps> = ({
   accent,
   hasButton = false,
   buttonText,
-  buttonAction,
-  stepNumber
+  buttonAction
 }) => {
   const accentColors = {
     green: {
@@ -53,7 +51,9 @@ const AISlide: React.FC<AISlideProps> = ({
     <div 
       className={`w-full h-full flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 ${colors.bgLight} relative overflow-hidden`}
       style={{ 
-        minHeight: '400px', 
+        height: '400px',
+        minHeight: '400px',
+        maxHeight: '400px',
         boxSizing: 'border-box'
       }}
     >
@@ -62,59 +62,47 @@ const AISlide: React.FC<AISlideProps> = ({
         <div className={`w-full h-full bg-gradient-to-br ${colors.gradient}`}></div>
       </div>
       
-      {/* Step indicator */}
-      <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-3">
-        <div className={`w-8 h-8 sm:w-10 sm:h-10 ${colors.bgAccent} text-white rounded-full flex items-center justify-center font-bold text-sm sm:text-lg`}>
-          {stepNumber}
-        </div>
-        <div className="text-xs sm:text-sm text-gray-500 font-medium">
-          Step {stepNumber} of 3
-        </div>
-      </div>
-      
       {/* Main content card */}
-      <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 lg:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50 overflow-hidden">
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-3 sm:p-4 md:p-6 lg:p-8 max-w-2xl w-full mx-auto relative z-10 border border-white/50 overflow-hidden">
         {/* Host image background */}
-        <>
-          <div 
-            className="absolute bottom-0 right-0 w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 lg:w-96 lg:h-96 opacity-30 sm:opacity-40 pointer-events-none"
-            style={{
-              backgroundImage: 'url(https://cdn.dailytidbit.org/Host/hosttransparent.png)',
-              backgroundSize: 'contain',
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'bottom center',
-              filter: 'blur(0.2px)',
-              transform: 'translateX(10%) translateY(10%) scale(0.8)',
-              transformOrigin: 'bottom right'
-            }}
-          />
-          <div className="absolute inset-0 bg-white/65 sm:bg-white/55 pointer-events-none rounded-2xl sm:rounded-3xl"></div>
-        </>
+        <div 
+          className="absolute bottom-0 right-0 w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 lg:w-96 lg:h-96 opacity-30 sm:opacity-40 pointer-events-none"
+          style={{
+            backgroundImage: 'url(https://cdn.dailytidbit.org/Host/hosttransparent.png)',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'bottom center',
+            filter: 'blur(0.2px)',
+            transform: 'translateX(10%) translateY(10%) scale(0.8)',
+            transformOrigin: 'bottom right'
+          }}
+        />
+        <div className="absolute inset-0 bg-white/65 sm:bg-white/55 pointer-events-none rounded-2xl sm:rounded-3xl"></div>
         
         {/* Content */}
         <div className="relative z-20">
           <h4 
-            className={`text-xl sm:text-2xl md:text-3xl font-bold ${colors.text} mb-4 sm:mb-6 text-center leading-tight`}
+            className={`text-lg sm:text-xl md:text-2xl font-bold ${colors.text} mb-3 sm:mb-4 text-center leading-tight`}
             style={{ fontFamily: "var(--font-playfair, 'Playfair Display'), serif" }}
           >
             {title}
           </h4>
           
           <div 
-            className="text-base sm:text-lg text-gray-700 leading-relaxed space-y-3 sm:space-y-4 text-center"
+            className="text-sm sm:text-base text-gray-700 leading-relaxed space-y-2 sm:space-y-3 text-center"
             style={{ fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif" }}
           >
             {content}
           </div>
           
           {hasButton && buttonText && (
-            <div className="mt-6 sm:mt-8 text-center">
+            <div className="mt-3 sm:mt-4 text-center">
               <button 
                 onClick={buttonAction}
-                className={`${colors.bgAccent} text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:opacity-90 hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 sm:gap-3 font-semibold text-base sm:text-lg shadow-lg`}
+                className={`${colors.bgAccent} text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:opacity-90 hover:scale-105 transition-all duration-300 inline-flex items-center gap-2 font-semibold text-sm sm:text-base shadow-lg`}
               >
                 {buttonText}
-                <span className="text-lg sm:text-xl">→</span>
+                <span className="text-base sm:text-lg">→</span>
               </button>
             </div>
           )}
@@ -139,30 +127,28 @@ const AIExplanationCarousel: React.FC = () => {
     setMounted(true)
   }, [])
 
-  const slides: AISlideProps[] = [
+  const slides = [
     {
-      stepNumber: 1,
       title: "The Model = The Brain",
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            it's trained on massive datasets — reading patterns in language, images, sounds, and code — so it can generate helpful results.
+            it's trained on massive datasets – reading patterns in language, images, sounds, and code – so it can generate helpful results.
           </p>
           <p className="mb-3 sm:mb-4">
             Some models write, some generate images, others make music, synthesize voices, or even help with code.
           </p>
           <p className="mb-3 sm:mb-4">
-            You don't see the model — and you don't have to.
+            You don't see the model – and you don't have to.
           </p>
           <p className="font-bold text-brand-green text-base sm:text-lg">
             It all happens in the background, but that's where the magic lives.
           </p>
         </>
       ),
-      accent: 'green'
+      accent: 'green' as const
     },
     {
-      stepNumber: 2,
       title: "The Tool = What You See",
       content: (
         <>
@@ -170,22 +156,21 @@ const AIExplanationCarousel: React.FC = () => {
             Most people don't interact with the model directly. Instead, they use websites or apps that make it easy.
           </p>
           <p className="mb-3 sm:mb-4">
-            These tools give you a simple interface — like a chat box, design screen, or form.
+            These tools give you a simple interface – like a chat box, design screen, or form.
           </p>
           <p className="font-bold text-brand-blue text-base sm:text-lg">
             You just type what you want, and the tool talks to the model behind the scenes to make it happen.
           </p>
         </>
       ),
-      accent: 'blue'
+      accent: 'blue' as const
     },
     {
-      stepNumber: 3,
       title: "Where Daily Tidbit Fits In",
       content: (
         <>
           <p className="text-lg sm:text-xl mb-3 sm:mb-4">
-            We make AI feel easy — and honestly? Fun.
+            We make AI feel easy – and honestly? Fun.
           </p>
           <p className="mb-3 sm:mb-4">
             One smart tip a day to help you write better, create faster, and save time with free tools anyone can use.
@@ -195,7 +180,7 @@ const AIExplanationCarousel: React.FC = () => {
           </p>
         </>
       ),
-      accent: 'purple',
+      accent: 'purple' as const,
       hasButton: true,
       buttonText: "Browse the Tidbit Library",
       buttonAction: () => {
@@ -302,7 +287,7 @@ const AIExplanationCarousel: React.FC = () => {
   // Show loading state during hydration
   if (!mounted) {
     return (
-      <div className="ai-explanation-carousel" style={{ height: '400px', position: 'relative', overflow: 'hidden' }}>
+      <div className="ai-explanation-carousel" style={{ height: '450px', position: 'relative', overflow: 'hidden' }}>
         <div className="w-full h-full flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 bg-green-50 relative overflow-hidden">
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 lg:p-12 max-w-2xl w-full mx-auto relative z-10 border border-white/50">
             <div className="animate-pulse space-y-4">
@@ -341,9 +326,9 @@ const AIExplanationCarousel: React.FC = () => {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          height: `${totalSlides * 100}%`,
+          height: `${totalSlides * 400}px`,
           width: '100%',
-          transform: `translateY(-${currentIndex * (100 / totalSlides)}%)`,
+          transform: `translateY(-${currentIndex * 400}px)`,
           transition: isTransitioning ? 'transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
           willChange: 'transform'
         }}
@@ -352,12 +337,19 @@ const AIExplanationCarousel: React.FC = () => {
           <div
             key={`ai-slide-${index}`}
             style={{
-              height: `${100 / totalSlides}%`,
+              height: '400px',
               width: '100%',
               flexShrink: 0
             }}
           >
-            <AISlide {...slide} />
+            <AISlide 
+              title={slide.title}
+              content={slide.content}
+              accent={slide.accent}
+              hasButton={slide.hasButton}
+              buttonText={slide.buttonText}
+              buttonAction={slide.buttonAction}
+            />
           </div>
         ))}
       </div>
@@ -492,19 +484,6 @@ const AIExplanationCarousel: React.FC = () => {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Instruction hint - mobile optimized */}
-      <div style={{
-        position: 'absolute',
-        bottom: '10px',
-        left: '10px',
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: '10px',
-        fontFamily: "var(--font-space-grotesk, 'Space Grotesk'), sans-serif",
-        display: 'none'
-      }}>
-        Swipe up ↑ or use arrows
       </div>
     </div>
   );

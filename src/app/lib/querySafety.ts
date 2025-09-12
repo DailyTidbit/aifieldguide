@@ -1,5 +1,5 @@
-// src/app/lib/querySafety.ts - CRITICAL: Hard query limits and safety
-'use server'
+// src/app/lib/querySafety.ts - FIXED: Remove 'use server' and keep utility functions
+// These are utility functions, not server actions
 
 export interface SafePaginationParams {
   page: number

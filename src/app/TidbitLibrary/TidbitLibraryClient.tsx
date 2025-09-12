@@ -1,9 +1,8 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Filter, X, ChevronDown, Loader2, Search } from 'lucide-react'
+import { Filter, X, ChevronDown, Loader2, Search, AlertCircle } from 'lucide-react'
 import CTASection from '../components/CTASection'
-// FIXED: Import hydration-safe utilities
 import { isBrowser, useMounted } from '../lib/clientUtils'
 
 type Sort = 'newest' | 'oldest' | 'alphabetical' | 'reverse-alphabetical'
@@ -30,7 +29,6 @@ function TidbitLibrarySkeleton() {
   return (
     <div className="max-w-7xl mx-auto px-4 pb-24">
       <div className="animate-pulse">
-        {/* Controls skeleton */}
         <section className="p-4">
           <div className="max-w-[1100px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="grid grid-cols-2 gap-3 md:flex md:gap-3 md:shrink-0">
@@ -41,7 +39,6 @@ function TidbitLibrarySkeleton() {
           </div>
         </section>
         
-        {/* Grid skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {[...Array(12)].map((_, i) => (
             <div key={i} className="rounded-2xl bg-white border border-black/5 shadow-sm overflow-hidden">
@@ -59,8 +56,26 @@ function TidbitLibrarySkeleton() {
   )
 }
 
+// Error Display Component
+function ErrorDisplay({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <div className="text-center py-20">
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-md mx-auto">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-red-900 mb-2">Unable to Load Tidbits</h3>
+        <p className="text-red-700 text-sm mb-4">{error}</p>
+        <button
+          onClick={onRetry}
+          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function TidbitLibraryClient({ initialData }: { initialData: TidbitResponse }) {
-  // FIXED: Use established hydration safety pattern
   const mounted = useMounted()
   
   // refs
@@ -82,7 +97,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const [showCTA, setShowCTA] = useState<boolean>(false)
-  // FIXED: Using object pattern for hydration safety
+  const [error, setError] = useState<string | null>(null)
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({})
 
   const filterCategories = useMemo(
@@ -133,7 +148,6 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
   // FIXED: Safe URL building with mount check
   const buildUrl = useCallback((nextPage: number) => {
     if (!mounted || !isBrowser) {
-      // Return a fallback URL that works server-side
       return `/api/tidbits?page=${nextPage}&perPage=${perPage}&sort=${sort}${filters.map(f => `&filters=${f}`).join('')}`
     }
     
@@ -147,30 +161,58 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
 
   const fetchPage = useCallback(
     async (nextPage: number, replace = false) => {
-      // FIXED: Add mount check
       if (!mounted) return
       
-      if (abortRef.current) abortRef.current.abort()
+      // Cancel any existing request
+      if (abortRef.current) {
+        abortRef.current.abort()
+      }
+      
       const controller = new AbortController()
       abortRef.current = controller
       setIsLoading(true)
+      setError(null)
       
       try {
         const res = await fetch(buildUrl(nextPage), { signal: controller.signal })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        
+        if (!res.ok) {
+          let errorMessage = `Server error (${res.status})`
+          try {
+            const errorData = await res.json()
+            errorMessage = errorData.error || errorData.message || errorMessage
+          } catch {
+            errorMessage = `Server error (${res.status}): ${res.statusText}`
+          }
+          throw new Error(errorMessage)
+        }
+
         const json: TidbitResponse = await res.json()
 
+        // FIXED: Always update count and hasMore from the response
         setCount(json.count ?? 0)
         setHasMore(Boolean(json.hasMore))
         setPage(json.page)
-        setItems(prev => (replace ? json.data : [...prev, ...json.data]))
+        
+        // FIXED: For replace operations (sort/filter changes), completely replace items
+        // For pagination (adding pages), append to existing items
+        if (replace) {
+          setItems(json.data)
+          // Reset image errors when replacing data
+          setImageErrors({})
+        } else {
+          setItems(prev => [...prev, ...json.data])
+        }
 
-        // FIXED: Safe analytics tracking
+        // Analytics tracking
         if (!replace && nextPage > 1) {
           track('infinite_scroll_load', { page: nextPage })
         }
       } catch (e: any) {
-        if (e?.name !== 'AbortError') console.error(e)
+        if (e?.name !== 'AbortError') {
+          console.error('Fetch error:', e)
+          setError(e.message || 'Failed to load tidbits')
+        }
       } finally {
         setIsLoading(false)
       }
@@ -178,27 +220,31 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
     [buildUrl, mounted, track]
   )
 
+  // Retry function for error handling
+  const retryFetch = useCallback(() => {
+    fetchPage(1, true)
+  }, [fetchPage])
+
   // FIXED: Cleanup on unmount
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
 
-  // FIXED: Only run effects after mount - refetch when sort/filters change
+  // FIXED: Effect for sort/filter changes - always refetch from page 1
   useEffect(() => {
     if (!mounted) return
     
-    // Only refetch if we're not on the initial state
-    // Check if sort/filters have changed from initial values
-    const isInitialState = sort === 'newest' && filters.length === 0
+    // FIXED: Always refetch when sort or filters change, regardless of initial state
+    // This ensures the "newest" sort works when switching back from other sorts
+    console.log('Sort/filters changed:', { sort, filters })
     
-    if (!isInitialState) {
-      fetchPage(1, true)
-      track('filter_apply', { sort, filters })
-      setShowCTA(false)
-      // Reset image errors when filters change
-      setImageErrors({})
-    }
-  }, [sort, filters, fetchPage, mounted, track])
+    // Reset to page 1 and fetch new data
+    setPage(1)
+    fetchPage(1, true)
+    track('filter_apply', { sort, filters })
+    setShowCTA(false)
+    
+  }, [sort, filters, mounted, fetchPage, track])
 
   // FIXED: Intersection observer with mount check - infinite scroll + CTA
   useEffect(() => {
@@ -209,7 +255,7 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
       ([entry]) => {
         if (entry.isIntersecting) {
           if (hasMore && !isLoading) {
-            fetchPage(page + 1)
+            fetchPage(page + 1, false) // false = append, don't replace
           } else if (!hasMore && !showCTA) {
             setShowCTA(true)
             track('library_reached_bottom', { total_items: items.length })
@@ -233,6 +279,15 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
     return <TidbitLibrarySkeleton />
   }
 
+  // Show error state if there's an error
+  if (error && items.length === 0) {
+    return (
+      <main className="max-w-7xl mx-auto px-4 pb-24 relative z-10">
+        <ErrorDisplay error={error} onRetry={retryFetch} />
+      </main>
+    )
+  }
+
   return (
     <main className="max-w-7xl mx-auto px-4 pb-24 relative z-10">
       {/* Controls */}
@@ -247,7 +302,12 @@ export default function TidbitLibraryClient({ initialData }: { initialData: Tidb
                 id="sort"
                 className="w-full appearance-none pr-9 pl-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-green/20"
                 value={sort}
-                onChange={(e) => { setSort(e.target.value as Sort); track('sort_change', { sort: e.target.value }) }}
+                onChange={(e) => { 
+                  const newSort = e.target.value as Sort
+                  console.log('Sort changing from', sort, 'to', newSort)
+                  setSort(newSort)
+                  track('sort_change', { sort: newSort }) 
+                }}
               >
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>

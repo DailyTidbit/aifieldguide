@@ -1,4 +1,4 @@
-// lib/consent.ts - FIXED VERSION
+// lib/consent.ts - OPTIMIZED VERSION
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -10,7 +10,7 @@ const EXPIRY_DAYS = 180
 
 export type ConsentState = 'accepted' | 'declined' | null
 
-// Enhanced consent retrieval with better error handling
+// Enhanced consent retrieval with better error handling and logic
 export function getStoredConsent(): { consent: ConsentState; isExpired: boolean } {
   if (typeof window === 'undefined') {
     return { consent: null, isExpired: true }
@@ -129,16 +129,18 @@ export function useConsent() {
     setIsExpired(true)
   }, [mounted])
 
-  // FIXED: Critical bug fix - banner should show when consent is null OR expired
-  // But NOT when user has made a recent decision (accepted or declined)
-  const needsConsent = mounted ? (consent === null || isExpired) : false
+  // FIXED: Better consent logic - only show banner if no decision OR if accepted and expired
+  // Users who declined shouldn't see banner again until they clear storage manually
+  const needsConsent = mounted ? (
+    consent === null || (consent === 'accepted' && isExpired)
+  ) : false
   
   return {
     mounted,
     consent: mounted ? consent : null,
     isExpired: mounted ? isExpired : true,
-    needsConsent, // Fixed logic: only show banner if no decision made or expired
-    hasConsent: mounted ? consent === 'accepted' : false,
+    needsConsent,
+    hasConsent: mounted ? consent === 'accepted' && !isExpired : false, // Fixed: check expiry
     setConsent,
     clearConsent: clearStoredConsent
   }

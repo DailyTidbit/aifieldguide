@@ -151,8 +151,8 @@ const getDeviceType = (): 'mobile' | 'tablet' | 'desktop' => {
 }
 
 const calculateEngagementScore = (
-  timeOnPageMs: number, 
-  scrollDepthPercent: number, 
+  timeOnPageMs: number,
+  scrollDepthPercent: number,
   interactions: number
 ): number => {
   const timeScore = Math.min(timeOnPageMs / 60000, 10) * 3
@@ -211,7 +211,7 @@ export default function StartHereClient() {
   // Initialize after mount
   useEffect(() => {
     if (!mounted) return;
-    
+
     startTimeRef.current = Date.now();
   }, [mounted]);
 
@@ -385,7 +385,7 @@ export default function StartHereClient() {
 
   const scrollToSection = (id: string) => {
     if (!mounted) return;
-    
+
     const element = document.getElementById(id);
     if (!element) return;
 
@@ -409,9 +409,8 @@ export default function StartHereClient() {
     announcement.setAttribute('aria-live', 'polite');
     announcement.setAttribute('aria-atomic', 'true');
     announcement.className = 'sr-only';
-    announcement.textContent = `Navigated to ${
-      element.querySelector('h2, h3')?.textContent || 'section'
-    }`;
+    announcement.textContent = `Navigated to ${element.querySelector('h2, h3')?.textContent || 'section'
+      }`;
     document.body.appendChild(announcement);
     setTimeout(() => {
       if (document.body.contains(announcement)) {
@@ -497,8 +496,8 @@ export default function StartHereClient() {
                         <span aria-hidden="true">✨</span> You Belong Here
                       </h4>
                       <p className="text-sm text-gray-700 leading-relaxed">
-                        Whether you&apos;re writing, dreaming, planning — or just
-                        curious — you&apos;re in the right place to learn AI that
+                        Whether you're writing, dreaming, planning — or just
+                        curious — you're in the right place to learn AI that
                         helps.
                       </p>
                     </div>
@@ -526,7 +525,7 @@ export default function StartHereClient() {
               <div className="space-y-6 text-xl md:text-2xl text-gray-800 leading-relaxed animate-fade-in-up delay-300">
                 <p>
                   <strong>
-                    Kick off your shoes, put up your feet — you&apos;re in the right
+                    Kick off your shoes, put up your feet — you're in the right
                     place.
                   </strong>
                 </p>
@@ -539,7 +538,7 @@ export default function StartHereClient() {
                   From writing better emails to making music, planning dinner to
                   chasing big ideas — it's all easier than you think.
                 </p>
-                <p>we&apos;ll show you how, one smart tip a day. Simple. Fast. Useful.</p>
+                <p>we'll show you how, one smart tip a day. Simple. Fast. Useful.</p>
               </div>
 
               {/* Value Props Carousel */}
@@ -641,13 +640,13 @@ export default function StartHereClient() {
               id="daily-tidbit-process-heading"
               className="text-4xl md:text-5xl mb-4 text-center font-serif font-bold"
             >
-              <span aria-hidden="true">🚀</span> The{' '}
-              <span className="text-brand-green">D</span>
+              <span aria-hidden="true">🏝️</span> {' '}
+              <span className="text-brand-green">The D</span>
               <span className="text-brand-blue">ai</span>
-              <span className="text-brand-green">ly Tidbit</span> Formula
+              <span className="text-brand-green">ly Tidbit Formula</span>
             </h3>
             <p className="text-xl text-gray-600 font-bold">
-              Like a cheat code for real life — watch, try, repeat.
+              Have fun. Get more done. Spark new ideas.
             </p>
           </div>
 
