@@ -128,7 +128,7 @@ export default function ToolModal({
     <div 
       className={`
         fixed inset-0 z-50 bg-black/50 backdrop-blur-sm
-        transition-all duration-300 ease-out
+        transition-opacity duration-300 ease-out
         ${isClosing ? 'opacity-0' : 'opacity-100'}
       `}
       onClick={(e) => {
@@ -138,17 +138,17 @@ export default function ToolModal({
       }}
     >
       {/* FIXED: Simplified container with proper height constraints */}
-      <div className="h-full w-full flex items-center justify-center p-2 sm:p-4">
-        <div 
+      <div className="h-full w-full flex items-center justify-center p-4">
+        <div
           ref={modalRef}
           className={`
             bg-white w-full max-w-6xl rounded-3xl shadow-2xl
             flex flex-col relative overflow-hidden
-            transition-all duration-300 ease-out
+            transition-[transform,opacity] duration-300 ease-out
             ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}
           `}
           style={{
-            maxHeight: 'calc(100vh - 1rem)', // Leave 0.5rem top and bottom
+            maxHeight: 'calc(100vh - 2rem)',
             height: 'auto',
             minHeight: '400px'
           }}
@@ -224,9 +224,56 @@ export default function ToolModal({
               <div className="flex-1 overflow-y-auto min-h-0">
                 <div className="p-6 md:p-8">
                   <div className="grid lg:grid-cols-4 gap-8">
-                    
+
+                    {/* Sidebar - first on mobile, right column on desktop */}
+                    <div className="lg:col-start-4 lg:col-span-1 lg:row-start-1 space-y-6">
+
+                      {/* CTA Button */}
+                      {tool.website && (
+                        <div>
+                          <a
+                            href={tool.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full text-white px-6 py-4 rounded-xl font-bold text-center transition-[opacity,transform,box-shadow] duration-300 hover:opacity-90 hover:scale-105 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
+                            style={{
+                              background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
+                            }}
+                          >
+                            <span>Try {tool.name}</span>
+                            <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Quick Facts */}
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h4 className="text-lg font-bold mb-4 text-gray-800">Quick Facts</h4>
+                        <div className="space-y-4">
+                          <div className="flex flex-col space-y-1">
+                            <span className="text-sm text-gray-600">Category</span>
+                            <span className="text-sm font-medium text-gray-800">{tool.category}</span>
+                          </div>
+                          {tool.company && (
+                            <div className="flex flex-col space-y-1">
+                              <span className="text-sm text-gray-600">Company</span>
+                              <span className="text-sm font-medium text-gray-800">{tool.company}</span>
+                            </div>
+                          )}
+                          <div className="flex flex-col space-y-1">
+                            <span className="text-sm text-gray-600">Pricing</span>
+                            <span className={`text-sm font-medium ${tool.free_tier ? 'text-brand-green-dark' : 'text-orange-600'}`}>
+                              {tool.free_tier ? 'Free tier available' : 'Paid only'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Main Content */}
-                    <div className="lg:col-span-3">
+                    <div className="lg:col-start-1 lg:col-span-3 lg:row-start-1">
                       {tool.detailed_description ? (
                         <div className="prose prose-lg max-w-none">
                           <div 
@@ -276,58 +323,6 @@ export default function ToolModal({
                       )}
                     </div>
 
-                    {/* Sidebar */}
-                    <div className="lg:col-span-1 space-y-6">
-                      
-                      {/* CTA Button */}
-                      {tool.website && (
-                        <div>
-                          <a
-                            href={tool.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full text-white px-6 py-4 rounded-xl font-bold text-center transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
-                            style={{
-                              background: `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`,
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}ee, ${sectionColor}cc)`
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = `linear-gradient(135deg, ${sectionColor}, ${sectionColor}dd)`
-                            }}
-                          >
-                            <span>Try {tool.name}</span>
-                            <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                        </div>
-                      )}
-
-                      {/* Quick Facts */}
-                      <div className="bg-gray-50 rounded-xl p-6">
-                        <h4 className="text-lg font-bold mb-4 text-gray-800">Quick Facts</h4>
-                        <div className="space-y-4">
-                          <div className="flex flex-col space-y-1">
-                            <span className="text-sm text-gray-600">Category</span>
-                            <span className="text-sm font-medium text-gray-800">{tool.category}</span>
-                          </div>
-                          {tool.company && (
-                            <div className="flex flex-col space-y-1">
-                              <span className="text-sm text-gray-600">Company</span>
-                              <span className="text-sm font-medium text-gray-800">{tool.company}</span>
-                            </div>
-                          )}
-                          <div className="flex flex-col space-y-1">
-                            <span className="text-sm text-gray-600">Pricing</span>
-                            <span className={`text-sm font-medium ${tool.free_tier ? 'text-brand-green-dark' : 'text-orange-600'}`}>
-                              {tool.free_tier ? 'Free tier available' : 'Paid only'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMounted, getCurrentYear } from '../lib/clientUtils'
 import { useAnalytics } from '../lib/analytics'
 
@@ -26,17 +26,59 @@ function FooterSkeleton() {
   )
 }
 
+function VisitorCounter({ count }: { count: number | null }) {
+  const digits = count !== null
+    ? String(count).padStart(7, '0').split('')
+    : '-------'.split('')
+
+  return (
+    <div className="flex flex-col items-center gap-2 py-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-gray-500 font-mono">
+        You are visitor
+      </p>
+      <div
+        className="flex items-stretch rounded-sm overflow-hidden border border-gray-700 shadow-lg"
+        style={{ background: '#0d0d0d' }}
+        aria-label={count !== null ? `Visitor number ${count}` : 'Loading visitor count'}
+        role="img"
+      >
+        {digits.map((digit, i) => (
+          <div
+            key={i}
+            className="w-8 h-11 flex items-center justify-center font-mono text-xl font-bold border-r border-gray-800 last:border-r-0 select-none"
+            style={{
+              color: count !== null ? '#4ade80' : '#1f2937',
+              textShadow: count !== null ? '0 0 8px #4ade80, 0 0 20px #16a34a' : 'none',
+              background: 'linear-gradient(180deg, #111 0%, #0d0d0d 50%, #111 100%)',
+            }}
+          >
+            {digit}
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] uppercase tracking-widest text-gray-400 font-mono">
+        since launch
+      </p>
+    </div>
+  )
+}
+
 export default function Footer() {
   const mounted = useMounted()
-  const [interactions, setInteractions] = useState(0)
+  const [visitorCount, setVisitorCount] = useState<number | null>(null)
   const { track } = useAnalytics()
 
-  // MANDATORY: Show skeleton until mounted
+  useEffect(() => {
+    if (!mounted) return
+    fetch('/api/visits', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => { if (data.count !== null) setVisitorCount(data.count) })
+      .catch(() => {})
+  }, [mounted])
+
   if (!mounted) {
     return <FooterSkeleton />
   }
-
-  const bumpInteraction = () => setInteractions(p => p + 1)
 
   const handleSocialClick = (platform: string, url: string) => {
     track('cta_click', {
@@ -45,7 +87,6 @@ export default function Footer() {
       target_url: url,
       platform
     })
-    bumpInteraction()
   }
 
   const handleFooterLinkClick = (label: string, url: string) => {
@@ -55,7 +96,6 @@ export default function Footer() {
       target_url: url,
       link_type: 'footer_navigation'
     })
-    bumpInteraction()
   }
 
   return (
@@ -160,6 +200,9 @@ export default function Footer() {
               </svg>
             </a>
           </div>
+
+          {/* Retro Visitor Counter */}
+          <VisitorCounter count={visitorCount} />
 
           {/* Legal + Get in Touch link */}
           <div className="pt-4 border-t border-gray-300 space-y-2">

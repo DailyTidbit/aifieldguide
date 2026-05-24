@@ -77,7 +77,7 @@ export async function generateMetadata(): Promise<Metadata> {
         siteName: 'Daily Tidbit',
         images: [
           {
-            url: `${baseUrl}/field-guide-og.png`,
+            url: 'https://cdn.dailytidbit.org/og-image.png',
             width: 1200,
             height: 630,
             alt: `AI Field Guide - ${totalTools} Tools`,
@@ -88,7 +88,7 @@ export async function generateMetadata(): Promise<Metadata> {
       twitter: {
         title: `AI Field Guide - ${totalTools} AI Tools`,
         description: `Explore ${sectionCount} categories of hand-picked AI tools for every use case.`,
-        images: [`${baseUrl}/field-guide-og.png`],
+        images: ['https://cdn.dailytidbit.org/og-image.png'],
         card: 'summary_large_image',
         site: '@dailytidbit',
         creator: '@dailytidbit'

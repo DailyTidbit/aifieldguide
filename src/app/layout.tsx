@@ -259,35 +259,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <Footer />
         <CookieConsentManager />
 
-        {/* HYDRATION SAFE: Service worker registration with better guards */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
-                  window.addEventListener('load', function() {
-                    try {
-                      const isProduction = !window.location.hostname.includes('localhost') && 
-                                          !window.location.hostname.includes('127.0.0.1');
-                      
-                      if (isProduction && 'serviceWorker' in navigator) {
-                        navigator.serviceWorker.register('/sw.js')
-                          .then(function(registration) {
-                            console.log('SW registered: ', registration);
-                          })
-                          .catch(function(registrationError) {
-                            console.log('SW registration failed: ', registrationError);
-                          });
-                      }
-                    } catch (e) {
-                      console.warn('Service worker registration failed:', e);
-                    }
-                  });
-                }
-              })()
-            `,
-          }}
-        />
       </body>
     </html>
   );

@@ -8,15 +8,8 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
 });
 
-// ⚠️ Emergency build switches – flip to false after cleanup
-const EMERGENCY_IGNORE = true;
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-
-  // Must be TOP-LEVEL to take effect during `next build`
-  eslint: { ignoreDuringBuilds: EMERGENCY_IGNORE },
-  typescript: { ignoreBuildErrors: EMERGENCY_IGNORE },
 
   // CRITICAL FIX: Remove styledJsx disable - conflicts with Tailwind v4
   compiler: {
@@ -27,10 +20,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: [
       "@supabase/ssr",
       "lucide-react",
-      "react-icons", 
-      "date-fns",
-      "lodash",
-      "tailwindcss", // Important for Tailwind v4
+      "tailwindcss",
     ],
   },
 
@@ -66,14 +56,6 @@ const nextConfig: NextConfig = {
           chunks: "all",
           cacheGroups: {
             ...(config.optimization?.splitChunks?.cacheGroups ?? {}),
-            // Admin route chunk separation
-            admin: {
-              test: /[\\/]admin[\\/]/,
-              name: "admin",
-              chunks: "all",
-              priority: 35,
-              enforce: true,
-            },
             supabase: {
               test: /[\\/]node_modules[\\/]@supabase[\\/]/,
               name: "supabase",
@@ -110,10 +92,6 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
-      { protocol: "https", hostname: "bfpjvyeuzboakfzkeqpv.supabase.co", pathname: "/**" },
-      { protocol: "https", hostname: "cdn.suno.ai", pathname: "/**" },
-      { protocol: "https", hostname: "www.udio.com", pathname: "/**" },
-      { protocol: "https", hostname: "cdn.midjourney.com", pathname: "/**" },
       { protocol: "https", hostname: "cdn.dailytidbit.org", pathname: "/**" },
     ],
     dangerouslyAllowSVG: true,
@@ -138,17 +116,8 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
       {
-        source: "/api/:path*",
-        headers: [{ key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" }],
-      },
-      // Admin route headers
-      {
-        source: "/admin/:path*",
-        headers: [
-          { key: "Cache-Control", value: "no-store, must-revalidate" },
-          { key: "X-Robots-Tag", value: "noindex, nofollow" },
-          { key: "X-Frame-Options", value: "DENY" },
-        ],
+        source: "/field-guide/:path*",
+        headers: [{ key: "Cache-Control", value: "public, s-maxage=600, stale-while-revalidate=3600" }],
       },
     ];
   },

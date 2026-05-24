@@ -63,68 +63,60 @@ export default function CTASection({ variant = 'default' }: CTASectionProps) {
           {/* 3 CTA cards */}
           <div className="text-center">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-4">
-              {/* Today's Tidbit */}
+              {/* All Categories */}
               <Link
-                href="/day/today"
-                aria-label="Go to Today's Tidbit"
-                onClick={() => trackCTAClick("Today's Tidbit", 'CTA Section', '/day/today')}
-                className="cursor-pointer block rounded-xl bg-brand-green text-white px-6 py-5 shadow-lg transition-all duration-300 hover:bg-brand-green-dark hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-green group min-h-[120px]"
+                href="/field-guide"
+                aria-label="Browse all AI categories"
+                onClick={() => trackCTAClick('All Categories', 'CTA Section', '/field-guide')}
+                className="cursor-pointer block rounded-xl bg-brand-green text-white px-6 py-5 shadow-lg transition-[background-color,transform,box-shadow] duration-300 hover:bg-brand-green-dark hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-green group min-h-[120px]"
               >
                 <div className="flex flex-col items-center justify-center gap-2 font-semibold">
-                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🌺</div>
-                  <div className="text-lg font-bold">Today's Tidbit</div>
+                  <div className="text-3xl mb-1 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">🧭</div>
+                  <div className="text-lg font-bold">All Categories</div>
                   <div className="text-sm opacity-90 flex items-center gap-2">
-                    Jump into today's AI tip
+                    Browse every AI topic
                     <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                   </div>
                 </div>
               </Link>
 
-              {/* Tidbit Library */}
-              <Link
-                href="/TidbitLibrary"
-                aria-label="Explore the Tidbit Library"
-                onClick={() => trackCTAClick('Tidbit Library', 'CTA Section', '/TidbitLibrary')}
-                className="cursor-pointer block rounded-xl bg-brand-blue text-white px-6 py-5 shadow-lg transition-all duration-300 hover:bg-brand-blue-dark hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-blue group min-h-[120px]"
+              {/* Community */}
+              <a
+                href="https://www.facebook.com/dailytidbit.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Join the Daily Tidbit community on Facebook"
+                onClick={() => trackCTAClick('Community', 'CTA Section', 'https://www.facebook.com/dailytidbit.org')}
+                className="cursor-pointer block rounded-xl bg-brand-blue text-white px-6 py-5 shadow-lg transition-[background-color,transform,box-shadow] duration-300 hover:bg-brand-blue-dark hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-blue group min-h-[120px]"
               >
                 <div className="flex flex-col items-center justify-center gap-2 font-semibold">
-                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🐚</div>
-                  <div className="text-lg font-bold">Tidbit Library</div>
+                  <div className="text-3xl mb-1 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">👥</div>
+                  <div className="text-lg font-bold">Join the Community</div>
                   <div className="text-sm opacity-90 flex items-center gap-2">
-                    Explore all past tips
+                    Connect on Facebook
                     <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                   </div>
                 </div>
-              </Link>
+              </a>
 
-              {/* BitBoard */}
-              <Link
-                href="/bitboard"
-                aria-label="Visit BitBoard"
-                onClick={() => trackCTAClick('BitBoard', 'CTA Section', '/bitboard')}
-                className="cursor-pointer block rounded-xl text-gray-800 px-6 py-5 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 group min-h-[120px]"
+              {/* Get in Touch */}
+              <a
+                href="mailto:mike@dailytidbit.org"
+                aria-label="Get in touch with Daily Tidbit"
+                onClick={() => trackCTAClick('Get in Touch', 'CTA Section', 'mailto:mike@dailytidbit.org')}
+                className="cursor-pointer block rounded-xl text-gray-800 px-6 py-5 shadow-lg transition-[opacity,transform,box-shadow] duration-300 hover:opacity-90 hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 group min-h-[120px]"
                 style={{ backgroundColor: '#F5C26B' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#F4B942'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#F5C26B'
-                }}
               >
                 <div className="flex flex-col items-center justify-center gap-2 font-semibold">
-                  <div className="text-3xl mb-1 group-hover:scale-110 group-hover:animate-pulse transition-all duration-300 drop-shadow-sm">🌴</div>
-                  <div className="text-lg font-bold">BitBoard</div>
+                  <div className="text-3xl mb-1 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">✉️</div>
+                  <div className="text-lg font-bold">Get in Touch</div>
                   <div className="text-sm opacity-80 flex items-center gap-2">
-                    See what people are making
+                    Questions or feedback
                     <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                   </div>
                 </div>
-              </Link>
+              </a>
             </div>
-
-            <p className="text-gray-700 italic text-lg font-sans">
-              Feel the rhythm. Hit the keys.
-            </p>
           </div>
         </div>
       </div>

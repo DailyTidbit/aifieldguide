@@ -267,7 +267,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
 
           {/* Categories Grid */}
           {filteredSections.length > 0 ? (
-            <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-8 transition-all duration-1000 motion-reduce:transition-none ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity transition-transform duration-700 motion-reduce:transition-none ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               {filteredSections.map((section, index) => (
                 <EnhancedSectionCard 
                   key={section.id} 
@@ -345,7 +345,7 @@ const EnhancedSectionCard = React.memo(function EnhancedSectionCard({
       onClick={onClick}
       aria-label={`Open ${section.section_name} – ${section.toolCount} tools available${matchingTools.length > 0 ? `, ${matchingTools.length} matching your search` : ''}`}
     >
-      <article className="bg-white p-8 rounded-3xl shadow-md motion-safe:hover:shadow-xl transition-all duration-500 motion-reduce:transform-none motion-safe:hover:scale-[1.02] border border-gray-100 relative overflow-hidden h-full">
+      <article className="bg-white p-8 rounded-3xl shadow-md motion-safe:hover:shadow-xl transition-shadow transition-transform duration-300 motion-reduce:transform-none motion-safe:hover:scale-[1.02] border border-gray-100 relative overflow-hidden h-full">
         {/* Top accent bar */}
         <div className={`absolute top-0 left-0 w-full h-2 ${colorClasses.bg}`} />
         

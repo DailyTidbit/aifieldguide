@@ -69,20 +69,25 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   // Simplified modal state - no navigation between tools
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTool, setSelectedTool] = useState<AITool | null>(null)
-  const [isModalLoading, setIsModalLoading] = useState(false)
 
-  // Check desktop size only after mount
+  // Check desktop size only after mount — debounced to avoid constant re-renders
   useEffect(() => {
     if (!mounted) return
 
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    
+    const checkIsDesktop = () => setIsDesktop(window.innerWidth >= 1024)
     checkIsDesktop()
-    window.addEventListener('resize', checkIsDesktop)
-    
-    return () => window.removeEventListener('resize', checkIsDesktop)
+
+    let timer: ReturnType<typeof setTimeout>
+    const handleResize = () => {
+      clearTimeout(timer)
+      timer = setTimeout(checkIsDesktop, 150)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('resize', handleResize)
+    }
   }, [mounted])
   
   // Memoized filtered tools for better performance
@@ -185,26 +190,15 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   // Simplified modal handlers - single tool only
   const handleOpenModal = useCallback((tool: AITool) => {
     if (!mounted) return
-    
-    setIsModalLoading(true)
     setSelectedTool(tool)
     setIsModalOpen(true)
-    
-    // Simulate loading for smooth UX
-    setTimeout(() => {
-      setIsModalLoading(false)
-    }, 150)
-
     trackToolModalOpen(tool.name, tool.id, section.section_name)
   }, [mounted, trackToolModalOpen, section.section_name])
 
   const handleCloseModal = useCallback(() => {
     if (!mounted) return
-    
     setIsModalOpen(false)
-    setIsModalLoading(false)
     setSelectedTool(null)
-    
     trackToolModalClose(section.section_name, selectedTool?.name)
   }, [mounted, trackToolModalClose, section.section_name, selectedTool])
 
@@ -359,7 +353,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
 
           {/* Tools Grid */}
           {filteredTools.length > 0 ? (
-            <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-8 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity transition-transform duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               {filteredTools.map((tool, index) => (
                 <ToolCard 
                   key={tool.id} 
@@ -442,7 +436,6 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
         sectionColor={sectionHexColor}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        isLoading={isModalLoading}
       />
     </>
   )
@@ -464,8 +457,8 @@ const ToolCard = React.memo(function ToolCard({
   onToolClick: (tool: AITool, action: 'modal' | 'website') => void;
   onOpenModal: () => void;
 }) {
-  const delayClass = `delay-${Math.min(index * 100 + 300, 1200)}`
-  
+  const staggerDelay = `${Math.min(index * 80, 640)}ms`
+
   const handleOpenModal = useCallback(() => {
     onOpenModal()
     onToolClick(tool, 'modal')
@@ -476,8 +469,8 @@ const ToolCard = React.memo(function ToolCard({
   }, [tool, onToolClick])
   
   return (
-    <div className={`group animate-fade-in-up ${delayClass}`}>
-      <article className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] border border-gray-100 h-full flex flex-col relative overflow-hidden">
+    <div className="group animate-fade-in-up" style={{ animationDelay: staggerDelay }}>
+      <article className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-shadow transition-transform duration-300 hover:scale-[1.02] border border-gray-100 h-full flex flex-col relative overflow-hidden">
         
         {/* Top accent bar */}
         <div className={`absolute top-0 left-0 w-full h-2 rounded-t-3xl ${colorClasses.bg}`} />
@@ -560,15 +553,9 @@ const ToolCard = React.memo(function ToolCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleWebsiteClick}
-              className="w-full text-white px-6 py-3 rounded-xl font-bold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
+              className="w-full text-white px-6 py-3 rounded-xl font-bold text-center transition-transform duration-300 hover:scale-[1.02] hover:opacity-90 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
               style={{
                 background: `linear-gradient(135deg, ${sectionHexColor}, ${sectionHexColor}dd)`,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionHexColor}ee, ${sectionHexColor}cc)`
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = `linear-gradient(135deg, ${sectionHexColor}, ${sectionHexColor}dd)`
               }}
             >
               <span>Try {tool.name}</span>

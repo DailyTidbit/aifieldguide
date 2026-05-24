@@ -119,10 +119,8 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
                 <button
                   onClick={handleAccept}
                   disabled={isProcessing}
-                  className="text-white px-6 py-3 rounded-xl font-semibold transition-colors flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-white px-6 py-3 rounded-xl font-semibold transition-opacity hover:opacity-90 flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#60A875' }}
-                  onMouseEnter={(e) => !isProcessing && (e.currentTarget.style.backgroundColor = '#4e8e61')}
-                  onMouseLeave={(e) => !isProcessing && (e.currentTarget.style.backgroundColor = '#60A875')}
                   type="button"
                 >
                   {isProcessing ? 'Processing...' : 'Accept All Cookies'}
@@ -228,10 +226,8 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
                 <button
                   onClick={handleAccept}
                   disabled={isProcessing}
-                  className="text-white px-6 py-3 rounded-xl font-semibold transition-colors flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-white px-6 py-3 rounded-xl font-semibold transition-opacity hover:opacity-90 flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#60A875' }}
-                  onMouseEnter={(e) => !isProcessing && (e.currentTarget.style.backgroundColor = '#4e8e61')}
-                  onMouseLeave={(e) => !isProcessing && (e.currentTarget.style.backgroundColor = '#60A875')}
                   type="button"
                 >
                   {isProcessing ? 'Processing...' : 'Accept Selected'}

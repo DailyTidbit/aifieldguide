@@ -112,8 +112,7 @@ export default function CRTSectionDisplay({
     
     setVolumeClickCount(prev => {
       const newCount = prev + 1
-      console.log(`Volume ${direction} clicked! Count: ${newCount}/5`)
-      
+
       if (newCount >= 5) {
         setShowEasterEgg(true)
         setTimeout(() => {
@@ -272,7 +271,7 @@ export default function CRTSectionDisplay({
   return (
     <div className="max-w-6xl mx-auto">
       {/* Mobile Navigation - BRAND COLORS FIXED */}
-      <div className="md:hidden sticky top-16 left-0 right-0 z-30 bg-gradient-to-br from-brand-green/10 to-brand-green/20 shadow-lg -mx-6 px-6 py-4 mb-8" style={{ marginTop: '0px' }}>
+      <div className="md:hidden sticky top-0 left-0 right-0 z-30 bg-gradient-to-br from-brand-green/10 to-brand-green/20 shadow-lg -mx-6 px-6 py-4 mb-8" style={{ marginTop: '0px' }}>
         <div className="flex overflow-x-auto gap-3 scrollbar-hide">
           {/* Summary tab first */}
           <button

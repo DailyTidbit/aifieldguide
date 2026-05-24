@@ -7,7 +7,6 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { FieldGuideServerAPI } from '../../lib/field-guide-server'
 import FieldGuideSectionClient from '../../components/FieldGuideSectionClient'
-import CTASection from '../../components/CTASection'
 
 // ISR caching
 export const revalidate = 600
@@ -169,9 +168,6 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
           </div>
         </section>
 
-        {/* CTA Section */}
-        <CTASection variant="transparent" />
-
         {/* Enhanced structured data for SEO */}
         <script
           type="application/ld+json"
@@ -252,7 +248,7 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
             </div>
             <h1 className="heading-section text-gray-900 mb-4">Section Temporarily Unavailable</h1>
             <p className="body-large text-gray-700 mb-6 max-w-2xl mx-auto">
-              we're having trouble loading this section. Please try refreshing the page or return to the main field guide.
+              We're having trouble loading this section. Please try refreshing the page or return to the main Field Guide.
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               <a 
