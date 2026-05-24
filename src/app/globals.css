@@ -35,6 +35,7 @@
   /* Custom Animations */
   --animate-fade-in: fade-in 0.3s ease-out;
   --animate-slide-up: slide-up 0.5s ease-out;
+  --animate-fade-in-up: fade-in-up 0.5s ease-out both;
   --animate-float: float 3s ease-in-out infinite;
   --animate-pulse-gentle: pulse-gentle 2s ease-in-out infinite;
   --animate-dance-idle: dance-idle 2s ease-in-out infinite;
@@ -61,14 +62,29 @@
 }
 
 @keyframes slide-up {
-  from { 
-    opacity: 0; 
-    transform: translateY(20px); 
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
 }
 
 @keyframes float {
@@ -206,6 +222,7 @@ body {
 .bg-category-ai-avatars { background-color: var(--color-ai-avatars); }
 .bg-category-speech-voice { background-color: var(--color-speech-voice); }
 .bg-category-creative-writing { background-color: var(--color-creative-writing); }
+.bg-category-creative-writing-storytelling { background-color: var(--color-creative-writing); }
 .bg-category-productivity-tools { background-color: var(--color-productivity-tools); }
 .bg-category-ai-search-tools { background-color: var(--color-ai-search-tools); }
 .bg-category-education-learning { background-color: var(--color-education-learning); }
@@ -221,6 +238,7 @@ body {
 .text-category-ai-avatars { color: var(--color-ai-avatars); }
 .text-category-speech-voice { color: var(--color-speech-voice); }
 .text-category-creative-writing { color: var(--color-creative-writing); }
+.text-category-creative-writing-storytelling { color: var(--color-creative-writing); }
 .text-category-productivity-tools { color: var(--color-productivity-tools); }
 .text-category-ai-search-tools { color: var(--color-ai-search-tools); }
 .text-category-education-learning { color: var(--color-education-learning); }
@@ -236,6 +254,7 @@ body {
 .border-category-ai-avatars { border-color: var(--color-ai-avatars); }
 .border-category-speech-voice { border-color: var(--color-speech-voice); }
 .border-category-creative-writing { border-color: var(--color-creative-writing); }
+.border-category-creative-writing-storytelling { border-color: var(--color-creative-writing); }
 .border-category-productivity-tools { border-color: var(--color-productivity-tools); }
 .border-category-ai-search-tools { border-color: var(--color-ai-search-tools); }
 .border-category-education-learning { border-color: var(--color-education-learning); }

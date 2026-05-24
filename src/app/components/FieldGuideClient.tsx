@@ -75,10 +75,11 @@ const getSectionEmoji = (sectionName: string): string => {
 
 export default function FieldGuideClient({ initialData }: FieldGuideClientProps) {
   const mounted = useMounted()
-  const { track, hasConsent } = useAnalytics()
+  const { track } = useAnalytics()
   
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const hasSearchQuery = searchQuery.trim().length > 0
   
   // Debounced search for better performance
   const deferredSearchQuery = useDeferredValue(searchQuery)
@@ -110,27 +111,17 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
   }, [deferredSearchQuery, initialData.sections])
 
   // Safe analytics tracking functions
-  const trackPageView = useCallback(() => {
-    if (!mounted || !hasConsent || !track) return
-    track('page_view', { 
-      page_title: 'Field Guide', 
-      page_location: '/field-guide',
-      section_count: initialData.sectionCount,
-      total_tools: initialData.totalTools
-    })
-  }, [mounted, hasConsent, track, initialData.sectionCount, initialData.totalTools])
-
   const trackFieldGuideSearch = useCallback((searchTerm: string, resultsCount: number, searchType: 'enhanced') => {
-    if (!mounted || !hasConsent || !track) return
+    if (!mounted) return
     track('field_guide_search', {
       search_term: searchTerm,
       results_count: resultsCount,
       search_type: searchType
     })
-  }, [mounted, hasConsent, track])
+  }, [mounted, track])
 
   const trackSectionClick = useCallback((sectionName: string, slug: string, toolCount: number, searchQuery?: string) => {
-    if (!mounted || !hasConsent || !track) return
+    if (!mounted) return
     track('field_guide_section_click', {
       section_name: sectionName,
       section_slug: slug,
@@ -138,31 +129,17 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
       from_search: !!searchQuery,
       search_query: searchQuery
     })
-  }, [mounted, hasConsent, track])
+  }, [mounted, track])
 
-  // Initialize component
+  // Trigger entry animation once mounted
   useEffect(() => {
     if (!mounted) return
-    
-    console.log('Field Guide Debug:')
-    console.log('Total sections:', initialData.sections.length)
-    console.log('Sections with tools:', initialData.sections.filter(s => s.tools && s.tools.length > 0).length)
-    
-    initialData.sections.forEach(section => {
-      console.log(`${section.section_name}: ${section.tools?.length || 0} tools`)
-      if (section.tools && section.tools.length > 0) {
-        console.log('Tools:', section.tools.map(t => t.name).join(', '))
-      }
-    })
-    
     setIsVisible(true)
-    trackPageView()
-  }, [mounted, trackPageView, initialData.sections])
+  }, [mounted])
 
-  // Track search with debounced query
+  // Track search — only fire for meaningful queries (2+ chars)
   useEffect(() => {
-    if (!mounted || !deferredSearchQuery.trim()) return
-    
+    if (!mounted || deferredSearchQuery.trim().length < 2) return
     trackFieldGuideSearch(deferredSearchQuery, filteredSections.length, 'enhanced')
   }, [mounted, deferredSearchQuery, filteredSections.length, trackFieldGuideSearch])
 
@@ -240,9 +217,19 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoComplete="off"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green bg-white shadow-sm transition-all min-h-[44px]"
+                  className="w-full px-4 py-3 pr-10 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green bg-white shadow-sm transition-all min-h-[44px]"
                   aria-describedby="search-results"
                 />
+                {hasSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
               
               {/* Search help text */}
@@ -330,8 +317,6 @@ const EnhancedSectionCard = React.memo(function EnhancedSectionCard({
   onClick: () => void;
   hasToolsData: boolean;
 }) {
-  const delayClass = `delay-${Math.min(index * 100 + 300, 1200)}`
-  
   // Memoize these calculations since they won't change during render
   const colorClasses = useMemo(() => getSectionColorClasses(section.section_name), [section.section_name])
   const sectionEmoji = useMemo(() => getSectionEmoji(section.section_name), [section.section_name])
@@ -350,10 +335,13 @@ const EnhancedSectionCard = React.memo(function EnhancedSectionCard({
     )
   }
   
+  const staggerDelay = `${Math.min(index * 80, 640)}ms`
+
   return (
-    <Link 
+    <Link
       href={`/field-guide/${section.slug}`}
-      className={`group block motion-safe:animate-fade-in-up motion-reduce:transition-none ${delayClass}`}
+      className="group block motion-safe:animate-fade-in-up motion-reduce:transition-none"
+      style={{ animationDelay: staggerDelay }}
       onClick={onClick}
       aria-label={`Open ${section.section_name} – ${section.toolCount} tools available${matchingTools.length > 0 ? `, ${matchingTools.length} matching your search` : ''}`}
     >
