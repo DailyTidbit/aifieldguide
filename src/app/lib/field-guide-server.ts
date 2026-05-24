@@ -71,7 +71,12 @@ export class FieldGuideServerAPI {
     try {
       return await operation()
     } catch (error) {
-      console.error(`${context} failed:`, error)
+      const msg = error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null
+          ? JSON.stringify(error)
+          : String(error)
+      console.error(`${context} failed: ${msg}`)
       return null
     }
   }

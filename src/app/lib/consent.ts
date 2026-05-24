@@ -129,10 +129,9 @@ export function useConsent() {
     setIsExpired(true)
   }, [mounted])
 
-  // FIXED: Better consent logic - only show banner if no decision OR if accepted and expired
-  // Users who declined shouldn't see banner again until they clear storage manually
+  // Show banner if: no decision yet, OR prior decision (either way) has expired
   const needsConsent = mounted ? (
-    consent === null || (consent === 'accepted' && isExpired)
+    consent === null || isExpired
   ) : false
   
   return {

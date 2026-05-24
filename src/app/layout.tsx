@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display, Space_Grotesk } from "next/font/google";
-import Navigation from "./components/Navigation";
 import CookieConsentManager from "./components/CookieConsentManager";
 import Footer from "./components/Footer";
 import "./globals.css";
@@ -159,6 +158,30 @@ export default function RootLayout({ children }: RootLayoutProps) {
           }}
         />
 
+        {/* Google Consent Mode v2 — must run before gtag.js loads */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('consent', 'default', {
+                analytics_storage: 'denied',
+                ad_storage: 'denied',
+                ad_user_data: 'denied',
+                ad_personalization: 'denied',
+                wait_for_update: 500
+              });
+              try {
+                var _c = localStorage.getItem('dt_cookie_consent');
+                var _t = localStorage.getItem('dt_cookie_consent_ts');
+                if (_c === 'accepted' && _t && (Date.now() - parseInt(_t, 10)) < 15552000000) {
+                  gtag('consent', 'update', { analytics_storage: 'granted' });
+                }
+              } catch(e) {}
+            `,
+          }}
+        />
+
         {/* Preconnections for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -228,8 +251,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
         >
           Skip to main content
         </a>
-
-        <Navigation />
 
         <main id="main-content" role="main" className="flex-1">
           {children}

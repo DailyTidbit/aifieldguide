@@ -2,7 +2,7 @@
   "name": "Daily Tidbit - AI for Real People",
   "short_name": "Daily Tidbit",
   "description": "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
-  "start_url": "/",
+  "start_url": "/field-guide",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#60A875",
@@ -39,10 +39,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Today's Tidbit",
-      "short_name": "Today",
-      "description": "View today's AI tip",
-      "url": "/",
+      "name": "AI Field Guide",
+      "short_name": "Field Guide",
+      "description": "Browse the AI Field Guide",
+      "url": "/field-guide",
       "icons": [
         {
           "src": "/96.png",

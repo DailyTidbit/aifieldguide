@@ -2,7 +2,6 @@
 import { Metadata } from 'next'
 import { FieldGuideServerAPI } from '../lib/field-guide-server'
 import FieldGuideClient from '../components/FieldGuideClient'
-import CTASection from '../components/CTASection'
 
 // ISR caching - revalidate every 10 minutes
 export const revalidate = 600
@@ -183,9 +182,6 @@ export default async function FieldGuidePage() {
 
         {/* Pass server data with tools to client component */}
         <FieldGuideClient initialData={initialData} />
-
-        {/* CTA Section */}
-        <CTASection variant="transparent" />
 
         {/* Enhanced structured data for SEO */}
         <script

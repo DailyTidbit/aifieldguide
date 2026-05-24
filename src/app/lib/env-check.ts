@@ -105,7 +105,10 @@ export function validateRequiredEnvironment(): EnvCheckResult {
   }
   
   // Supabase URL validation
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('supabase.co')) {
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('supabase.co') &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('localhost') &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('127.0.0.1')) {
     warnings.push('NEXT_PUBLIC_SUPABASE_URL does not appear to be a valid Supabase URL')
   }
   
