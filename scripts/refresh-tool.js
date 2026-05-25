@@ -109,7 +109,7 @@ For the significance flags: only set true if there is a major change vs the stor
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.1-sonar-large-128k-online',
+      model: 'sonar-pro',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
       max_tokens: 2000,
