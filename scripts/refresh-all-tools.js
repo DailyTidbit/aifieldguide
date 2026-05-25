@@ -2,6 +2,7 @@
 // Usage:
 //   node scripts/refresh-all-tools.js
 //   node scripts/refresh-all-tools.js --category "Image Generation"
+//   node scripts/refresh-all-tools.js --skip-category "Image Generation"
 
 'use strict'
 
@@ -20,8 +21,12 @@ function sleep(ms) {
 
 function parseArgs() {
   const args = process.argv.slice(2)
-  const idx = args.indexOf('--category')
-  return { category: idx !== -1 ? args[idx + 1] : null }
+  const catIdx = args.indexOf('--category')
+  const skipIdx = args.indexOf('--skip-category')
+  return {
+    category: catIdx !== -1 ? args[catIdx + 1] : null,
+    skipCategory: skipIdx !== -1 ? args[skipIdx + 1] : null,
+  }
 }
 
 function formatDuration(ms) {
@@ -32,7 +37,7 @@ function formatDuration(ms) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { category } = parseArgs()
+  const { category, skipCategory } = parseArgs()
 
   const perplexityKey = process.env.PERPLEXITY_API_KEY
   if (!perplexityKey) {
@@ -51,6 +56,7 @@ async function main() {
   // ── Fetch tool list ────────────────────────────────────────────────────────
   let query = supabase.from('ai_tools').select(TOOL_SELECT).order('name')
   if (category) query = query.ilike('category', `%${category}%`)
+  if (skipCategory) query = query.not('category', 'ilike', `%${skipCategory}%`)
 
   const { data: tools, error: fetchErr } = await query
   if (fetchErr) { console.error('Failed to fetch tools:', fetchErr.message); process.exit(1) }
@@ -60,7 +66,7 @@ async function main() {
   }
 
   const total = tools.length
-  const categoryLabel = category ? ` in category matching "${category}"` : ''
+  const categoryLabel = category ? ` in "${category}"` : skipCategory ? ` (skipping "${skipCategory}")` : ''
   console.log(`\n🚀 Starting refresh run — ${total} tool${total !== 1 ? 's' : ''}${categoryLabel}\n`)
 
   // ── Run each tool ──────────────────────────────────────────────────────────
