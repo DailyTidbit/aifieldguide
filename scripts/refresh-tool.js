@@ -45,7 +45,8 @@ const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY
 
 const CHECKED_FIELDS = [
   'description', 'use_cases', 'login_required', 'free_tier',
-  'paid_tier', 'website', 'access_notes', 'detailed_description',
+  'paid_tier', 'website', 'pricing_tiers', 'pricing_page_url',
+  'access_notes', 'detailed_description',
 ]
 
 const BOOLEAN_FIELDS = new Set(['login_required', 'free_tier', 'paid_tier'])
@@ -76,10 +77,14 @@ function valuesMatch(fieldName, dbVal, aiVal) {
 // ── Perplexity call ───────────────────────────────────────────────────────────
 
 async function fetchFromPerplexity(tool) {
-  const prompt = `You are updating an AI tool database. Research the current state of this tool using live web data.
+  const officialSite = tool.website || 'the official website'
+  const prompt = `You are updating an AI tool database. Research the current state of "${tool.name}" using live web data.
 
-Tool: ${tool.name}
-Website: ${tool.website || 'unknown'}
+PRICING RESEARCH — follow this process exactly:
+1. Visit ${officialSite} and look for a /pricing page or pricing section. This is the primary source.
+2. If specific plan names and prices are found there, those are confirmed. Record the pricing page URL.
+3. If the official site has no pricing, check in order: official blog/changelog → TechCrunch/The Verge/Wired/VentureBeat → Product Hunt.
+4. DECISION RULE: You either found specific prices (use them, cite the source URL) or you did not (set pricing_source to "unconfirmed" and pricing_tiers to "Unconfirmed"). Never mix confirmed and unconfirmed in the same response.
 
 Current values stored in our database:
 - description: "${tool.description || ''}"
@@ -89,18 +94,21 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these exact k
 
 {
   "description": "1-2 sentence accurate current description of what this tool does",
-  "use_cases": "primary use cases as a comma-separated string",
+  "use_cases": "exactly 3-5 specific, actionable use cases as a comma-separated string — no vague entries like 'various tasks' or 'general use'",
   "login_required": true or false,
   "free_tier": true or false,
   "paid_tier": true or false,
   "website": "official URL",
-  "access_notes": "current pricing tiers, limits, and access method — be specific about prices if known",
+  "pricing_tiers": "tier names and monthly prices ONLY — e.g. 'Free (10 queries/day), Pro ($20/mo), Business ($50/mo, 5 seats)' — or 'Unconfirmed' if no specific prices found",
+  "pricing_page_url": "direct URL to the pricing page, e.g. https://example.com/pricing — or null if none found",
+  "access_notes": "how to access the tool only — login method (Google, email, SSO, API key), platforms (web, iOS, Android, CLI), waitlist or open signup, enterprise contact required",
+  "pricing_source": "specific URL where pricing was confirmed, or 'unconfirmed'",
   "detailed_description": "comprehensive 3-4 paragraph description of capabilities, use cases, and what makes it distinctive",
   "description_significant_change": true or false,
   "detailed_description_significant_change": true or false
 }
 
-For the significance flags: only set true if there is a major change vs the stored value — e.g. new pricing model, free tier added or removed, product pivot, major new feature set. Ignore minor wording differences. If the stored value is substantially accurate, significance = false.`
+For significance flags: only true for major changes vs the stored value — new pricing model, free tier added/removed, product pivot, major new feature set. Minor wording differences = false.`
 
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -162,7 +170,7 @@ async function main() {
 
   const { data: tools, error: fetchErr } = await supabase
     .from('ai_tools')
-    .select('id, name, description, detailed_description, use_cases, login_required, free_tier, paid_tier, website, access_notes')
+    .select('id, name, description, detailed_description, use_cases, login_required, free_tier, paid_tier, website, pricing_tiers, pricing_page_url, access_notes')
     .ilike('name', toolName)
 
   if (fetchErr) {
@@ -198,6 +206,7 @@ async function main() {
 
   // ── 3. Compare fields ──────────────────────────────────────────────────────
   console.log('\n📊 Comparing fields…')
+  const pricingUnconfirmed = String(aiData.pricing_source || '').toLowerCase() === 'unconfirmed'
   const changes = []
 
   for (const field of CHECKED_FIELDS) {
@@ -205,6 +214,12 @@ async function main() {
     const aiVal = aiData[field]
 
     if (aiVal === undefined || aiVal === null || aiVal === '') continue
+
+    // Never queue pricing_tiers when Perplexity couldn't confirm prices — leave DB untouched
+    if (field === 'pricing_tiers' && pricingUnconfirmed) {
+      console.log(`  ~ pricing_tiers: pricing unconfirmed — leaving database value untouched`)
+      continue
+    }
 
     if (valuesMatch(field, dbVal, aiVal)) {
       console.log(`  ✓ ${field}: no change`)
@@ -232,35 +247,50 @@ async function main() {
     console.log(`  ⚡ ${field}: change detected`)
   }
 
-  if (changes.length === 0) {
-    console.log('\n✅ No changes to queue. Tool data is current.')
-    return
-  }
-
   // ── 4. Write to ai_tools_pending ──────────────────────────────────────────
-  console.log(`\n💾 Writing ${changes.length} change(s) to review queue…`)
+  if (changes.length > 0) {
+    console.log(`\n💾 Writing ${changes.length} change(s) to review queue…`)
 
-  for (const change of changes) {
-    // Remove existing unapproved entry for same tool+field (replaced by fresh data)
-    await supabase
-      .from('ai_tools_pending')
-      .delete()
-      .eq('tool_id', change.tool_id)
-      .eq('field_name', change.field_name)
-      .eq('approved', false)
+    for (const change of changes) {
+      // Remove existing unapproved entry for same tool+field (replaced by fresh data)
+      await supabase
+        .from('ai_tools_pending')
+        .delete()
+        .eq('tool_id', change.tool_id)
+        .eq('field_name', change.field_name)
+        .eq('approved', false)
 
-    const { error: insertErr } = await supabase
-      .from('ai_tools_pending')
-      .insert(change)
+      const { error: insertErr } = await supabase
+        .from('ai_tools_pending')
+        .insert(change)
 
-    if (insertErr) {
-      console.error(`  ✗ Failed to queue ${change.field_name}: ${insertErr.message}`)
-    } else {
-      console.log(`  ✓ Queued: ${change.field_name}`)
+      if (insertErr) {
+        console.error(`  ✗ Failed to queue ${change.field_name}: ${insertErr.message}`)
+      } else {
+        console.log(`  ✓ Queued: ${change.field_name}`)
+      }
     }
+  } else {
+    console.log('\n✅ No changes to queue. Tool data is current.')
   }
 
-  console.log(`\n✅ Done. Visit /admin/review to approve or reject changes.\n`)
+  // ── 5. Always stamp last_verified ─────────────────────────────────────────
+  const { error: stampErr } = await supabase
+    .from('ai_tools')
+    .update({ last_verified: new Date().toISOString() })
+    .eq('id', tool.id)
+
+  if (stampErr) {
+    console.error(`  ✗ Failed to update last_verified: ${stampErr.message}`)
+  } else {
+    console.log(`\n🕐 last_verified updated.`)
+  }
+
+  if (changes.length > 0) {
+    console.log(`✅ Done. Visit /admin/review to approve or reject changes.\n`)
+  } else {
+    console.log(`✅ Done.\n`)
+  }
 }
 
 main().catch(err => {

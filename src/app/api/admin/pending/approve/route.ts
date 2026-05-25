@@ -3,7 +3,8 @@ import { createAdminClient } from '../../../../lib/supabaseServer'
 
 const ALLOWED_FIELDS = new Set([
   'description', 'use_cases', 'login_required', 'free_tier',
-  'paid_tier', 'website', 'access_notes', 'detailed_description',
+  'paid_tier', 'website', 'pricing_tiers', 'pricing_page_url',
+  'access_notes', 'detailed_description',
 ])
 
 const BOOLEAN_FIELDS = new Set(['login_required', 'free_tier', 'paid_tier'])
