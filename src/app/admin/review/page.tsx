@@ -1,11 +1,11 @@
-import { createServiceRoleClient } from '../../lib/supabaseServer'
+import { createAdminClient } from '../../lib/supabaseServer'
 import ReviewClient from './ReviewClient'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminReviewPage() {
-  const supabase = createServiceRoleClient()
+  const supabase = createAdminClient()
 
   const { data: items, error } = await supabase
     .from('ai_tools_pending')

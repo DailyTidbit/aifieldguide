@@ -75,3 +75,19 @@ export function createServiceRoleClient() {
     }
   )
 }
+
+// Admin client — always connects to hosted/production Supabase via PROD_SUPABASE_* vars.
+// Use this in /admin routes so local dev reads/writes the same DB the refresh script targets.
+export function createAdminClient() {
+  const url = process.env.PROD_SUPABASE_URL
+  const key = process.env.PROD_SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error('PROD_SUPABASE_URL or PROD_SUPABASE_SERVICE_ROLE_KEY is not set in .env.local')
+  return createSupabaseServerClient(url, key, {
+    cookies: {
+      get: () => undefined,
+      set: () => {},
+      remove: () => {},
+    },
+    auth: { persistSession: false },
+  })
+}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServiceRoleClient } from '../../../../lib/supabaseServer'
+import { createAdminClient } from '../../../../lib/supabaseServer'
 
 const ALLOWED_FIELDS = new Set([
   'description', 'use_cases', 'login_required', 'free_tier',
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const { id } = await request.json()
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-  const supabase = createServiceRoleClient()
+  const supabase = createAdminClient()
 
   const { data: pending, error: fetchErr } = await supabase
     .from('ai_tools_pending')
