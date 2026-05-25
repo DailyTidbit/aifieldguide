@@ -57,3 +57,21 @@ export function createPublicServerClient() {
 
 // Backward compatibility alias
 export const createServerClient = createPublicServerClient;
+
+// Service role client — bypasses RLS, for admin operations only
+export function createServiceRoleClient() {
+  return createSupabaseServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        get: () => undefined,
+        set: () => {},
+        remove: () => {},
+      },
+      auth: {
+        persistSession: false
+      }
+    }
+  )
+}
