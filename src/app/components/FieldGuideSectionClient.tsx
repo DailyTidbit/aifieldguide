@@ -139,14 +139,15 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     })
   }, [mounted, hasConsent, track])
 
-  const trackToolInteraction = useCallback((toolName: string, toolId: string, action: string, sectionName: string, hasFreeTier: boolean) => {
+  const trackToolInteraction = useCallback((toolName: string, toolId: string, action: string, sectionName: string, hasFreeTier: boolean, targetUrl?: string) => {
     if (!mounted || !hasConsent || !track) return
     track('tool_interaction', {
       tool_name: toolName,
       tool_id: toolId,
       action: action,
       section_name: sectionName,
-      has_free_tier: hasFreeTier
+      has_free_tier: hasFreeTier,
+      ...(targetUrl && { target_url: targetUrl })
     })
   }, [mounted, hasConsent, track])
 
@@ -204,8 +205,8 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
 
   const handleToolClick = useCallback((tool: AITool, action: 'modal' | 'website') => {
     if (!mounted) return
-    
-    trackToolInteraction(tool.name, tool.id, action, section.section_name, tool.free_tier)
+    const targetUrl = action === 'website' ? tool.website : undefined
+    trackToolInteraction(tool.name, tool.id, action, section.section_name, tool.free_tier, targetUrl)
   }, [mounted, trackToolInteraction, section.section_name])
 
   const handleChannelChange = useCallback((channel: string) => {
