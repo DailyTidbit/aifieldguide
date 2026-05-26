@@ -125,7 +125,7 @@ export default function ReviewClient({ initialItems }: { initialItems: PendingIt
                     {FIELD_LABELS[item.field_name] ?? item.field_name}
                   </span>
                   <span className="text-xs text-gray-300">
-                    {new Date(item.created_at).toLocaleDateString()}
+                    {item.created_at.slice(0, 10)}
                   </span>
                 </div>
                 <div className="flex gap-3 mb-4 flex-col sm:flex-row">
