@@ -82,9 +82,16 @@ function Section({ label, color, children }: { label: string; color: string; chi
 }
 
 function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor: string }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const hasUnderTheHood = !!(
+    tool.model_type || tool.training_data || tool.commercial_use_policy ||
+    tool.workflow_notes || tool.limitations
+  )
+
   return (
-    <div className="space-y-1">
-      {/* Tagline */}
+    <div>
+      {/* Tagline — first thing a beginner reads */}
       {tool.tagline && (
         <p className="text-lg font-semibold text-gray-800 mb-6 pb-4 border-b border-gray-100">
           {tool.tagline}
@@ -94,48 +101,6 @@ function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor:
       {tool.description && (
         <Section label="Overview" color={sectionColor}>
           <p>{tool.description}</p>
-        </Section>
-      )}
-
-      {tool.model_type && (
-        <Section label="Model / Technology" color={sectionColor}>
-          <p>{tool.model_type}</p>
-        </Section>
-      )}
-
-      {tool.access_method && (
-        <Section label="Access & Workflow" color={sectionColor}>
-          <p className="whitespace-pre-line">{tool.access_method}</p>
-        </Section>
-      )}
-
-      {tool.workflow_notes && (
-        <Section label="How It Works" color={sectionColor}>
-          <p className="whitespace-pre-line">{tool.workflow_notes}</p>
-        </Section>
-      )}
-
-      {tool.pricing_breakdown && (
-        <Section label="Pricing" color={sectionColor}>
-          <p className="whitespace-pre-line">{tool.pricing_breakdown}</p>
-        </Section>
-      )}
-
-      {tool.commercial_use_policy && (
-        <Section label="Commercial Use" color={sectionColor}>
-          <p>{tool.commercial_use_policy}</p>
-        </Section>
-      )}
-
-      {tool.training_data && (
-        <Section label="Training Data" color={sectionColor}>
-          <p>{tool.training_data}</p>
-        </Section>
-      )}
-
-      {tool.limitations && (
-        <Section label="Limitations & Gotchas" color={sectionColor}>
-          <p className="whitespace-pre-line">{tool.limitations}</p>
         </Section>
       )}
 
@@ -150,6 +115,66 @@ function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor:
             ))}
           </ul>
         </Section>
+      )}
+
+      {tool.pricing_breakdown && (
+        <Section label="Pricing" color={sectionColor}>
+          <p className="whitespace-pre-line">{tool.pricing_breakdown}</p>
+        </Section>
+      )}
+
+      {tool.access_method && (
+        <Section label="How to Access" color={sectionColor}>
+          <p className="whitespace-pre-line">{tool.access_method}</p>
+        </Section>
+      )}
+
+      {/* Technical detail — collapsed by default */}
+      {hasUnderTheHood && (
+        <div className="mt-2 border-t border-gray-100 pt-5">
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="flex items-center gap-2 text-sm font-semibold text-gray-400 hover:text-gray-700 transition-colors"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Under the hood
+          </button>
+
+          {expanded && (
+            <div className="mt-5 space-y-1">
+              {tool.model_type && (
+                <Section label="Model / Technology" color={sectionColor}>
+                  <p>{tool.model_type}</p>
+                </Section>
+              )}
+              {tool.training_data && (
+                <Section label="Training Data" color={sectionColor}>
+                  <p>{tool.training_data}</p>
+                </Section>
+              )}
+              {tool.commercial_use_policy && (
+                <Section label="Commercial Use" color={sectionColor}>
+                  <p>{tool.commercial_use_policy}</p>
+                </Section>
+              )}
+              {tool.workflow_notes && (
+                <Section label="Workflow Tips" color={sectionColor}>
+                  <p className="whitespace-pre-line">{tool.workflow_notes}</p>
+                </Section>
+              )}
+              {tool.limitations && (
+                <Section label="Limitations & Gotchas" color={sectionColor}>
+                  <p className="whitespace-pre-line">{tool.limitations}</p>
+                </Section>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
