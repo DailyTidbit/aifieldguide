@@ -134,7 +134,11 @@ function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor:
         <div className="mt-2 border-t border-gray-100 pt-5">
           <button
             onClick={() => setExpanded(e => !e)}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-400 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+            style={{
+              backgroundColor: expanded ? `${sectionColor}18` : `${sectionColor}0e`,
+              color: sectionColor,
+            }}
           >
             <svg
               className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
@@ -142,7 +146,7 @@ function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor:
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            Under the hood
+            Additional Tool Info
           </button>
 
           {expanded && (
