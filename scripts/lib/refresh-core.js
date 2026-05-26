@@ -36,13 +36,17 @@ const CHECKED_FIELDS = [
   'description', 'use_cases', 'login_required', 'free_tier',
   'paid_tier', 'website', 'pricing_tiers', 'pricing_page_url',
   'access_notes', 'detailed_description',
+  'tagline', 'model_type', 'access_method', 'pricing_breakdown',
+  'commercial_use_policy', 'training_data', 'workflow_notes',
+  'limitations', 'use_cases_list',
 ]
 
 const BOOLEAN_FIELDS = new Set(['login_required', 'free_tier', 'paid_tier'])
+const ARRAY_FIELDS = new Set(['use_cases_list'])
 const SIGNIFICANT_FIELDS = new Set(['description', 'detailed_description'])
 
 // Shared select string — keeps both scripts in sync with the DB schema
-const TOOL_SELECT = 'id, name, category, description, detailed_description, use_cases, login_required, free_tier, paid_tier, website, pricing_tiers, pricing_page_url, access_notes'
+const TOOL_SELECT = 'id, name, category, description, detailed_description, use_cases, login_required, free_tier, paid_tier, website, pricing_tiers, pricing_page_url, access_notes, tagline, model_type, access_method, pricing_breakdown, commercial_use_policy, training_data, workflow_notes, limitations, use_cases_list'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -53,6 +57,9 @@ function normalizeWebsite(url) {
 
 function valToString(fieldName, val) {
   if (val === null || val === undefined) return ''
+  if (ARRAY_FIELDS.has(fieldName)) {
+    return Array.isArray(val) ? JSON.stringify(val) : String(val)
+  }
   return String(val)
 }
 
@@ -62,6 +69,11 @@ function valuesMatch(fieldName, dbVal, aiVal) {
   }
   if (fieldName === 'website') {
     return normalizeWebsite(String(dbVal ?? '')) === normalizeWebsite(String(aiVal ?? ''))
+  }
+  if (ARRAY_FIELDS.has(fieldName)) {
+    const a = Array.isArray(dbVal) ? JSON.stringify([...dbVal].sort()) : ''
+    const b = Array.isArray(aiVal) ? JSON.stringify([...aiVal].sort()) : ''
+    return a === b
   }
   return String(dbVal ?? '').trim() === String(aiVal ?? '').trim()
 }
@@ -81,6 +93,8 @@ function createSupabaseClient() {
 
 async function fetchFromPerplexity(tool, perplexityKey) {
   const officialSite = tool.website || 'the official website'
+  const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '')
+
   const prompt = `You are updating an AI tool database. Research the current state of "${tool.name}" using live web data.
 
 PRICING RESEARCH — follow this process exactly:
@@ -90,8 +104,10 @@ PRICING RESEARCH — follow this process exactly:
 4. DECISION RULE: You either found specific prices (use them, cite the source URL) or you did not (set pricing_source to "unconfirmed" and pricing_tiers to "Unconfirmed"). Never mix confirmed and unconfirmed in the same response.
 
 Current values stored in our database:
-- description: "${tool.description || ''}"
-- detailed_description: "${(tool.detailed_description || '').slice(0, 500)}${(tool.detailed_description || '').length > 500 ? '…' : ''}"
+- description: "${truncate(tool.description, 300)}"
+- detailed_description: "${truncate(tool.detailed_description, 500)}"
+- tagline: "${tool.tagline || ''}"
+- model_type: "${tool.model_type || ''}"
 
 Return ONLY a valid JSON object (no markdown, no explanation) with these exact keys:
 
@@ -108,10 +124,20 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these exact k
   "pricing_source": "specific URL where pricing was confirmed, or 'unconfirmed'",
   "detailed_description": "comprehensive 3-4 paragraph description of capabilities, use cases, and what makes it distinctive",
   "description_significant_change": true or false,
-  "detailed_description_significant_change": true or false
+  "detailed_description_significant_change": true or false,
+  "tagline": "punchy 8-12 word tagline capturing what makes this tool distinctive",
+  "model_type": "underlying model or technology stack — e.g. 'GPT-4o fine-tune', 'Diffusion-based image model', 'RAG pipeline over web index'",
+  "access_method": "where and how to access it — platforms (web, iOS, Android, API, CLI, VS Code extension), sign-up friction (open signup, waitlist, invite-only, enterprise sales), embeds or integrations",
+  "pricing_breakdown": "full tier breakdown: tier name, price, key limits — one tier per line, e.g. 'Free — 10 generations/day\\nPro — $20/mo, unlimited generations\\nBusiness — $60/mo, 5 seats, API access' — or 'Unconfirmed' if no confirmed prices",
+  "commercial_use_policy": "whether outputs can be used commercially, any attribution or licensing requirements, any revenue thresholds that change terms",
+  "training_data": "what the model was trained on — licensed data, open datasets, web scrape, proprietary corpus — and any known controversies or restrictions",
+  "workflow_notes": "concrete step-by-step notes on how to use it effectively — key prompting tips, important settings, integration gotchas, things that trip up new users",
+  "limitations": "specific limitations, constraints, and gotchas a user will run into — not marketing copy, be direct",
+  "use_cases_list": ["exactly 3-5 specific, actionable use cases as individual strings — no vague entries"]
 }
 
-For significance flags: only true for major changes vs the stored value — new pricing model, free tier added/removed, product pivot, major new feature set. Minor wording differences = false.`
+For significance flags: only true for major changes vs the stored value — new pricing model, free tier added/removed, product pivot, major new feature set. Minor wording differences = false.
+For use_cases_list: return a JSON array of strings, not a comma-separated string.`
 
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',

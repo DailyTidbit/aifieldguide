@@ -5,13 +5,20 @@ const ALLOWED_FIELDS = new Set([
   'description', 'use_cases', 'login_required', 'free_tier',
   'paid_tier', 'website', 'pricing_tiers', 'pricing_page_url',
   'access_notes', 'detailed_description',
+  'tagline', 'model_type', 'access_method', 'pricing_breakdown',
+  'commercial_use_policy', 'training_data', 'workflow_notes',
+  'limitations', 'use_cases_list',
 ])
 
 const BOOLEAN_FIELDS = new Set(['login_required', 'free_tier', 'paid_tier'])
+const ARRAY_FIELDS = new Set(['use_cases_list'])
 
-function parseValue(fieldName: string, value: string | null): string | boolean | null {
+function parseValue(fieldName: string, value: string | null): string | boolean | string[] | null {
   if (value === null) return null
   if (BOOLEAN_FIELDS.has(fieldName)) return value === 'true'
+  if (ARRAY_FIELDS.has(fieldName)) {
+    try { return JSON.parse(value) } catch { return value.split(',').map(s => s.trim()) }
+  }
   return value
 }
 
