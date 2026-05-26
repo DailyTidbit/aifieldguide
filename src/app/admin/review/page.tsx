@@ -13,6 +13,7 @@ export default async function AdminReviewPage() {
     .eq('approved', false)
     .order('tool_name')
     .order('created_at')
+    .limit(5000)
 
   if (error) {
     return (

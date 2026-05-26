@@ -13,6 +13,7 @@ export default async function AdminReviewSectionsPage() {
     .eq('approved', false)
     .order('section_name')
     .order('created_at')
+    .limit(5000)
 
   if (error) {
     return (
