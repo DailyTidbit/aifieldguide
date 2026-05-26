@@ -237,7 +237,16 @@ export class FieldGuideServerAPI {
           paid_tier,
           company_id,
           is_public,
-          created_at
+          created_at,
+          tagline,
+          model_type,
+          access_method,
+          pricing_breakdown,
+          commercial_use_policy,
+          training_data,
+          workflow_notes,
+          limitations,
+          use_cases_list
         `)
         .eq('category', category)
         .eq('is_public', true)
@@ -311,7 +320,16 @@ export class FieldGuideServerAPI {
           paid_tier,
           company_id,
           is_public,
-          created_at
+          created_at,
+          tagline,
+          model_type,
+          access_method,
+          pricing_breakdown,
+          commercial_use_policy,
+          training_data,
+          workflow_notes,
+          limitations,
+          use_cases_list
         `)
         .eq('id', toolId)
         .eq('is_public', true)
@@ -366,7 +384,16 @@ export class FieldGuideServerAPI {
           paid_tier,
           company_id,
           is_public,
-          created_at
+          created_at,
+          tagline,
+          model_type,
+          access_method,
+          pricing_breakdown,
+          commercial_use_policy,
+          training_data,
+          workflow_notes,
+          limitations,
+          use_cases_list
         `, { count: 'exact' })
         .eq('is_public', true)
 
@@ -432,7 +459,16 @@ export class FieldGuideServerAPI {
           paid_tier,
           company_id,
           is_public,
-          created_at
+          created_at,
+          tagline,
+          model_type,
+          access_method,
+          pricing_breakdown,
+          commercial_use_policy,
+          training_data,
+          workflow_notes,
+          limitations,
+          use_cases_list
         `)
         .eq('is_public', true)
         .eq('free_tier', true)

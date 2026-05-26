@@ -79,6 +79,16 @@ export interface AITool {
   company_id?: string | null
   is_public: boolean | null
   created_at?: string | null
+  // Structured detail fields
+  tagline?: string | null
+  model_type?: string | null
+  access_method?: string | null
+  pricing_breakdown?: string | null
+  commercial_use_policy?: string | null
+  training_data?: string | null
+  workflow_notes?: string | null
+  limitations?: string | null
+  use_cases_list?: string[] | null
 }
 
 // Validation functions - return all data

@@ -66,6 +66,137 @@ function ToolModalSkeleton({ sectionColor }: { sectionColor: string }) {
   )
 }
 
+// ── Content renderers ─────────────────────────────────────────────────────────
+
+function Section({ label, color, children }: { label: string; color: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-8">
+      <h4 className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color }}>
+        {label}
+      </h4>
+      <div className="text-gray-700 leading-relaxed text-base font-sans">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor: string }) {
+  return (
+    <div className="space-y-1">
+      {/* Tagline */}
+      {tool.tagline && (
+        <p className="text-lg font-semibold text-gray-800 mb-6 pb-4 border-b border-gray-100">
+          {tool.tagline}
+        </p>
+      )}
+
+      {tool.description && (
+        <Section label="Overview" color={sectionColor}>
+          <p>{tool.description}</p>
+        </Section>
+      )}
+
+      {tool.model_type && (
+        <Section label="Model / Technology" color={sectionColor}>
+          <p>{tool.model_type}</p>
+        </Section>
+      )}
+
+      {tool.access_method && (
+        <Section label="Access & Workflow" color={sectionColor}>
+          <p className="whitespace-pre-line">{tool.access_method}</p>
+        </Section>
+      )}
+
+      {tool.workflow_notes && (
+        <Section label="How It Works" color={sectionColor}>
+          <p className="whitespace-pre-line">{tool.workflow_notes}</p>
+        </Section>
+      )}
+
+      {tool.pricing_breakdown && (
+        <Section label="Pricing" color={sectionColor}>
+          <p className="whitespace-pre-line">{tool.pricing_breakdown}</p>
+        </Section>
+      )}
+
+      {tool.commercial_use_policy && (
+        <Section label="Commercial Use" color={sectionColor}>
+          <p>{tool.commercial_use_policy}</p>
+        </Section>
+      )}
+
+      {tool.training_data && (
+        <Section label="Training Data" color={sectionColor}>
+          <p>{tool.training_data}</p>
+        </Section>
+      )}
+
+      {tool.limitations && (
+        <Section label="Limitations & Gotchas" color={sectionColor}>
+          <p className="whitespace-pre-line">{tool.limitations}</p>
+        </Section>
+      )}
+
+      {tool.use_cases_list && tool.use_cases_list.length > 0 && (
+        <Section label="Use Cases" color={sectionColor}>
+          <ul className="space-y-1 mt-1">
+            {tool.use_cases_list.map((uc, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: sectionColor }} />
+                <span>{uc}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+    </div>
+  )
+}
+
+function BlobContent({ text }: { text: string }) {
+  return (
+    <div className="prose prose-lg max-w-none">
+      <div
+        className="text-gray-800 leading-relaxed font-sans"
+        style={{ fontSize: '1.125rem', lineHeight: '1.7' }}
+        dangerouslySetInnerHTML={{
+          __html: text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\n\*/g, '<br/>• ')
+            .replace(/^\*/g, '• ')
+            .replace(/\n(Pricing|Login & Model|Features|Enterprise|Overview):/g, '<br/><strong>$1:</strong>')
+            .replace(/\n/g, '<br/>'),
+        }}
+      />
+    </div>
+  )
+}
+
+function FallbackContent({ tool, sectionColor }: { tool: AITool; sectionColor: string }) {
+  return (
+    <div className="text-gray-700 leading-relaxed text-lg font-sans">
+      <p className="mb-6">{tool.description}</p>
+      {tool.use_cases && (
+        <div className="mt-8">
+          <h4 className="text-xl font-bold mb-3 font-serif" style={{ color: sectionColor }}>
+            Use Cases
+          </h4>
+          <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-xl border border-blue-200">
+            {tool.use_cases}
+          </p>
+        </div>
+      )}
+      <div className="mt-8 text-center py-8 bg-gray-50 rounded-xl">
+        <div className="text-4xl mb-2">📋</div>
+        <p className="text-gray-600">Detailed information coming soon for this tool.</p>
+      </div>
+    </div>
+  )
+}
+
 export default function ToolModal({ 
   tool, 
   sectionColor, 
@@ -274,52 +405,12 @@ export default function ToolModal({
 
                     {/* Main Content */}
                     <div className="lg:col-start-1 lg:col-span-3 lg:row-start-1">
-                      {tool.detailed_description ? (
-                        <div className="prose prose-lg max-w-none">
-                          <div 
-                            className="text-gray-800 leading-relaxed font-sans"
-                            style={{
-                              fontSize: "1.125rem",
-                              lineHeight: "1.7"
-                            }}
-                            dangerouslySetInnerHTML={{
-                              __html: tool.detailed_description
-                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                                .replace(/\n\*/g, '<br/>• ')
-                                .replace(/^\*/g, '• ')
-                                .replace(/\n(Pricing|Login & Model|Features|Enterprise|Overview):/g, '<br/><strong>$1:</strong>')
-                                .replace(/\n/g, '<br/>')
-                            }}
-                          />
-                        </div>
+                      {tool.tagline ? (
+                        <StructuredContent tool={tool} sectionColor={sectionColor} />
+                      ) : tool.detailed_description ? (
+                        <BlobContent text={tool.detailed_description} />
                       ) : (
-                        <div className="prose prose-lg max-w-none">
-                          <div className="text-gray-700 leading-relaxed text-lg font-sans">
-                            <p className="mb-6">{tool.description}</p>
-                            
-                            {tool.use_cases && (
-                              <div className="mt-8">
-                                <h4 
-                                  className="text-xl font-bold mb-3 font-serif"
-                                  style={{ color: sectionColor }}
-                                >
-                                  Use Cases
-                                </h4>
-                                <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-xl border border-blue-200">
-                                  {tool.use_cases}
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="mt-8 text-center py-8 bg-gray-50 rounded-xl">
-                              <div className="text-4xl mb-2">📋</div>
-                              <p className="text-gray-600">
-                                Detailed information coming soon for this tool.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                        <FallbackContent tool={tool} sectionColor={sectionColor} />
                       )}
                     </div>
 
