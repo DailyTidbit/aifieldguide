@@ -3,6 +3,7 @@
 //   node scripts/refresh-all-tools.js
 //   node scripts/refresh-all-tools.js --category "Image Generation"
 //   node scripts/refresh-all-tools.js --skip-category "Image Generation"
+//   node scripts/refresh-all-tools.js --resume-after "Last Tool Name"
 
 'use strict'
 
@@ -23,9 +24,11 @@ function parseArgs() {
   const args = process.argv.slice(2)
   const catIdx = args.indexOf('--category')
   const skipIdx = args.indexOf('--skip-category')
+  const resumeIdx = args.indexOf('--resume-after')
   return {
     category: catIdx !== -1 ? args[catIdx + 1] : null,
     skipCategory: skipIdx !== -1 ? args[skipIdx + 1] : null,
+    resumeAfter: resumeIdx !== -1 ? args[resumeIdx + 1] : null,
   }
 }
 
@@ -37,7 +40,7 @@ function formatDuration(ms) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { category, skipCategory } = parseArgs()
+  const { category, skipCategory, resumeAfter } = parseArgs()
 
   const perplexityKey = process.env.PERPLEXITY_API_KEY
   if (!perplexityKey) {
@@ -54,9 +57,10 @@ async function main() {
   }
 
   // ── Fetch tool list ────────────────────────────────────────────────────────
-  let query = supabase.from('ai_tools').select(TOOL_SELECT).order('name')
+  let query = supabase.from('ai_tools').select(TOOL_SELECT).order('name').limit(5000)
   if (category) query = query.ilike('category', `%${category}%`)
   if (skipCategory) query = query.not('category', 'ilike', `%${skipCategory}%`)
+  if (resumeAfter) query = query.gt('name', resumeAfter)
 
   const { data: tools, error: fetchErr } = await query
   if (fetchErr) { console.error('Failed to fetch tools:', fetchErr.message); process.exit(1) }
@@ -67,7 +71,8 @@ async function main() {
 
   const total = tools.length
   const categoryLabel = category ? ` in "${category}"` : skipCategory ? ` (skipping "${skipCategory}")` : ''
-  console.log(`\n🚀 Starting refresh run — ${total} tool${total !== 1 ? 's' : ''}${categoryLabel}\n`)
+  const resumeLabel = resumeAfter ? ` (resuming after "${resumeAfter}")` : ''
+  console.log(`\n🚀 Starting refresh run — ${total} tool${total !== 1 ? 's' : ''}${categoryLabel}${resumeLabel}\n`)
 
   // ── Run each tool ──────────────────────────────────────────────────────────
   const stats = { changed: 0, unchanged: 0, failed: 0 }
