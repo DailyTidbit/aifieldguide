@@ -149,7 +149,7 @@ For use_cases_list: return a JSON array of strings, not a comma-separated string
       model: 'sonar-pro',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
-      max_tokens: 2000,
+      max_tokens: 4000,
     }),
   })
 
@@ -160,13 +160,37 @@ For use_cases_list: return a JSON array of strings, not a comma-separated string
 
   const data = await res.json()
   const content = data.choices?.[0]?.message?.content ?? ''
-  const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+
+  // Strip markdown fences
+  let cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+
+  // If the response was truncated mid-JSON, attempt to close it so JSON.parse can succeed
+  if (cleaned && !cleaned.endsWith('}')) {
+    // Drop any trailing incomplete line, then close the object
+    const lastComplete = cleaned.lastIndexOf('\n')
+    if (lastComplete > 0) cleaned = cleaned.slice(0, lastComplete)
+    // Remove trailing comma if present after truncation
+    cleaned = cleaned.replace(/,\s*$/, '')
+    cleaned += '\n}'
+  }
 
   try {
-    return JSON.parse(cleaned)
-  } catch {
-    throw new Error(`Failed to parse Perplexity response as JSON:\n${content}`)
+    const parsed = JSON.parse(cleaned)
+    return stripCitations(parsed)
+  } catch (err) {
+    console.error(`\n⚠ JSON parse failed for "${tool.name}". Raw response:\n${content}\n`)
+    throw new Error(`Failed to parse Perplexity response as JSON: ${err.message}`)
   }
+}
+
+// Strip Perplexity citation markers like [1], [2][3], [1][2][3] from all string values
+function stripCitations(obj) {
+  if (typeof obj === 'string') return obj.replace(/(\[\d+\])+/g, '').replace(/\s{2,}/g, ' ').trim()
+  if (Array.isArray(obj)) return obj.map(stripCitations)
+  if (obj && typeof obj === 'object') {
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, stripCitations(v)]))
+  }
+  return obj
 }
 
 // ── Core refresh logic ────────────────────────────────────────────────────────
