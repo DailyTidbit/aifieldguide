@@ -44,6 +44,7 @@ function ValueBox({ value, tone }: { value: string | null; tone: 'old' | 'new' }
 export default function ReviewClient({ initialItems }: { initialItems: PendingItem[] }) {
   const [items, setItems] = useState(initialItems)
   const [loading, setLoading] = useState<string | null>(null)
+  const [approvingAll, setApprovingAll] = useState(false)
 
   async function handleAction(id: string, action: 'approve' | 'reject') {
     setLoading(id)
@@ -56,6 +57,22 @@ export default function ReviewClient({ initialItems }: { initialItems: PendingIt
       setItems(prev => prev.filter(item => item.id !== id))
     } finally {
       setLoading(null)
+    }
+  }
+
+  async function handleApproveAll() {
+    setApprovingAll(true)
+    try {
+      for (const item of items) {
+        await fetch('/api/admin/pending/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: item.id }),
+        })
+        setItems(prev => prev.filter(i => i.id !== item.id))
+      }
+    } finally {
+      setApprovingAll(false)
     }
   }
 
@@ -78,6 +95,20 @@ export default function ReviewClient({ initialItems }: { initialItems: PendingIt
 
   return (
     <div className="space-y-10">
+      <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+        <p className="text-sm text-gray-500">
+          {items.length} pending change{items.length !== 1 ? 's' : ''} across {Object.keys(grouped).length} tool{Object.keys(grouped).length !== 1 ? 's' : ''}
+        </p>
+        <button
+          onClick={handleApproveAll}
+          disabled={approvingAll}
+          className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: '#60A875' }}
+        >
+          {approvingAll ? 'Approving…' : `Approve All (${items.length})`}
+        </button>
+      </div>
+
       {Object.entries(grouped).map(([toolName, toolItems]) => (
         <div key={toolName}>
           <h2 className="text-lg font-bold text-gray-900 font-serif mb-4 border-b border-gray-100 pb-2">
