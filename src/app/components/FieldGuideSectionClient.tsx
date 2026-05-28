@@ -29,17 +29,26 @@ interface FieldGuideSection {
 interface AITool {
   id: string
   name: string
-  company?: string
+  company?: string | null
   category: string
   description: string
-  detailed_description?: string
-  use_cases?: string
-  access_notes?: string
-  website?: string
-  free_tier: boolean
+  detailed_description?: string | null
+  use_cases?: string | null
+  access_notes?: string | null
+  website?: string | null
+  free_tier: boolean | null
   paid_tier: boolean | null
-  login_required: boolean
+  login_required: boolean | null
   is_public: boolean | null
+  tagline?: string | null
+  model_type?: string | null
+  access_method?: string | null
+  pricing_breakdown?: string | null
+  commercial_use_policy?: string | null
+  training_data?: string | null
+  workflow_notes?: string | null
+  limitations?: string | null
+  use_cases_list?: string[] | null
   is_sponsored?: boolean | null
   promo_code?: string | null
   promo_code_description?: string | null

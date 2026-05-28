@@ -12,12 +12,12 @@ import { useAnalytics } from '../lib/analytics'
 interface AITool {
   id: string
   name: string
-  company?: string
+  company?: string | null
   category: string
   description: string
-  use_cases?: string
-  website?: string
-  free_tier: boolean
+  use_cases?: string | null
+  website?: string | null
+  free_tier: boolean | null
 }
 
 interface FieldGuideSection {
