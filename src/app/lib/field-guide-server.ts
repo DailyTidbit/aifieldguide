@@ -246,10 +246,14 @@ export class FieldGuideServerAPI {
           training_data,
           workflow_notes,
           limitations,
-          use_cases_list
+          use_cases_list,
+          is_sponsored,
+          promo_code,
+          promo_code_description
         `)
         .eq('category', category)
         .eq('is_public', true)
+        .order('is_sponsored', { ascending: false })
         .order('name')
 
       if (error) throw error
@@ -329,7 +333,10 @@ export class FieldGuideServerAPI {
           training_data,
           workflow_notes,
           limitations,
-          use_cases_list
+          use_cases_list,
+          is_sponsored,
+          promo_code,
+          promo_code_description
         `)
         .eq('id', toolId)
         .eq('is_public', true)
@@ -468,7 +475,10 @@ export class FieldGuideServerAPI {
           training_data,
           workflow_notes,
           limitations,
-          use_cases_list
+          use_cases_list,
+          is_sponsored,
+          promo_code,
+          promo_code_description
         `)
         .eq('is_public', true)
         .eq('free_tier', true)

@@ -133,7 +133,9 @@ function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor:
       {hasUnderTheHood && (
         <div className="mt-2 border-t border-gray-100 pt-5">
           <button
+            type="button"
             onClick={() => setExpanded(e => !e)}
+            aria-expanded={expanded}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
             style={{
               backgroundColor: expanded ? `${sectionColor}18` : `${sectionColor}0e`,
@@ -143,6 +145,7 @@ function StructuredContent({ tool, sectionColor }: { tool: AITool; sectionColor:
             <svg
               className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -226,15 +229,17 @@ function FallbackContent({ tool, sectionColor }: { tool: AITool; sectionColor: s
   )
 }
 
-export default function ToolModal({ 
-  tool, 
-  sectionColor, 
-  isOpen, 
+export default function ToolModal({
+  tool,
+  sectionColor,
+  isOpen,
   onClose,
   isLoading = false
 }: ToolModalProps) {
   const [mounted, setMounted] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = useRef<HTMLElement | null>(null)
   const [isClosing, setIsClosing] = useState(false)
 
   // Mount detection
@@ -249,16 +254,39 @@ export default function ToolModal({
     setTimeout(() => {
       onClose()
       setIsClosing(false)
+      // Return focus to the element that opened the modal
+      triggerRef.current?.focus()
     }, 200)
   }, [onClose, mounted])
 
-  // Keyboard navigation
+  // Focus management — move focus into modal when it opens
+  useEffect(() => {
+    if (!isOpen || !mounted) return
+    triggerRef.current = document.activeElement as HTMLElement
+    // Small delay to let the modal render fully
+    const id = setTimeout(() => closeButtonRef.current?.focus(), 50)
+    return () => clearTimeout(id)
+  }, [isOpen, mounted])
+
+  // Keyboard navigation + focus trap
   useEffect(() => {
     if (!isOpen || !mounted) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose()
+        return
+      }
+      if (e.key !== 'Tab' || !modalRef.current) return
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input, textarea, select, [tabindex]:not([tabindex="-1"])'
+      )
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus() }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
 
@@ -285,22 +313,24 @@ export default function ToolModal({
   if (!isOpen) return null
 
   return (
-    <div 
+    <div
       className={`
         fixed inset-0 z-50 bg-black/50 backdrop-blur-sm
         transition-opacity duration-300 ease-out
         ${isClosing ? 'opacity-0' : 'opacity-100'}
       `}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          handleClose()
-        }
+        if (e.target === e.currentTarget) handleClose()
       }}
+      aria-hidden="true"
     >
-      {/* FIXED: Simplified container with proper height constraints */}
+      {/* Dialog container */}
       <div className="h-full w-full flex items-center justify-center p-4">
         <div
           ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tool-modal-title"
           className={`
             bg-white w-full max-w-6xl rounded-3xl shadow-2xl
             flex flex-col relative overflow-hidden
@@ -333,7 +363,8 @@ export default function ToolModal({
                 <div className="flex items-start justify-between">
                   <div className="flex-1 pr-4">
                     <div className="flex items-center gap-4 mb-3 flex-wrap">
-                      <h2 
+                      <h2
+                        id="tool-modal-title"
                         className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight font-serif"
                         style={{ color: sectionColor }}
                       >
@@ -342,6 +373,12 @@ export default function ToolModal({
                       <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-semibold">
                         {tool.category}
                       </span>
+                      {tool.is_sponsored && (
+                        <span className="bg-amber-400 text-amber-900 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                          <span>★</span>
+                          <span>Sponsored</span>
+                        </span>
+                      )}
                     </div>
                     
                     {tool.company && (
@@ -351,14 +388,14 @@ export default function ToolModal({
                     <div className="flex items-center gap-3 flex-wrap">
                       {tool.free_tier ? (
                         <span className="inline-flex items-center bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                           </svg>
                           Free Tier
                         </span>
                       ) : (
                         <span className="inline-flex items-center bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold">
-                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                           </svg>
                           Paid Only
@@ -369,11 +406,13 @@ export default function ToolModal({
                   
                   {/* Close button */}
                   <button
+                    ref={closeButtonRef}
+                    type="button"
                     onClick={handleClose}
                     className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
-                    aria-label="Close modal"
+                    aria-label={`Close ${tool.name} details`}
                   >
-                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -401,9 +440,10 @@ export default function ToolModal({
                             }}
                           >
                             <span>Try {tool.name}</span>
-                            <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
+                            <span className="sr-only">(opens in new tab)</span>
                           </a>
                         </div>
                       )}
@@ -430,6 +470,22 @@ export default function ToolModal({
                           </div>
                         </div>
                       </div>
+
+                      {/* Promo code */}
+                      {tool.is_sponsored && tool.promo_code && (
+                        <div className="bg-amber-400 rounded-xl p-5">
+                          <div className="flex items-center justify-center gap-2 mb-3">
+                            <span className="text-base">🏷️</span>
+                            <span className="text-xs font-black text-amber-900 uppercase tracking-widest">Promo Code</span>
+                          </div>
+                          {tool.promo_code_description && (
+                            <p className="text-sm text-amber-900 font-medium mb-3 leading-relaxed text-center">{tool.promo_code_description}</p>
+                          )}
+                          <div className="bg-white rounded-lg px-4 py-3 text-center">
+                            <code className="font-mono font-black text-amber-900 text-xl tracking-widest">{tool.promo_code}</code>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Main Content */}

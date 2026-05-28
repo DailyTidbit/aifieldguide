@@ -43,10 +43,14 @@ const CHECKED_FIELDS = [
 
 const BOOLEAN_FIELDS = new Set(['login_required', 'free_tier', 'paid_tier'])
 const ARRAY_FIELDS = new Set(['use_cases_list'])
-const SIGNIFICANT_FIELDS = new Set(['description', 'detailed_description'])
+const SIGNIFICANT_FIELDS = new Set([
+  'description', 'detailed_description',
+  'use_cases', 'use_cases_list',
+  'model_type', 'tagline', 'training_data',
+])
 
 // Shared select string — keeps both scripts in sync with the DB schema
-const TOOL_SELECT = 'id, name, category, description, detailed_description, use_cases, login_required, free_tier, paid_tier, website, pricing_tiers, pricing_page_url, access_notes, tagline, model_type, access_method, pricing_breakdown, commercial_use_policy, training_data, workflow_notes, limitations, use_cases_list'
+const TOOL_SELECT = 'id, name, category, description, detailed_description, use_cases, login_required, free_tier, paid_tier, website, pricing_tiers, pricing_page_url, access_notes, tagline, model_type, access_method, pricing_breakdown, commercial_use_policy, training_data, workflow_notes, limitations, use_cases_list, is_sponsored, promo_code, promo_code_description'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -131,12 +135,20 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these exact k
   "pricing_breakdown": "full tier breakdown: tier name, price, key limits — one tier per line, e.g. 'Free — 10 generations/day\\nPro — $20/mo, unlimited generations\\nBusiness — $60/mo, 5 seats, API access' — or 'Unconfirmed' if no confirmed prices",
   "commercial_use_policy": "whether outputs can be used commercially, any attribution or licensing requirements, any revenue thresholds that change terms",
   "training_data": "what the model was trained on — licensed data, open datasets, web scrape, proprietary corpus — and any known controversies or restrictions",
+  "training_data_significant_change": true or false,
   "workflow_notes": "concrete step-by-step notes on how to use it effectively — key prompting tips, important settings, integration gotchas, things that trip up new users",
   "limitations": "specific limitations, constraints, and gotchas a user will run into — not marketing copy, be direct",
-  "use_cases_list": ["exactly 3-5 specific, actionable use cases as individual strings — no vague entries"]
+  "use_cases_list": ["exactly 3-5 specific, actionable use cases as individual strings — no vague entries"],
+  "use_cases_significant_change": true or false,
+  "use_cases_list_significant_change": true or false,
+  "model_type_significant_change": true or false,
+  "tagline_significant_change": true or false
 }
 
-For significance flags: only true for major changes vs the stored value — new pricing model, free tier added/removed, product pivot, major new feature set. Minor wording differences = false.
+Significance flag rules — apply these to ALL *_significant_change fields:
+- TRUE only when the new value conveys meaningfully different information: a new pricing tier added or removed, a free tier gained or lost, a product pivot, a fundamentally different technology, a major new capability, or a factual correction.
+- FALSE for: rewording the same facts, reordering list items, minor additions that don't change the overall meaning, swapping synonyms, stylistic rephrasing, or adding a word like "instant", "short", "in-house", "from scratch" to an otherwise identical sentence.
+- When in doubt, return false. It is better to skip a trivial difference than to queue noise.
 For use_cases_list: return a JSON array of strings, not a comma-separated string.`
 
   const res = await fetch('https://api.perplexity.ai/chat/completions', {

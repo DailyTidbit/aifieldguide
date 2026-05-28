@@ -37,6 +37,12 @@ export default async function AdminReviewPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link
+              href="/admin/audit"
+              className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
+            >
+              Audit
+            </Link>
+            <Link
               href="/admin/review-sections"
               className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
             >

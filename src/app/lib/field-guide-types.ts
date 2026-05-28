@@ -89,6 +89,10 @@ export interface AITool {
   workflow_notes?: string | null
   limitations?: string | null
   use_cases_list?: string[] | null
+  // Sponsorship fields
+  is_sponsored?: boolean | null
+  promo_code?: string | null
+  promo_code_description?: string | null
 }
 
 // Validation functions - return all data

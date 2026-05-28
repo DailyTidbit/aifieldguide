@@ -159,7 +159,7 @@ export default async function FieldGuidePage() {
         <section className="px-6 md:px-12 py-12 md:py-16">
           <div className="max-w-6xl mx-auto text-center">
             <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8 font-serif">
-              <span className="text-brand-green">🧭</span> Your <span className="text-brand-blue">AI Field Guide</span>
+              <span className="text-brand-green" aria-hidden="true">🧭</span> Your <span className="text-brand-blue">AI Field Guide</span>
             </h1>
 
             {/* Server-rendered stats - enhanced styling */}

@@ -137,7 +137,7 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
                   href="/field-guide" 
                   className="body-large text-gray-700 hover:text-gray-900 transition-colors body-bold bg-white/40 backdrop-blur-sm px-4 py-2 rounded-xl shadow-sm hover:shadow-md border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
                 >
-                  🧭 Field Guide
+                  <span aria-hidden="true">🧭</span> Field Guide
                 </Link>
                 <span className="text-gray-600 text-2xl" aria-hidden="true">/</span>
                 <span 
@@ -149,17 +149,6 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
                 </span>
               </div>
             </nav>
-
-            {/* Section Header with enhanced mobile spacing */}
-            <div className="text-center mb-6 md:mb-16">
-              <h1 
-                className="heading-hero text-3xl md:text-4xl lg:text-6xl leading-tight mb-4 md:mb-8 flex items-center justify-center gap-3 md:gap-4 font-serif"
-                style={{ color: sectionColor }}
-              >
-                <span className="text-4xl md:text-5xl lg:text-7xl" aria-hidden="true">{sectionEmoji}</span>
-                <span className="break-words">{section.section_name}</span>
-              </h1>
-            </div>
 
             {/* Component with mobile-friendly spacing */}
             <div className="md:pt-0">
