@@ -25,11 +25,11 @@ interface FieldGuideSection {
   section_number: number
   section_name: string
   slug: string
-  intro?: string
-  summary?: string
-  use_cases?: string
+  intro?: string | null
+  summary?: string | null
+  use_cases?: string | null
   toolCount: number
-  tools?: AITool[] // Tools data passed from server
+  tools?: AITool[]
 }
 
 interface FieldGuideClientProps {
@@ -198,7 +198,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold font-serif">
-              🔍 Explore AI by Category
+              <span aria-hidden="true">🔍</span> Explore AI by Category
             </h2>
             <p className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-medium mb-8 font-sans">
               Pick your adventure – each section is packed with hand-picked tools and real-world use cases.
@@ -288,6 +288,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
                 No sections{hasToolsData ? ' or tools' : ''} match "{searchQuery}". Try a different search term.
               </p>
               <button
+                type="button"
                 onClick={handleClearSearch}
                 className="px-6 py-3 bg-brand-green text-white rounded-xl hover:bg-brand-green-dark transition-colors"
               >

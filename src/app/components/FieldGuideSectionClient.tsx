@@ -15,15 +15,15 @@ interface FieldGuideSection {
   section_number: number
   section_name: string
   slug: string
-  intro?: string
-  summary?: string
-  use_cases?: string
-  how_they_work?: string
-  what_you_can_do?: string
-  better_results?: string
-  strengths?: string
-  limitations?: string
-  pro_tips?: string
+  intro?: string | null
+  summary?: string | null
+  use_cases?: string | null
+  how_they_work?: string | null
+  what_you_can_do?: string | null
+  better_results?: string | null
+  strengths?: string | null
+  limitations?: string | null
+  pro_tips?: string | null
 }
 
 interface AITool {
