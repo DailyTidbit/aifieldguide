@@ -37,9 +37,9 @@ interface AITool {
   access_notes?: string
   website?: string
   free_tier: boolean
-  paid_tier?: boolean | null
+  paid_tier: boolean | null
   login_required: boolean
-  is_public?: boolean | null
+  is_public: boolean | null
   is_sponsored?: boolean | null
   promo_code?: string | null
   promo_code_description?: string | null
