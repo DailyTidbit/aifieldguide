@@ -4,7 +4,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import ToolModal from './ToolModal'
-import CRTSectionDisplay from './CRTSectionDisplay'
 import React from 'react'
 import { useMounted } from '../lib/clientUtils'
 import { getSectionColorClasses, getSectionHexColor } from '../lib/field-guide-types'
@@ -38,7 +37,12 @@ interface AITool {
   access_notes?: string
   website?: string
   free_tier: boolean
+  paid_tier?: boolean | null
   login_required: boolean
+  is_public?: boolean | null
+  is_sponsored?: boolean | null
+  promo_code?: string | null
+  promo_code_description?: string | null
 }
 
 interface SectionClientProps {
@@ -60,36 +64,13 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   const sectionHexColor = useMemo(() => getSectionHexColor(section.section_name), [section.section_name])
   
   // State management
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentChannel, setCurrentChannel] = useState('summary')
-  const [crtMode, setCrtMode] = useState(false)
   
   // Simplified modal state - no navigation between tools
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTool, setSelectedTool] = useState<AITool | null>(null)
 
-  // Check desktop size only after mount — debounced to avoid constant re-renders
-  useEffect(() => {
-    if (!mounted) return
-
-    const checkIsDesktop = () => setIsDesktop(window.innerWidth >= 1024)
-    checkIsDesktop()
-
-    let timer: ReturnType<typeof setTimeout>
-    const handleResize = () => {
-      clearTimeout(timer)
-      timer = setTimeout(checkIsDesktop, 150)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => {
-      clearTimeout(timer)
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [mounted])
-  
   // Memoized filtered tools for better performance
   const filteredTools = useMemo(() => {
     if (!searchQuery.trim()) return tools
@@ -151,26 +132,9 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     })
   }, [mounted, hasConsent, track])
 
-  const trackChannelChange = useCallback((sectionName: string, channel: string, fromChannel: string) => {
-    if (!mounted || !hasConsent || !track) return
-    track('crt_channel_change', {
-      section_name: sectionName,
-      channel: channel,
-      from_channel: fromChannel
-    })
-  }, [mounted, hasConsent, track])
-
   const trackNavigateBack = useCallback((fromSection: string) => {
     if (!mounted || !hasConsent || !track) return
     track('navigate_back', { from_section: fromSection })
-  }, [mounted, hasConsent, track])
-
-  const trackCrtToggle = useCallback((sectionName: string, newMode: string) => {
-    if (!mounted || !hasConsent || !track) return
-    track('crt_mode_toggle', {
-      section_name: sectionName,
-      new_mode: newMode
-    })
   }, [mounted, hasConsent, track])
 
   // Track page view on mount
@@ -209,13 +173,6 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     trackToolInteraction(tool.name, tool.id, action, section.section_name, tool.free_tier, targetUrl)
   }, [mounted, trackToolInteraction, section.section_name])
 
-  const handleChannelChange = useCallback((channel: string) => {
-    if (!mounted) return
-    
-    setCurrentChannel(channel)
-    trackChannelChange(section.section_name, channel, currentChannel)
-  }, [mounted, trackChannelChange, section.section_name, currentChannel])
-
   const handleClearSearch = useCallback(() => {
     setSearchQuery('')
   }, [])
@@ -225,13 +182,6 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
     
     trackNavigateBack(section.section_name)
   }, [mounted, trackNavigateBack, section.section_name])
-
-  const handleCrtToggle = useCallback(() => {
-    if (!mounted) return
-    
-    setCrtMode(!crtMode)
-    trackCrtToggle(section.section_name, !crtMode ? 'crt' : 'modern')
-  }, [mounted, crtMode, trackCrtToggle, section.section_name])
 
   // Safety check AFTER all hooks
   if (!section) {
@@ -272,48 +222,15 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
 
   return (
     <>
-      {/* CRT Toggle Button - Desktop Only */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-12">
-        <div className="hidden lg:flex justify-end -mt-16 mb-8">
-          <button
-            onClick={handleCrtToggle}
-            className={`
-              px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-[1.02] shadow-lg text-sm font-sans
-              ${crtMode 
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-purple-500/25' 
-                : 'bg-white/90 hover:bg-white text-gray-700 hover:shadow-xl border border-gray-200'
-              }
-            `}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-base">📺</span>
-              <span className="text-xs font-bold">
-                {crtMode ? 'Exit 1990s' : '1990s Mode'}
-              </span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* CRT TV Display */}
-      <CRTSectionDisplay 
-        section={section}
-        sectionColor={sectionHexColor}
-        sectionEmoji={sectionEmoji}
-        crtMode={crtMode && isDesktop}
-        currentChannel={currentChannel}
-        onChannelChange={handleChannelChange}
-      />
-
       {/* Tools Section */}
       <section id="tools-section" className="bg-white px-6 md:px-12 py-20">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-16">
-            <h2 className={`text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6 font-serif ${colorClasses.text}`}>
-              <span className="text-4xl md:text-5xl" aria-hidden="true">🛠️</span>
-              Explore Tools
-            </h2>
+            <h1 className={`text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6 font-serif ${colorClasses.text}`}>
+              <span className="text-4xl md:text-5xl" aria-hidden="true">{sectionEmoji}</span>
+              {section.section_name}
+            </h1>
             
             <div className={`w-32 h-2 mx-auto rounded-full mb-8 ${colorClasses.bg}`}></div>
             
@@ -377,6 +294,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
                     No tools match "{searchQuery}". Try a different search term.
                   </p>
                   <button
+                    type="button"
                     onClick={handleClearSearch}
                     className={`px-6 py-3 text-white rounded-xl hover:opacity-90 transition-opacity ${colorClasses.bg}`}
                   >
@@ -471,10 +389,22 @@ const ToolCard = React.memo(function ToolCard({
   
   return (
     <div className="group animate-fade-in-up" style={{ animationDelay: staggerDelay }}>
-      <article className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-shadow transition-transform duration-300 hover:scale-[1.02] border border-gray-100 h-full flex flex-col relative overflow-hidden">
-        
+      <article className={`bg-white p-8 rounded-3xl shadow-lg transition-shadow transition-transform duration-300 hover:scale-[1.02] h-full flex flex-col relative overflow-hidden ${tool.is_sponsored ? 'border-2 border-amber-400 hover:shadow-amber-100 hover:shadow-2xl' : 'border border-gray-100 hover:shadow-2xl'}`}>
+
         {/* Top accent bar */}
-        <div className={`absolute top-0 left-0 w-full h-2 rounded-t-3xl ${colorClasses.bg}`} />
+        {tool.is_sponsored ? (
+          <div className="absolute top-0 left-0 w-full h-2 rounded-t-3xl" style={{ background: 'linear-gradient(to right, #fbbf24, #fde68a)' }} />
+        ) : (
+          <div className={`absolute top-0 left-0 w-full h-2 rounded-t-3xl ${colorClasses.bg}`} />
+        )}
+
+        {/* Sponsored badge */}
+        {tool.is_sponsored && (
+          <div className="absolute top-3 right-3 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+            <span>★</span>
+            <span>Sponsored</span>
+          </div>
+        )}
         
         {/* Header */}
         <div className="mb-6">
@@ -483,7 +413,7 @@ const ToolCard = React.memo(function ToolCard({
           </h3>
           {tool.company && (
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
               <p className="text-sm text-gray-600 font-medium">
@@ -498,11 +428,21 @@ const ToolCard = React.memo(function ToolCard({
           {tool.description}
         </p>
 
+        {/* Promo code teaser */}
+        {tool.is_sponsored && tool.promo_code && (
+          <div className="mb-4 flex items-center justify-center">
+            <span className="inline-flex items-center gap-2 bg-amber-400 text-amber-900 px-4 py-2 rounded-full text-sm font-semibold">
+              <span>🏷️</span>
+              Promo Code Available
+            </span>
+          </div>
+        )}
+
         {/* Use Cases */}
         {tool.use_cases && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
               <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Use Cases</span>
@@ -518,14 +458,14 @@ const ToolCard = React.memo(function ToolCard({
           <div className="flex items-center justify-center">
             {tool.free_tier ? (
               <span className="inline-flex items-center bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-semibold">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 Free Tier Available
               </span>
             ) : (
               <span className="inline-flex items-center bg-orange-100 text-orange-700 px-4 py-2 rounded-full text-sm font-semibold">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                   <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
                 Paid Only
@@ -538,10 +478,12 @@ const ToolCard = React.memo(function ToolCard({
         <div className="space-y-3">
           {/* Learn More Button */}
           <button
+            type="button"
             onClick={handleOpenModal}
+            aria-label={`Learn more about ${tool.name}`}
             className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold text-center transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 group border border-gray-200"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>Learn More</span>
@@ -554,13 +496,14 @@ const ToolCard = React.memo(function ToolCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleWebsiteClick}
+              aria-label={`Try ${tool.name} (opens in new tab)`}
               className="w-full text-white px-6 py-3 rounded-xl font-bold text-center transition-transform duration-300 hover:scale-[1.02] hover:opacity-90 flex items-center justify-center gap-3 group shadow-lg hover:shadow-xl"
               style={{
                 background: `linear-gradient(135deg, ${sectionHexColor}, ${sectionHexColor}dd)`,
               }}
             >
               <span>Try {tool.name}</span>
-              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
