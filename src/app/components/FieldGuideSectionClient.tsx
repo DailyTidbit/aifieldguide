@@ -178,7 +178,7 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
 
   const handleToolClick = useCallback((tool: AITool, action: 'modal' | 'website') => {
     if (!mounted) return
-    const targetUrl = action === 'website' ? tool.website : undefined
+    const targetUrl = action === 'website' ? (tool.website ?? undefined) : undefined
     trackToolInteraction(tool.name, tool.id, action, section.section_name, tool.free_tier ?? false, targetUrl)
   }, [mounted, trackToolInteraction, section.section_name])
 
