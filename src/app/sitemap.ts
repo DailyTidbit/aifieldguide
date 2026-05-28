@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 import { FieldGuideServerAPI } from './lib/field-guide-server'
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [

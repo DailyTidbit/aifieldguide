@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
     const sectionTools = await FieldGuideServerAPI.getToolsForSection(section.section_name)
     const emoji = FieldGuideServerAPI.getSectionEmoji(section.section_name)
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
     
     return {
       title: `${emoji} ${section.section_name} - AI Tools & Guide | Daily Tidbit`,
@@ -164,14 +164,14 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": ["WebPage", "CollectionPage"],
-              "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}`,
+              "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide/${section.slug}`,
               "name": `${section.section_name} AI Tools`,
               "description": section.summary || section.intro,
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}`,
+              "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide/${section.slug}`,
               "inLanguage": "en",
               "isPartOf": {
                 "@type": "WebSite",
-                "@id": process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org',
+                "@id": process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org',
                 "name": "Daily Tidbit"
               },
               "breadcrumb": {
@@ -179,24 +179,24 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
                 "itemListElement": [
                   {
                     "@type": "ListItem",
-                    "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide#breadcrumb1`,
+                    "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide#breadcrumb1`,
                     "position": 1,
                     "name": "Field Guide",
-                    "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide`
+                    "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide`
                   },
                   {
                     "@type": "ListItem",
-                    "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}#breadcrumb2`,
+                    "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide/${section.slug}#breadcrumb2`,
                     "position": 2,
                     "name": section.section_name,
-                    "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}`
+                    "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide/${section.slug}`
                   }
                 ]
               },
               "publisher": {
                 "@type": "Organization",
                 "name": "Daily Tidbit",
-                "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'
+                "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
               },
               "mainEntity": {
                 "@type": "ItemList",
@@ -204,7 +204,7 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
                 "numberOfItems": tools.length,
                 "itemListElement": tools.map((tool, index) => ({
                   "@type": "SoftwareApplication",
-                  "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}#tool-${tool.id}`,
+                  "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide/${section.slug}#tool-${tool.id}`,
                   "position": index + 1,
                   "name": tool.name,
                   "description": tool.description,

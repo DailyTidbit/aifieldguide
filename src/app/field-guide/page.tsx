@@ -52,7 +52,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ])
     
     const sectionCount = sectionsWithCounts.length
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
     
     return {
       title: `AI Field Guide - ${sectionCount} Categories, ${totalTools} Tools | Daily Tidbit`,
@@ -192,12 +192,12 @@ export default async function FieldGuidePage() {
               "@type": "WebPage",
               "name": "AI Field Guide",
               "description": `Comprehensive guide to ${totalTools} AI tools across ${sortedSections.length} categories`,
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide`,
+              "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide`,
               "inLanguage": "en",
               "publisher": {
                 "@type": "Organization",
                 "name": "Daily Tidbit",
-                "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'
+                "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
               },
               "mainEntity": {
                 "@type": "ItemList",
@@ -205,11 +205,11 @@ export default async function FieldGuidePage() {
                 "numberOfItems": sortedSections.length,
                 "itemListElement": sortedSections.map((section, index) => ({
                   "@type": "ListItem",
-                  "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}#listitem`,
+                  "@id": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide/${section.slug}#listitem`,
                   "position": index + 1,
                   "name": section.section_name,
                   "description": section.summary || section.intro,
-                  "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://dailytidbit.org'}/field-guide/${section.slug}`
+                  "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'}/field-guide/${section.slug}`
                 }))
               }
             })

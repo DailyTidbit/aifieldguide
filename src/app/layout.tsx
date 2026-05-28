@@ -39,7 +39,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://dailytidbit.org"),
+  metadataBase: new URL("https://www.aifieldguide.org"),
   title: "Daily Tidbit - AI for Real People",
   description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
   keywords: [
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     "practical AI",
     "AI for beginners",
   ],
-  authors: [{ name: "Daily Tidbit", url: "https://dailytidbit.org" }],
+  authors: [{ name: "Daily Tidbit", url: "https://www.aifieldguide.org" }],
   creator: "Daily Tidbit",
   publisher: "Daily Tidbit",
   robots: {
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     title: "Daily Tidbit - AI for Real People",
     description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     type: "website",
-    url: "https://dailytidbit.org",
+    url: "https://www.aifieldguide.org",
     siteName: "Daily Tidbit",
     locale: "en_US",
     images: [
@@ -94,7 +94,7 @@ export const metadata: Metadata = {
     site: "@dailytidbit",
   },
   alternates: {
-    canonical: "https://dailytidbit.org",
+    canonical: "https://www.aifieldguide.org",
   },
   category: "Education",
   classification: "AI Education Platform",
@@ -224,9 +224,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              "@id": "https://dailytidbit.org#organization",
+              "@id": "https://www.aifieldguide.org#organization",
               name: "Daily Tidbit",
-              url: "https://dailytidbit.org",
+              url: "https://www.aifieldguide.org",
               logo: "https://cdn.dailytidbit.org/logo.png",
               description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
               foundingDate: "2024",
