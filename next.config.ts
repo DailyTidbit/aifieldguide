@@ -10,6 +10,7 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  turbopack: {},
 
   // CRITICAL FIX: Remove styledJsx disable - conflicts with Tailwind v4
   compiler: {
