@@ -156,25 +156,25 @@ export default async function FieldGuidePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
         {/* Hero Section with design system consistency */}
-        <section className="px-6 md:px-12 py-12 md:py-16">
+        <section className="px-6 md:px-12 py-8 md:py-10">
           <div className="max-w-6xl mx-auto text-center">
-            <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-8 font-serif">
+            <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-6 font-serif">
               <span className="text-brand-green" aria-hidden="true">🧭</span> Your <span className="text-brand-blue">AI Field Guide</span>
             </h1>
 
-            {/* Server-rendered stats - enhanced styling */}
-            <div className="grid grid-cols-2 gap-6 max-w-lg mx-auto">
-              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-green-200/50 hover:shadow-xl transition-shadow duration-300">
-                <div className="heading-section text-3xl text-brand-green font-serif">
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto">
+              <div className="bg-white/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow border border-green-200/50">
+                <div className="text-2xl font-bold text-brand-green font-serif">
                   {sortedSections.length}
                 </div>
-                <div className="body-large text-gray-600">Categories</div>
+                <div className="text-sm text-gray-600">Categories</div>
               </div>
-              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-blue-200/50 hover:shadow-xl transition-shadow duration-300">
-                <div className="heading-section text-3xl text-brand-blue font-serif">
+              <div className="bg-white/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow border border-blue-200/50">
+                <div className="text-2xl font-bold text-brand-blue font-serif">
                   {totalTools}
                 </div>
-                <div className="body-large text-gray-600">AI Tools</div>
+                <div className="text-sm text-gray-600">AI Tools</div>
               </div>
             </div>
           </div>
