@@ -41,7 +41,7 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.aifieldguide.org"),
   title: "AI Field Guide — Your Guide to AI Tools",
-  description: "Discover 100+ AI tools organized into simple categories — all for everyday people. aifieldguide.org",
+  description: "Browse 100+ hand-picked AI tools organized into simple categories — writing, images, video, productivity, and more. Built for everyday people at aifieldguide.org.",
   keywords: [
     "AI",
     "artificial intelligence",
@@ -70,7 +70,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "AI Field Guide — Your Guide to AI Tools",
-    description: "Discover 100+ AI tools organized into simple categories — all for everyday people. aifieldguide.org",
+    description: "Browse 100+ hand-picked AI tools organized into simple categories — writing, images, video, productivity, and more. Built for everyday people at aifieldguide.org.",
     type: "website",
     url: "https://www.aifieldguide.org",
     siteName: "AI Field Guide",
@@ -88,7 +88,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "AI Field Guide — Your Guide to AI Tools",
-    description: "Discover 100+ AI tools organized into simple categories — all for everyday people. aifieldguide.org",
+    description: "Browse 100+ hand-picked AI tools organized into simple categories — writing, images, video, productivity, and more. Built for everyday people at aifieldguide.org.",
     images: ["https://cdn.dailytidbit.org/og-image.png"],
     creator: "@dailytidbit",
     site: "@dailytidbit",

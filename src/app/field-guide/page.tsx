@@ -71,8 +71,8 @@ export async function generateMetadata(): Promise<Metadata> {
       creator: 'AI Field Guide',
       publisher: 'Daily Tidbit LLC',
       openGraph: {
-        title: `AIFieldGuide.org — ${sectionCount} Simple Categories. ${totalTools} AI Tools. All for Everyday People.`,
-        description: `AIFieldGuide.org — ${sectionCount} Simple Categories. ${totalTools} AI Tools. All for Everyday People.`,
+        title: `AI Field Guide — ${totalTools} Tools, ${sectionCount} Categories`,
+        description: `Browse ${totalTools} hand-picked AI tools organized into ${sectionCount} simple categories — writing, images, video, productivity, and more. Built for everyday people.`,
         url: `${baseUrl}/field-guide`,
         siteName: 'AI Field Guide',
         images: [
@@ -86,8 +86,8 @@ export async function generateMetadata(): Promise<Metadata> {
         type: 'website'
       },
       twitter: {
-        title: `AIFieldGuide.org — ${sectionCount} Simple Categories. ${totalTools} AI Tools. All for Everyday People.`,
-        description: `AIFieldGuide.org — ${sectionCount} Simple Categories. ${totalTools} AI Tools. All for Everyday People.`,
+        title: `AI Field Guide — ${totalTools} Tools, ${sectionCount} Categories`,
+        description: `Browse ${totalTools} hand-picked AI tools organized into ${sectionCount} simple categories — writing, images, video, productivity, and more. Built for everyday people.`,
         images: ['https://cdn.dailytidbit.org/og-image.png'],
         card: 'summary_large_image',
         site: '@dailytidbit',
