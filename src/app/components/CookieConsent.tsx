@@ -85,41 +85,39 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
         aria-labelledby="cookie-banner-title"
         aria-describedby="cookie-banner-description"
       >
-        <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl border p-6 md:p-8">
+        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl border p-6">
           {!showDetails ? (
             /* Simple Banner */
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="text-3xl" role="img" aria-label="Cookie icon">🍪</div>
-                <div className="flex-1">
-                  <h3 
-                    id="cookie-banner-title"
-                    className="text-xl font-bold text-gray-900 mb-2 font-serif"
+            <div className="space-y-4 text-center">
+              <div>
+                <div className="text-3xl mb-3" role="img" aria-label="Cookie icon">🍪</div>
+                <h3
+                  id="cookie-banner-title"
+                  className="text-xl font-bold text-gray-900 mb-2 font-serif"
+                >
+                  We use cookies to improve your experience
+                </h3>
+                <p
+                  id="cookie-banner-description"
+                  className="text-gray-700 text-sm"
+                >
+                  We use analytics cookies to understand how you use AI Field Guide and improve our content.{' '}
+                  <button
+                    onClick={toggleDetails}
+                    className="underline hover:no-underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
+                    style={{ color: '#59B1E3' }}
+                    type="button"
                   >
-                    We use cookies to improve your experience
-                  </h3>
-                  <p 
-                    id="cookie-banner-description"
-                    className="text-gray-700"
-                  >
-                    We use analytics cookies to understand how you use AI Field Guide and improve our content.{' '}
-                    <button
-                      onClick={toggleDetails}
-                      className="underline hover:no-underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
-                      style={{ color: '#59B1E3' }}
-                      type="button"
-                    >
-                      Learn more
-                    </button>
-                  </p>
-                </div>
+                    Learn more
+                  </button>
+                </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-1 justify-center">
                 <button
                   onClick={handleAccept}
                   disabled={isProcessing}
-                  className="text-white px-6 py-3 rounded-xl font-semibold transition-opacity hover:opacity-90 flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-white px-6 py-3 rounded-xl font-semibold transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#60A875' }}
                   type="button"
                 >
@@ -129,7 +127,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
                 <button
                   onClick={toggleDetails}
                   disabled={isProcessing}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-3 rounded-xl font-semibold transition-colors flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-3 rounded-xl font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Customize
