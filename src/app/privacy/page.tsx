@@ -5,11 +5,23 @@ import { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Privacy Policy | AI Field Guide',
   description: 'Privacy policy for AI Field Guide — what limited information we collect, how we use it, and your rights.',
+  alternates: { canonical: 'https://www.aifieldguide.org/privacy' },
   openGraph: {
     title: 'Privacy Policy | AI Field Guide',
-    description: 'Privacy policy for AI Field Guide by Daily Tidbit LLC.',
+    description: 'Privacy policy for AI Field Guide — what limited information we collect, how we use it, and your rights.',
+    url: 'https://www.aifieldguide.org/privacy',
+    siteName: 'AI Field Guide',
+    images: [{ url: 'https://cdn.dailytidbit.org/og-image.png', width: 1200, height: 630 }],
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Privacy Policy | AI Field Guide',
+    description: 'Privacy policy for AI Field Guide — what limited information we collect, how we use it, and your rights.',
+    images: ['https://cdn.dailytidbit.org/og-image.png'],
+    site: '@dailytidbit',
+  },
+  robots: { index: true, follow: true },
 }
 
 export default function PrivacyPolicyPage() {

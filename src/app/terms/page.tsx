@@ -4,12 +4,24 @@ import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Terms & Conditions | AI Field Guide',
-  description: 'Terms and conditions for using AI Field Guide by Daily Tidbit LLC.',
+  description: 'Terms and conditions for using AI Field Guide. Read our usage policy, intellectual property rights, and limitations of liability.',
+  alternates: { canonical: 'https://www.aifieldguide.org/terms' },
   openGraph: {
     title: 'Terms & Conditions | AI Field Guide',
-    description: 'Terms and conditions for using AI Field Guide by Daily Tidbit LLC.',
+    description: 'Terms and conditions for using AI Field Guide. Read our usage policy, intellectual property rights, and limitations of liability.',
+    url: 'https://www.aifieldguide.org/terms',
+    siteName: 'AI Field Guide',
+    images: [{ url: 'https://cdn.dailytidbit.org/og-image.png', width: 1200, height: 630 }],
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Terms & Conditions | AI Field Guide',
+    description: 'Terms and conditions for using AI Field Guide.',
+    images: ['https://cdn.dailytidbit.org/og-image.png'],
+    site: '@dailytidbit',
+  },
+  robots: { index: true, follow: true },
 }
 
 export default function TermsConditionsPage() {

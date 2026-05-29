@@ -4,7 +4,24 @@ import ContactForm from './ContactForm'
 
 export const metadata: Metadata = {
   title: 'Get in Touch – AI Field Guide',
-  description: 'Have a question or feedback? Send us a message and we\'ll get back to you.',
+  description: 'Have a question or feedback about AI Field Guide? Send us a message and we\'ll get back to you.',
+  alternates: { canonical: 'https://www.aifieldguide.org/contact' },
+  openGraph: {
+    title: 'Get in Touch – AI Field Guide',
+    description: 'Have a question or feedback about AI Field Guide? Send us a message and we\'ll get back to you.',
+    url: 'https://www.aifieldguide.org/contact',
+    siteName: 'AI Field Guide',
+    images: [{ url: 'https://cdn.dailytidbit.org/og-image.png', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Get in Touch – AI Field Guide',
+    description: 'Have a question or feedback about AI Field Guide? Send us a message.',
+    images: ['https://cdn.dailytidbit.org/og-image.png'],
+    site: '@dailytidbit',
+  },
+  robots: { index: true, follow: true },
 }
 
 export default function ContactPage() {

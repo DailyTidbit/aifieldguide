@@ -1,5 +1,28 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft, Eye, Mail } from 'lucide-react'
+
+export const metadata: Metadata = {
+  title: 'Accessibility | AI Field Guide',
+  description: 'Our commitment to making AI Field Guide accessible to everyone, regardless of ability. WCAG 2.1 AA compliance statement.',
+  alternates: { canonical: 'https://www.aifieldguide.org/accessibility' },
+  openGraph: {
+    title: 'Accessibility | AI Field Guide',
+    description: 'Our commitment to making AI Field Guide accessible to everyone, regardless of ability.',
+    url: 'https://www.aifieldguide.org/accessibility',
+    siteName: 'AI Field Guide',
+    images: [{ url: 'https://cdn.dailytidbit.org/og-image.png', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Accessibility | AI Field Guide',
+    description: 'Our commitment to making AI Field Guide accessible to everyone, regardless of ability.',
+    images: ['https://cdn.dailytidbit.org/og-image.png'],
+    site: '@dailytidbit',
+  },
+  robots: { index: true, follow: true },
+}
 
 export default function AccessibilityPage() {
   return (
