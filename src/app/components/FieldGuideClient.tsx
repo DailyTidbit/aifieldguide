@@ -198,7 +198,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold font-serif">
-              <span aria-hidden="true">🔍</span> Explore AI by Category
+              <span aria-hidden="true">🔍</span> Explore by Category
             </h2>
 
             {/* Search */}
