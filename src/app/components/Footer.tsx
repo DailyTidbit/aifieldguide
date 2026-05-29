@@ -51,7 +51,7 @@ function VisitorCounter({ count }: { count: number | null }) {
         ))}
       </div>
       <p className="text-[10px] uppercase tracking-widest text-gray-400 font-mono">
-        since launch
+        since 5-28-2026 launch
       </p>
     </div>
   )
