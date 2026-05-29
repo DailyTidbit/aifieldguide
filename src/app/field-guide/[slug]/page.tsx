@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         siteName: 'AI Field Guide',
         images: [
           {
-            url: 'https://cdn.dailytidbit.org/og-image.png',
+            url: '/opengraph-image.png',
             width: 1200,
             height: 630,
             alt: `${section.section_name} AI Tools Guide`,
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       twitter: {
         title: `${emoji} ${section.section_name} AI Tools`,
         description: `${sectionTools.length} hand-picked AI tools for ${section.section_name.toLowerCase()}`,
-        images: ['https://cdn.dailytidbit.org/og-image.png'],
+        images: ['/opengraph-image.png'],
         card: 'summary_large_image',
         site: '@dailytidbit',
         creator: '@dailytidbit'

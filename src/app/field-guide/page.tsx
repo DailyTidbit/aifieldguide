@@ -77,7 +77,7 @@ export async function generateMetadata(): Promise<Metadata> {
         siteName: 'AI Field Guide',
         images: [
           {
-            url: 'https://cdn.dailytidbit.org/og-image.png',
+            url: '/opengraph-image.png',
             width: 1200,
             height: 630,
             alt: `AI Field Guide - ${totalTools} Tools`,
@@ -88,7 +88,7 @@ export async function generateMetadata(): Promise<Metadata> {
       twitter: {
         title: `AI Field Guide — ${totalTools} Tools, ${sectionCount} Categories`,
         description: `Browse ${totalTools} hand-picked AI tools organized into ${sectionCount} simple categories — writing, images, video, productivity, and more. Built for everyday people.`,
-        images: ['https://cdn.dailytidbit.org/og-image.png'],
+        images: ['/opengraph-image.png'],
         card: 'summary_large_image',
         site: '@dailytidbit',
         creator: '@dailytidbit'

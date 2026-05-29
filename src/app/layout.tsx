@@ -77,7 +77,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "https://cdn.dailytidbit.org/og-image.png",
+        url: "/opengraph-image.png",
         width: 1200,
         height: 630,
         alt: "AI Field Guide — Your Guide to AI Tools",
@@ -89,7 +89,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "AI Field Guide — Your Guide to AI Tools",
     description: "Browse 100+ hand-picked AI tools organized into simple categories — writing, images, video, productivity, and more. Built for everyday people at aifieldguide.org.",
-    images: ["https://cdn.dailytidbit.org/og-image.png"],
+    images: ["/opengraph-image.png"],
     creator: "@dailytidbit",
     site: "@dailytidbit",
   },
