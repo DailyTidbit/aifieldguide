@@ -40,7 +40,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.aifieldguide.org"),
-  title: "Daily Tidbit - AI for Real People",
+  title: "AI Field Guide - AI Tools for Real People",
   description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
   keywords: [
     "AI",
@@ -54,9 +54,9 @@ export const metadata: Metadata = {
     "practical AI",
     "AI for beginners",
   ],
-  authors: [{ name: "Daily Tidbit", url: "https://www.aifieldguide.org" }],
-  creator: "Daily Tidbit",
-  publisher: "Daily Tidbit",
+  authors: [{ name: "AI Field Guide", url: "https://www.aifieldguide.org" }],
+  creator: "AI Field Guide",
+  publisher: "Daily Tidbit LLC",
   robots: {
     index: true,
     follow: true,
@@ -69,25 +69,25 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Daily Tidbit - AI for Real People",
+    title: "AI Field Guide - AI Tools for Real People",
     description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     type: "website",
     url: "https://www.aifieldguide.org",
-    siteName: "Daily Tidbit",
+    siteName: "AI Field Guide",
     locale: "en_US",
     images: [
       {
         url: "https://cdn.dailytidbit.org/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Daily Tidbit - AI for Real People",
+        alt: "AI Field Guide - AI Tools for Real People",
         type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Daily Tidbit - AI for Real People",
+    title: "AI Field Guide - AI Tools for Real People",
     description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
     images: ["https://cdn.dailytidbit.org/og-image.png"],
     creator: "@dailytidbit",
@@ -199,11 +199,11 @@ export default function RootLayout({ children }: RootLayoutProps) {
         
         {/* PWA Configuration */}
         <link rel="manifest" href="/manifest.json" />
-        <meta name="application-name" content="Daily Tidbit" />
+        <meta name="application-name" content="AI Field Guide" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Daily Tidbit" />
+        <meta name="apple-mobile-web-app-title" content="AI Field Guide" />
         
         {/* Theme colors - using actual hex values to prevent hydration mismatch */}
         <meta name="theme-color" content="#60A875" />
@@ -225,7 +225,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               "@context": "https://schema.org",
               "@type": "Organization",
               "@id": "https://www.aifieldguide.org#organization",
-              name: "Daily Tidbit",
+              name: "AI Field Guide",
               url: "https://www.aifieldguide.org",
               logo: "https://cdn.dailytidbit.org/logo.png",
               description: "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",

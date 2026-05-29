@@ -55,7 +55,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
     
     return {
-      title: `AI Field Guide - ${sectionCount} Categories, ${totalTools} Tools | Daily Tidbit`,
+      title: `AI Field Guide - ${sectionCount} Categories, ${totalTools} Tools | AI Field Guide`,
       description: `Your comprehensive guide to AI tools. Explore ${sectionCount} categories with ${totalTools} hand-picked AI tools for productivity, creativity, and automation.`,
       keywords: [
         'AI tools',
@@ -67,14 +67,14 @@ export async function generateMetadata(): Promise<Metadata> {
         'AI software directory',
         'AI tool recommendations'
       ],
-      authors: [{ name: 'Daily Tidbit' }],
-      creator: 'Daily Tidbit',
+      authors: [{ name: 'AI Field Guide' }],
+      creator: 'AI Field Guide',
       publisher: 'Daily Tidbit LLC',
       openGraph: {
         title: `AI Field Guide - ${totalTools} Tools Across ${sectionCount} Categories`,
         description: `Your comprehensive guide to AI tools. From writing and creating to automating and learning.`,
         url: `${baseUrl}/field-guide`,
-        siteName: 'Daily Tidbit',
+        siteName: 'AI Field Guide',
         images: [
           {
             url: 'https://cdn.dailytidbit.org/og-image.png',
@@ -110,7 +110,7 @@ export async function generateMetadata(): Promise<Metadata> {
   } catch (error) {
     console.error('Metadata generation error:', error)
     return {
-      title: 'AI Field Guide - Your Complete Guide to AI Tools | Daily Tidbit',
+      title: 'AI Field Guide - Your Complete Guide to AI Tools | AI Field Guide',
       description: 'Explore our comprehensive field guide to AI tools. Hand-picked tools organized by category for productivity, creativity, and automation.',
     }
   }
@@ -196,7 +196,7 @@ export default async function FieldGuidePage() {
               "inLanguage": "en",
               "publisher": {
                 "@type": "Organization",
-                "name": "Daily Tidbit",
+                "name": "AI Field Guide",
                 "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
               },
               "mainEntity": {

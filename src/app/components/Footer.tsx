@@ -117,7 +117,7 @@ export default function Footer() {
                 Get in Touch
               </Link>
             </nav>
-            <p className="text-xs text-gray-500">© {getCurrentYear()} Daily Tidbit. All rights reserved.</p>
+            <p className="text-xs text-gray-500">© {getCurrentYear()} Daily Tidbit LLC. All rights reserved.</p>
           </div>
         </div>
       </div>

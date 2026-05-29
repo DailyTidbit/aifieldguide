@@ -3,7 +3,7 @@ import Link from 'next/link'
 import ContactForm from './ContactForm'
 
 export const metadata: Metadata = {
-  title: 'Get in Touch – Daily Tidbit',
+  title: 'Get in Touch – AI Field Guide',
   description: 'Have a question or feedback? Send us a message and we\'ll get back to you.',
 }
 

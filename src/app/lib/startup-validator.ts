@@ -13,7 +13,7 @@ export function runStartupValidation(): EnvironmentStatus {
     return validationResult
   }
   
-  console.log('🚀 Starting Daily Tidbit application...')
+  console.log('🚀 Starting AI Field Guide application...')
   console.log(`📦 Environment: ${process.env.NODE_ENV}`)
   console.log(`🌐 Node Version: ${process.version}`)
   

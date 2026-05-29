@@ -17,7 +17,7 @@ export default function AccessibilityPage() {
               className="inline-flex items-center gap-2 text-brand-blue hover:text-brand-blue/80 transition-colors mb-8 group"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span className="text-sm font-medium">Back to Daily Tidbit</span>
+              <span className="text-sm font-medium">Back to AI Field Guide</span>
             </Link>
 
             {/* Title */}
@@ -47,12 +47,12 @@ export default function AccessibilityPage() {
               {/* Content Area */}
               <div className="prose prose-lg max-w-none">
                 <p className="body-large text-gray-700 mb-8">
-                  At Daily Tidbit, we are committed to making our website accessible to all individuals, regardless of ability. We believe everyone should have equal access to the power of artificial intelligence — and that includes a website experience that's inclusive, usable, and barrier-free.
+                  At AI Field Guide, we are committed to making our website accessible to all individuals, regardless of ability. We believe everyone should have equal access to the power of artificial intelligence — and that includes a website experience that's inclusive, usable, and barrier-free.
                 </p>
 
                 <h2 className="heading-subsection text-brand-blue mt-8 mb-4">Our Commitment to Accessibility</h2>
                 <p className="body-medium text-gray-700 mb-6">
-                  We are working to ensure that Daily Tidbit complies with the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA, as well as applicable accessibility regulations such as the Americans with Disabilities Act (ADA) and Section 508. Accessibility is not just a legal requirement — it's part of our mission to make AI approachable and helpful for real people.
+                  We are working to ensure that AI Field Guide complies with the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA, as well as applicable accessibility regulations such as the Americans with Disabilities Act (ADA) and Section 508. Accessibility is not just a legal requirement — it's part of our mission to make AI approachable and helpful for real people.
                 </p>
 
                 <h2 className="heading-subsection text-brand-blue mt-8 mb-4">What we're Doing</h2>
@@ -85,7 +85,7 @@ export default function AccessibilityPage() {
 
                 <h2 className="heading-subsection text-brand-blue mt-8 mb-4">A Note on Our Values</h2>
                 <p className="body-medium text-gray-700 mb-6">
-                  Daily Tidbit is designed for real people — and that means everyone. Accessibility is not a checklist for us — it's a core part of how we build, communicate, and serve our community.
+                  AI Field Guide is designed for real people — and that means everyone. Accessibility is not a checklist for us — it's a core part of how we build, communicate, and serve our community.
                 </p>
               </div>
 

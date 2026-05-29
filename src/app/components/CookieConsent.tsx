@@ -102,7 +102,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
                     id="cookie-banner-description"
                     className="text-gray-700"
                   >
-                    We use analytics cookies to understand how you use Daily Tidbit and improve our content.{' '}
+                    We use analytics cookies to understand how you use AI Field Guide and improve our content.{' '}
                     <button
                       onClick={toggleDetails}
                       className="underline hover:no-underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
@@ -208,7 +208,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
                     id="analytics-description"
                     className="text-sm text-gray-600 mb-2"
                   >
-                    Help us understand how visitors use Daily Tidbit to improve the experience.
+                    Help us understand how visitors use AI Field Guide to improve the experience.
                   </p>
                   <details className="text-xs text-gray-500">
                     <summary className="cursor-pointer hover:text-gray-700">View details</summary>

@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
     if (!section) {
       return {
-        title: 'Section Not Found | Daily Tidbit Field Guide',
+        title: 'Section Not Found | AI Field Guide Field Guide',
         description: 'The requested field guide section could not be found.',
       }
     }
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
     
     return {
-      title: `${emoji} ${section.section_name} - AI Tools & Guide | Daily Tidbit`,
+      title: `${emoji} ${section.section_name} - AI Tools & Guide | AI Field Guide`,
       description: section.summary || section.intro || `Explore ${sectionTools.length} AI tools for ${section.section_name.toLowerCase()}. Hand-picked tools with real-world use cases and detailed guides.`,
       keywords: [
         section.section_name,
@@ -39,14 +39,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         'productivity tools',
         'AI guide'
       ],
-      authors: [{ name: 'Daily Tidbit' }],
-      creator: 'Daily Tidbit',
+      authors: [{ name: 'AI Field Guide' }],
+      creator: 'AI Field Guide',
       publisher: 'Daily Tidbit LLC',
       openGraph: {
         title: `${section.section_name} AI Tools & Guide`,
         description: section.summary || section.intro || `Comprehensive guide to ${section.section_name.toLowerCase()} AI tools`,
         url: `${baseUrl}/field-guide/${section.slug}`,
-        siteName: 'Daily Tidbit',
+        siteName: 'AI Field Guide',
         images: [
           {
             url: 'https://cdn.dailytidbit.org/og-image.png',
@@ -82,7 +82,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   } catch (error) {
     console.error('Metadata generation error:', error)
     return {
-      title: 'AI Tools Guide | Daily Tidbit Field Guide',
+      title: 'AI Tools Guide | AI Field Guide Field Guide',
       description: 'Explore AI tools and guides for productivity, creativity, and automation.',
     }
   }
@@ -172,7 +172,7 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
               "isPartOf": {
                 "@type": "WebSite",
                 "@id": process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org',
-                "name": "Daily Tidbit"
+                "name": "AI Field Guide"
               },
               "breadcrumb": {
                 "@type": "BreadcrumbList",
@@ -195,7 +195,7 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
               },
               "publisher": {
                 "@type": "Organization",
-                "name": "Daily Tidbit",
+                "name": "AI Field Guide",
                 "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aifieldguide.org'
               },
               "mainEntity": {

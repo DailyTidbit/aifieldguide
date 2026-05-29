@@ -85,7 +85,7 @@ export default function CTASection({ variant = 'default' }: CTASectionProps) {
                 href="https://www.facebook.com/dailytidbit.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Join the Daily Tidbit community on Facebook"
+                aria-label="Join the AI Field Guide community on Facebook"
                 onClick={() => trackCTAClick('Community', 'CTA Section', 'https://www.facebook.com/dailytidbit.org')}
                 className="cursor-pointer block rounded-xl bg-brand-blue text-white px-6 py-5 shadow-lg transition-[background-color,transform,box-shadow] duration-300 hover:bg-brand-blue-dark hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-blue group min-h-[120px]"
               >
@@ -102,7 +102,7 @@ export default function CTASection({ variant = 'default' }: CTASectionProps) {
               {/* Get in Touch */}
               <a
                 href="mailto:mike@dailytidbit.org"
-                aria-label="Get in touch with Daily Tidbit"
+                aria-label="Get in touch with AI Field Guide"
                 onClick={() => trackCTAClick('Get in Touch', 'CTA Section', 'mailto:mike@dailytidbit.org')}
                 className="cursor-pointer block rounded-xl text-gray-800 px-6 py-5 shadow-lg transition-[opacity,transform,box-shadow] duration-300 hover:opacity-90 hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 group min-h-[120px]"
                 style={{ backgroundColor: '#F5C26B' }}
