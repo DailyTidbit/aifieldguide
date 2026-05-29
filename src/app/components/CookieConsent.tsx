@@ -127,18 +127,9 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
                 </button>
 
                 <button
-                  onClick={handleDecline}
-                  disabled={isProcessing}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-3 rounded-xl font-semibold transition-colors flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  type="button"
-                >
-                  {isProcessing ? 'Processing...' : 'Essential Only'}
-                </button>
-
-                <button
                   onClick={toggleDetails}
                   disabled={isProcessing}
-                  className="text-gray-600 hover:text-gray-800 px-4 py-3 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-3 rounded-xl font-semibold transition-colors flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Customize
@@ -230,16 +221,7 @@ export default function CookieConsent({ onConsentChange }: CookieConsentProps = 
                   style={{ backgroundColor: '#60A875' }}
                   type="button"
                 >
-                  {isProcessing ? 'Processing...' : 'Accept Selected'}
-                </button>
-
-                <button
-                  onClick={handleDecline}
-                  disabled={isProcessing}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-3 rounded-xl font-semibold transition-colors flex-1 sm:flex-none focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  type="button"
-                >
-                  {isProcessing ? 'Processing...' : 'Essential Only'}
+                  {isProcessing ? 'Processing...' : 'Save Preferences'}
                 </button>
               </div>
             </div>
