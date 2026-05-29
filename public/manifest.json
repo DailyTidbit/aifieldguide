@@ -1,6 +1,6 @@
 {
-  "name": "Daily Tidbit - AI for Real People",
-  "short_name": "Daily Tidbit",
+  "name": "AI Field Guide",
+  "short_name": "AI Field Guide",
   "description": "Learn how to use AI to make life easier, more creative, and more fun. One smart tip a day.",
   "start_url": "/field-guide",
   "display": "standalone",
