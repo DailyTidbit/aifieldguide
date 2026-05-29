@@ -338,7 +338,7 @@ export default function ToolModal({
             ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}
           `}
           style={{
-            maxHeight: 'calc(100vh - 2rem)',
+            maxHeight: 'calc(100vh - 2rem - env(safe-area-inset-bottom, 0px))',
             height: 'auto',
             minHeight: '400px'
           }}
@@ -501,6 +501,8 @@ export default function ToolModal({
 
                   </div>
                 </div>
+                {/* Safe area spacer for iPhone home indicator */}
+                <div style={{ height: 'env(safe-area-inset-bottom, 20px)', minHeight: '20px' }} />
               </div>
             </>
           )}
