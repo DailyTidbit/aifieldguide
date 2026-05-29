@@ -1,6 +1,10 @@
 ﻿/* === Tailwind v4 single import === */
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
 /* === Tailwind v4 Theme Configuration === */
 @theme {
   /* Brand Colors - generates utility classes like bg-brand-green, text-brand-blue, etc. */
