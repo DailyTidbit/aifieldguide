@@ -156,7 +156,7 @@ export default async function FieldGuidePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
         {/* Hero Section with design system consistency */}
-        <section className="px-6 md:px-12 py-8 md:py-10">
+        <section className="px-6 md:px-12 pt-8 md:pt-10 pb-4">
           <div className="max-w-6xl mx-auto text-center">
             <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-6 font-serif">
               <span className="text-brand-green" aria-hidden="true">🧭</span> Your <span className="text-brand-blue">AI Field Guide</span>
