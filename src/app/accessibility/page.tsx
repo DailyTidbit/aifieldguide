@@ -99,10 +99,10 @@ export default function AccessibilityPage() {
 
                 <p className="body-medium text-gray-700 mb-6">
                   <strong>Email:</strong> <a 
-                    href="mailto:mike@dailytidbit.org?subject=Accessibility%20Feedback" 
+                    href="mailto:hello@aifieldguide.org?subject=Accessibility%20Feedback" 
                     className="text-brand-blue hover:text-brand-blue/80 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a> (Subject: Accessibility Feedback)
                 </p>
 
@@ -118,10 +118,10 @@ export default function AccessibilityPage() {
                   <Mail className="w-5 h-5" />
                   <span className="body-medium">Need accessibility support? Email us at </span>
                   <a 
-                    href="mailto:mike@dailytidbit.org" 
+                    href="mailto:hello@aifieldguide.org" 
                     className="text-brand-blue hover:text-brand-blue/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>
                 </div>
               </div>

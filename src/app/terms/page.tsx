@@ -195,8 +195,8 @@ export default function TermsConditionsPage() {
                 <h3 className="heading-subsection text-gray-800 mt-6 mb-3">E. Opt-Out Right</h3>
                 <p className="body-large text-gray-700 leading-relaxed mb-6">
                   You may opt out of arbitration by emailing{' '}
-                  <a href="mailto:mike@dailytidbit.org" className="text-brand-orange hover:text-orange-600 underline underline-offset-2">
-                    mike@dailytidbit.org
+                  <a href="mailto:hello@aifieldguide.org" className="text-brand-orange hover:text-orange-600 underline underline-offset-2">
+                    hello@aifieldguide.org
                   </a>{' '}
                   with "Arbitration Opt-Out" in the subject line within 30 days of first accepting these Terms.
                 </p>
@@ -236,10 +236,10 @@ export default function TermsConditionsPage() {
                 <p className="body-large text-gray-700 leading-relaxed mb-6">
                   <strong>Email:</strong>{' '}
                   <a
-                    href="mailto:mike@dailytidbit.org?subject=Terms%20and%20Conditions"
+                    href="mailto:hello@aifieldguide.org?subject=Terms%20and%20Conditions"
                     className="text-brand-orange hover:text-orange-600 underline underline-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>
                 </p>
 
@@ -257,10 +257,10 @@ export default function TermsConditionsPage() {
                   <Mail className="w-5 h-5" />
                   <span>Questions about these terms? Email us at </span>
                   <a
-                    href="mailto:mike@dailytidbit.org?subject=Terms%20and%20Conditions"
+                    href="mailto:hello@aifieldguide.org?subject=Terms%20and%20Conditions"
                     className="text-brand-orange hover:text-orange-600 transition-colors underline underline-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>
                 </div>
               </div>

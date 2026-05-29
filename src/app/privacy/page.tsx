@@ -240,10 +240,10 @@ export default function PrivacyPolicyPage() {
                 <p className="body-large text-gray-700 leading-relaxed mb-6">
                   To exercise any right, contact us at{' '}
                   <a
-                    href="mailto:mike@dailytidbit.org?subject=Privacy%20Inquiry"
+                    href="mailto:hello@aifieldguide.org?subject=Privacy%20Inquiry"
                     className="text-brand-green hover:text-green-700 underline underline-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>
                   .
                 </p>
@@ -255,10 +255,10 @@ export default function PrivacyPolicyPage() {
                   information from children under 13. If you believe a child under 13 has provided us
                   information, contact us immediately at{' '}
                   <a
-                    href="mailto:mike@dailytidbit.org"
+                    href="mailto:hello@aifieldguide.org"
                     className="text-brand-green hover:text-green-700 underline underline-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>{' '}
                   and we will promptly delete it.
                 </p>
@@ -281,10 +281,10 @@ export default function PrivacyPolicyPage() {
                   </Link>
                   , incorporated here by reference. You may opt out of arbitration by emailing{' '}
                   <a
-                    href="mailto:mike@dailytidbit.org?subject=Privacy%20Arbitration%20Opt-Out"
+                    href="mailto:hello@aifieldguide.org?subject=Privacy%20Arbitration%20Opt-Out"
                     className="text-brand-green hover:text-green-700 underline underline-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>{' '}
                   with "Privacy Arbitration Opt-Out" in the subject line within 30 days of first accepting
                   this Privacy Policy.
@@ -298,10 +298,10 @@ export default function PrivacyPolicyPage() {
                 <p className="body-large text-gray-700 leading-relaxed mb-6">
                   <strong>Email:</strong>{' '}
                   <a
-                    href="mailto:mike@dailytidbit.org?subject=Privacy%20Inquiry"
+                    href="mailto:hello@aifieldguide.org?subject=Privacy%20Inquiry"
                     className="text-brand-green hover:text-green-700 underline underline-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>{' '}
                   (Subject: Privacy Inquiry)
                 </p>
@@ -320,10 +320,10 @@ export default function PrivacyPolicyPage() {
                   <Mail className="w-5 h-5" />
                   <span>Privacy questions? Email us at </span>
                   <a
-                    href="mailto:mike@dailytidbit.org?subject=Privacy%20Inquiry"
+                    href="mailto:hello@aifieldguide.org?subject=Privacy%20Inquiry"
                     className="text-brand-green hover:text-green-700 transition-colors underline underline-offset-2"
                   >
-                    mike@dailytidbit.org
+                    hello@aifieldguide.org
                   </a>
                 </div>
               </div>

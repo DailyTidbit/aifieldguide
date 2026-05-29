@@ -101,9 +101,9 @@ export default function CTASection({ variant = 'default' }: CTASectionProps) {
 
               {/* Get in Touch */}
               <a
-                href="mailto:mike@dailytidbit.org"
+                href="mailto:hello@aifieldguide.org"
                 aria-label="Get in touch with AI Field Guide"
-                onClick={() => trackCTAClick('Get in Touch', 'CTA Section', 'mailto:mike@dailytidbit.org')}
+                onClick={() => trackCTAClick('Get in Touch', 'CTA Section', 'mailto:hello@aifieldguide.org')}
                 className="cursor-pointer block rounded-xl text-gray-800 px-6 py-5 shadow-lg transition-[opacity,transform,box-shadow] duration-300 hover:opacity-90 hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 group min-h-[120px]"
                 style={{ backgroundColor: '#F5C26B' }}
               >
