@@ -200,11 +200,8 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
             <h2 className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold font-serif">
               <span aria-hidden="true">🔍</span> Explore AI by Category
             </h2>
-            <p className="text-xl md:text-2xl text-gray-800 max-w-3xl mx-auto leading-relaxed font-medium mb-8 font-sans">
-              Pick your adventure – each section is packed with hand-picked tools and real-world use cases.
-            </p>
 
-            {/* Enhanced Search */}
+            {/* Search */}
             <div className="max-w-md mx-auto mb-8">
               <label htmlFor="section-search" className="sr-only">
                 {hasToolsData ? 'Search categories and tools' : 'Search categories'}
@@ -231,14 +228,6 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
                   </button>
                 )}
               </div>
-              
-              {/* Search help text */}
-              <p className="text-sm text-gray-500 mt-2">
-                {hasToolsData 
-                  ? 'Search by category name, description, or AI tool (e.g., "ChatGPT", "Midjourney")'
-                  : 'Search by category name or description'
-                }
-              </p>
             </div>
 
             {/* Results count */}
