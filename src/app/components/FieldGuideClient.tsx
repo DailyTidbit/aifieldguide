@@ -194,7 +194,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
   return (
     <>
       {/* Categories Section */}
-      <section className="bg-white px-6 md:px-12 pt-4 pb-10">
+      <section id="categories" className="bg-white px-6 md:px-12 pt-4 pb-10">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold font-serif">

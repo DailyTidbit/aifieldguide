@@ -164,18 +164,18 @@ export default async function FieldGuidePage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto">
-              <div className="bg-white/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow border border-green-200/50">
+              <a href="#categories" className="bg-white/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow border border-green-200/50 hover:shadow-md hover:border-green-300 transition-all duration-200 cursor-pointer">
                 <div className="text-2xl font-bold text-brand-green font-serif">
                   {sortedSections.length}
                 </div>
                 <div className="text-sm text-gray-600">Categories</div>
-              </div>
-              <div className="bg-white/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow border border-blue-200/50">
+              </a>
+              <a href="#categories" className="bg-white/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow border border-blue-200/50 hover:shadow-md hover:border-blue-300 transition-all duration-200 cursor-pointer">
                 <div className="text-2xl font-bold text-brand-blue font-serif">
                   {totalTools}
                 </div>
                 <div className="text-sm text-gray-600">AI Tools</div>
-              </div>
+              </a>
             </div>
           </div>
         </section>
