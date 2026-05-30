@@ -417,7 +417,14 @@ const ToolCard = React.memo(function ToolCard({
         
         {/* Header */}
         <div className="mb-6">
-          <h3 className={`text-2xl font-bold mb-2 group-hover:text-opacity-80 transition-colors font-serif ${colorClasses.text}`}>
+          <h3
+            className={`text-2xl font-bold mb-2 font-serif cursor-pointer hover:underline underline-offset-2 transition-colors ${colorClasses.text}`}
+            onClick={handleOpenModal}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleOpenModal() }}
+            aria-label={`Learn more about ${tool.name}`}
+          >
             {tool.name}
           </h3>
           {tool.company && (
