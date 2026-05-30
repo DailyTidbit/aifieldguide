@@ -61,6 +61,14 @@ class SimpleServerCache {
 
 const cache = new SimpleServerCache()
 
+// Derive a URL-safe slug from a tool name
+export function toolToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 export class FieldGuideServerAPI {
   
   // SIMPLIFIED: Basic error handling
@@ -496,6 +504,49 @@ export class FieldGuideServerAPI {
     }
 
     return []
+  }
+
+  // Get all public tools — used for /tool/[slug] static params and slug lookup
+  static async getAllPublicTools(): Promise<AITool[]> {
+    const cacheKey = 'all_public_tools'
+    const cached = cache.get(cacheKey)
+    if (cached) return cached
+
+    const result = await this.executeQuery(async () => {
+      const supabase = createServerClient()
+      const { data, error } = await supabase
+        .from('ai_tools')
+        .select(`
+          id, name, company, category, description, detailed_description,
+          use_cases, access_notes, website, free_tier, login_required, paid_tier,
+          company_id, is_public, created_at, tagline, model_type, access_method,
+          pricing_breakdown, commercial_use_policy, training_data,
+          workflow_notes, limitations, use_cases_list,
+          is_sponsored, promo_code, promo_code_description
+        `)
+        .eq('is_public', true)
+        .order('name')
+      if (error) throw error
+      return data
+    }, 'getAllPublicTools')
+
+    const tools = validateTools(result || [])
+    cache.set(cacheKey, tools, 10 * 60 * 1000)
+    return tools
+  }
+
+  // Get a single tool by its derived URL slug
+  static async getToolBySlug(slug: string): Promise<AITool | null> {
+    if (!slug) return null
+    const cacheKey = `tool_slug_${slug}`
+    const cached = cache.get(cacheKey)
+    if (cached) return cached
+
+    const allTools = await this.getAllPublicTools()
+    const tool = allTools.find(t => toolToSlug(t.name) === slug) ?? null
+
+    if (tool) cache.set(cacheKey, tool, 10 * 60 * 1000)
+    return tool
   }
 
   // Helper functions
