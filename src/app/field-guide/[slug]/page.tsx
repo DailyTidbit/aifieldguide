@@ -128,7 +128,7 @@ export default async function SectionPage({ params }: { params: Promise<{ slug: 
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         {/* Enhanced Header Section with design system consistency */}
-        <section className="px-6 md:px-12 pt-12 pb-4 md:py-12 bg-gradient-to-br from-green-50 to-green-100">
+        <section className="px-6 md:px-12 pt-6 pb-2 md:pt-10 md:pb-4 bg-gradient-to-br from-green-50 to-green-100">
           <div className="max-w-6xl mx-auto">
             {/* Enhanced Breadcrumb with design system */}
             <nav className="mb-6 md:mb-8" aria-label="Breadcrumb">

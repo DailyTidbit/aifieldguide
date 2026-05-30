@@ -381,12 +381,12 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
   return (
     <>
       {/* Tools Section */}
-      <section id="tools-section" className="bg-white px-6 md:px-12 py-20">
+      <section id="tools-section" className="bg-white px-6 md:px-12 pt-8 pb-20">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
-          <div className="text-center mb-16">
-            <h1 className={`text-5xl md:text-6xl font-bold mb-6 flex items-center justify-center gap-6 font-serif ${colorClasses.text}`}>
-              <span className="text-4xl md:text-5xl" aria-hidden="true">{sectionEmoji}</span>
+          <div className="text-center mb-10">
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-4 flex items-center justify-center gap-3 font-serif ${colorClasses.text}`}>
+              <span className="text-2xl sm:text-3xl md:text-4xl" aria-hidden="true">{sectionEmoji}</span>
               {section.section_name}
             </h1>
             
