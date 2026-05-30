@@ -56,6 +56,50 @@ interface AITool {
 
 // ── Section Guide (expandable learn panel) ───────────────────────────────────
 
+function FormattedContent({ text }: { text: string }) {
+  const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean)
+
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, i) => {
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean)
+        const isList = lines.length > 1 && lines.every(l => /^[-•*]|\d+\./.test(l))
+
+        if (isList) {
+          const isOrdered = lines.every(l => /^\d+\./.test(l))
+          const items = lines.map(l => l.replace(/^[-•*]\s*|\d+\.\s*/, ''))
+          return isOrdered ? (
+            <ol key={i} className="list-decimal list-inside space-y-1.5 pl-1">
+              {items.map((item, j) => <li key={j}>{item}</li>)}
+            </ol>
+          ) : (
+            <ul key={i} className="space-y-1.5">
+              {items.map((item, j) => (
+                <li key={j} className="flex items-start gap-2">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: 'currentColor', opacity: 0.5 }} aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+
+        // Single line that starts with a bullet — treat as list item
+        if (/^[-•*]|\d+\./.test(lines[0]) && lines.length === 1) {
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: 'currentColor', opacity: 0.5 }} aria-hidden="true" />
+              <span>{lines[0].replace(/^[-•*]\s*|\d+\.\s*/, '')}</span>
+            </div>
+          )
+        }
+
+        return <p key={i}>{block}</p>
+      })}
+    </div>
+  )
+}
+
 const GUIDE_CHANNELS = [
   { id: 'overview',       label: 'Overview',        icon: '📖', key: 'summary' as const },
   { id: 'how-they-work',  label: 'How They Work',   icon: '⚙️', key: 'how_they_work' as const },
@@ -149,7 +193,7 @@ function SectionGuide({ section, color }: { section: FieldGuideSection; color: s
 
           {/* Content */}
           <div className="p-5 text-gray-700 leading-relaxed text-sm md:text-base bg-white">
-            {active.content}
+            <FormattedContent text={active.content ?? ''} />
           </div>
         </div>
       )}
