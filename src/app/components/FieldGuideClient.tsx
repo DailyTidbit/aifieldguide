@@ -40,7 +40,121 @@ interface FieldGuideClientProps {
   }
 }
 
-// Helper functions for emojis (keeping these since they're not color-related)
+// ── Rotating taglines ─────────────────────────────────────────────────────────
+
+const TAGLINES = [
+  "🌺 Don't Worry About AI Thing. Every little tool gonna be all right.",
+  "🌺 No CS degree required. Just curiosity.",
+  "🌺 100 tools. Zero overwhelm.",
+  "🌺 AI is easier than you think. We promise.",
+  "🌺 The right tool changes everything.",
+  "🌺 AI for real people doing real things.",
+  "🌺 No hype. Just tools that actually work.",
+  "🌺 You don't need to understand AI to use it.",
+  "🌺 Good vibes. Better tools.",
+  "🌺 Every expert was once a beginner. Start here.",
+  "🌺 The AI aisle, organized.",
+  "🌺 Pick a tool. Change your day.",
+  "🌺 Built for humans, not engineers.",
+  "🌺 100 tools, hand-picked with love.",
+  "🌺 AI doesn't have to be complicated. We checked.",
+  "🌺 Your shortcut to the good stuff.",
+  "🌺 Less scrolling. More doing.",
+  "🌺 The tools are here. The vibe is free.",
+  "🌺 Find your tool. Go make something.",
+  "🌺 No gatekeeping. Just good tools.",
+  "🌺 AI is having a moment. Might as well join it.",
+  "🌺 Calm your AI anxiety. We've got you.",
+  "🌺 One good tool can save you hours.",
+  "🌺 Tools for the curious, the busy, and the bold.",
+  "🌺 The internet has too many AI lists. This one's different.",
+  "🌺 Explore at your own pace. No rush.",
+  "🌺 14 trails. 100 tools. One good vibe.",
+  "🌺 You belong here. So does AI.",
+  "🌺 Not all AI tools are created equal. These ones are.",
+  "🌺 Hand-picked so you don't have to.",
+  "🌺 AI is your new favorite coworker.",
+  "🌺 The best tools are the ones you actually use.",
+  "🌺 Start anywhere. There's no wrong door.",
+  "🌺 We tried them so you don't have to.",
+  "🌺 Life's too short for bad AI tools.",
+  "🌺 Everything's gonna be all right. Especially your workflow.",
+  "🌺 100 tools walked into a bar. These are the ones worth talking to.",
+  "🌺 Find the tool. Skip the tutorial. Make the thing.",
+  "🌺 Somewhere in here is exactly what you need.",
+  "🌺 No pressure. Just possibilities.",
+  "🌺 The good tools, without the noise.",
+  "🌺 AI got big fast. We sorted it out for you.",
+  "🌺 Your new secret weapon is probably in here.",
+  "🌺 Don't fear the robots. They're actually pretty helpful.",
+  "🌺 Breathe. Pick a category. Change your life a little.",
+  "🌺 Making AI feel less like homework since 2024.",
+  "🌺 The field guide your future self will thank you for.",
+  "🌺 Tools that slap. Vibes that stick.",
+  "🌺 Welcome. You're exactly where you need to be.",
+  "🌺 The shortcut your brain has been asking for.",
+  "🌺 The AI revolution is friendlier than it looks.",
+  "🌺 Your curiosity brought you here. Good instinct.",
+  "🌺 Do more. Stress less. Use better tools.",
+  "🌺 Every tool here passed the vibe check.",
+  "🌺 AI is just a tool. A really good one.",
+  "🌺 The cheat code for getting things done.",
+  "🌺 Work smarter. Nap longer.",
+  "🌺 Someone had to organize all this. You're welcome.",
+  "🌺 The AI landscape, tamed.",
+  "🌺 Pick a tool. Tell nobody. Seem like a genius.",
+  "🌺 More tools than you need. Exactly the ones you want.",
+  "🌺 Your unfair advantage starts here.",
+  "🌺 Real tools for real results. No fluff.",
+  "🌺 The future showed up early. Here's the map.",
+  "🌺 Let AI handle the boring parts.",
+  "🌺 Good things come to those who explore.",
+  "🌺 The tools are ready when you are.",
+  "🌺 You found the good part of the internet.",
+  "🌺 AI for people with things to do.",
+  "🌺 Browse like nobody's watching.",
+  "🌺 Whatever you're building, there's a tool for that.",
+  "🌺 The overwhelm stops here.",
+  "🌺 Curated with care. Used with joy.",
+  "🌺 Think of us as your AI-savvy friend.",
+  "🌺 No algorithm. Just good judgment.",
+  "🌺 Tools so good they feel like cheating.",
+  "🌺 You're one tool away from your best day.",
+  "🌺 The right tool at the right time changes everything.",
+  "🌺 We did the research. You get the results.",
+  "🌺 AI finally explained without the headache.",
+  "🌺 Your workflow called. It wants an upgrade.",
+  "🌺 Less friction. More flow.",
+  "🌺 The tools the pros don't want you to know about.",
+  "🌺 Organized chaos? No. Just organized.",
+  "🌺 Every category is a rabbit hole worth falling into.",
+  "🌺 Come for the tools. Stay for the vibes.",
+  "🌺 Not intimidating. We checked.",
+  "🌺 Your next favorite tool is two clicks away.",
+  "🌺 AI tools, minus the LinkedIn energy.",
+  "🌺 Made for the curious. Stays for the capable.",
+  "🌺 The best time to start using AI was yesterday. Second best is now.",
+  "🌺 Hand-picked. Human-approved.",
+  "🌺 No fluff. No filler. Just tools.",
+  "🌺 The map everyone needed but nobody made. Until now.",
+  "🌺 Explore freely. There's no wrong answer.",
+  "🌺 Calm, cool, and full of really useful tools.",
+  "🌺 Your AI journey starts with one good tool.",
+  "🌺 Less jargon. More results.",
+  "🌺 The field guide that actually feels like a friend.",
+  "🌺 AI tools, minus the corporate energy.",
+  "🌺 Built for everyone. Not just the early adopters.",
+  "🌺 Less tech bros, more tech toes — just dip in and try something.",
+]
+
+function resolveTagline(raw: string, totalTools: number, sectionCount: number): string {
+  return raw
+    .replace(/\b100 tools\b/g, `${totalTools} tools`)
+    .replace(/\b14 trails\b/g, `${sectionCount} trails`)
+}
+
+// ── Section emoji map ─────────────────────────────────────────────────────────
+
 const getSectionEmoji = (sectionName: string): string => {
   const emojiMap: Record<string, string> = {
     'AI Assistants': '🤖',
@@ -85,6 +199,17 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
   const deferredSearchQuery = useDeferredValue(searchQuery)
   
   // Enhanced filtering that searches both sections and tools
+  // Pick once per mount — safe because the heading only renders after `mounted` is true
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tagline = useMemo(
+    () => resolveTagline(
+      TAGLINES[Math.floor(Math.random() * TAGLINES.length)],
+      initialData.totalTools,
+      initialData.sectionCount,
+    ),
+    [],
+  )
+
   const filteredSections = useMemo(() => {
     if (!deferredSearchQuery.trim()) return initialData.sections
     
@@ -198,7 +323,7 @@ export default function FieldGuideClient({ initialData }: FieldGuideClientProps)
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="heading-section text-4xl md:text-5xl text-brand-green mb-6 leading-tight font-bold font-serif">
-              <span aria-hidden="true">🌺</span> Don&apos;t Worry About AI Thing. Every little tool gonna be all right.
+              {tagline}
             </h2>
 
             {/* Search */}
