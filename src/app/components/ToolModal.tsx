@@ -324,8 +324,16 @@ export default function ToolModal({
       }}
       aria-hidden="true"
     >
-      {/* Dialog container */}
-      <div className="h-full w-full flex items-center justify-center p-4">
+      {/* Dialog container — padding respects iPhone notch + home indicator */}
+      <div
+        className="h-full w-full flex items-center justify-center"
+        style={{
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 0.75rem)',
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.75rem)',
+          paddingLeft: '1rem',
+          paddingRight: '1rem',
+        }}
+      >
         <div
           ref={modalRef}
           role="dialog"
@@ -338,7 +346,7 @@ export default function ToolModal({
             ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}
           `}
           style={{
-            maxHeight: 'calc(100vh - 2rem - env(safe-area-inset-bottom, 0px))',
+            maxHeight: 'calc(100dvh - max(env(safe-area-inset-top, 0px), 0.75rem) - max(env(safe-area-inset-bottom, 0px), 0.75rem))',
             height: 'auto',
             minHeight: '400px'
           }}
