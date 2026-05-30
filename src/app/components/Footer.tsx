@@ -118,6 +118,7 @@ export default function Footer() {
               </Link>
             </nav>
             <p className="text-xs text-gray-500">© {getCurrentYear()} Daily Tidbit LLC. All rights reserved.</p>
+            <p className="text-[11px] text-gray-400">Independently run. Not affiliated with any listed tools unless marked as sponsored.</p>
           </div>
         </div>
       </div>
