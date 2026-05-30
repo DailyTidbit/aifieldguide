@@ -1,7 +1,7 @@
 // app/components/FieldGuideSectionClient.tsx - Updated for CSS class colors
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import ToolModal from './ToolModal'
 import React from 'react'
@@ -53,6 +53,111 @@ interface AITool {
   promo_code?: string | null
   promo_code_description?: string | null
 }
+
+// ── Section Guide (expandable learn panel) ───────────────────────────────────
+
+const GUIDE_CHANNELS = [
+  { id: 'overview',       label: 'Overview',        icon: '📖', key: 'summary' as const },
+  { id: 'how-they-work',  label: 'How They Work',   icon: '⚙️', key: 'how_they_work' as const },
+  { id: 'what-you-can-do',label: 'What You Can Do', icon: '🎯', key: 'what_you_can_do' as const },
+  { id: 'better-results', label: 'Better Results',  icon: '⚡', key: 'better_results' as const },
+  { id: 'strengths',      label: 'Strengths',       icon: '💪', key: 'strengths' as const },
+  { id: 'limitations',    label: 'Limitations',     icon: '🔒', key: 'limitations' as const },
+  { id: 'pro-tips',       label: 'Pro Tips',        icon: '💡', key: 'pro_tips' as const },
+]
+
+function SectionGuide({ section, color }: { section: FieldGuideSection; color: string }) {
+  const [open, setOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const channels = GUIDE_CHANNELS
+    .map(ch => ({
+      ...ch,
+      content: ch.id === 'overview'
+        ? (section.summary || section.intro)
+        : (section as any)[ch.key],
+    }))
+    .filter(ch => ch.content?.trim())
+
+  if (channels.length === 0) return null
+
+  const active = channels.find(c => c.id === activeTab) ?? channels[0]
+
+  function handleOpen() {
+    setOpen(true)
+    setActiveTab(channels[0].id)
+    setTimeout(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+  }
+
+  return (
+    <div className="mb-8">
+      {!open ? (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          style={{ color, borderColor: `${color}50`, backgroundColor: `${color}0a` }}
+          aria-expanded={false}
+        >
+          <span aria-hidden="true">📚</span>
+          Learn about {section.section_name}
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      ) : (
+        <div
+          ref={panelRef}
+          className="rounded-2xl border shadow-sm overflow-hidden"
+          style={{ borderColor: `${color}30` }}
+          role="region"
+          aria-label={`Learn about ${section.section_name}`}
+        >
+          {/* Tab bar */}
+          <div
+            className="flex items-center gap-1 p-3 border-b overflow-x-auto scrollbar-none"
+            style={{ borderColor: `${color}20`, backgroundColor: `${color}08` }}
+          >
+            {channels.map(ch => (
+              <button
+                key={ch.id}
+                type="button"
+                onClick={() => setActiveTab(ch.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2"
+                style={activeTab === ch.id
+                  ? { backgroundColor: color, color: '#fff' }
+                  : { color: '#6B7280' }
+                }
+                aria-pressed={activeTab === ch.id}
+              >
+                <span aria-hidden="true">{ch.icon}</span>
+                {ch.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="ml-auto flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2"
+              aria-label={`Close ${section.section_name} guide`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-5 text-gray-700 leading-relaxed text-sm md:text-base bg-white">
+            {active.content}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface SectionClientProps {
   initialData: {
@@ -242,10 +347,8 @@ export default function FieldGuideSectionClient({ initialData }: SectionClientPr
             </h1>
             
             <div className={`w-32 h-2 mx-auto rounded-full mb-8 ${colorClasses.bg}`}></div>
-            
-            <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed mb-8 font-sans">
-              Hand-picked AI tools to supercharge your {section.section_name.toLowerCase()} workflow
-            </p>
+
+            <SectionGuide section={section} color={sectionHexColor} />
 
             {/* Search tools */}
             {tools.length > 6 && (
