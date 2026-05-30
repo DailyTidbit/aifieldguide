@@ -7,13 +7,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/field-guide', '/privacy', '/terms', '/accessibility'],
+        allow: ['/field-guide', '/start-here', '/contact', '/privacy', '/terms', '/accessibility'],
         disallow: [
           '/admin',
           '/partners',
           '/bitboard',
           '/TidbitLibrary',
-          '/start-here',
           '/day',
           '/post',
           '/search',

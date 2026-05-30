@@ -1,5 +1,6 @@
 ﻿// app/field-guide/page.tsx - Enhanced with tools data
 import { Metadata } from 'next'
+import Link from 'next/link'
 import { FieldGuideServerAPI } from '../lib/field-guide-server'
 import FieldGuideClient from '../components/FieldGuideClient'
 
@@ -161,6 +162,20 @@ export default async function FieldGuidePage() {
             <h1 className="heading-hero text-5xl md:text-6xl lg:text-7xl leading-tight mb-6 font-serif">
               <span className="text-brand-green" aria-hidden="true">🧭</span> Your <span className="text-brand-blue">AI Field Guide</span>
             </h1>
+
+            {/* Start Here link */}
+            <div className="mb-5">
+              <Link
+                href="/start-here"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-green hover:text-brand-green-dark transition-colors border border-brand-green/30 bg-white/60 px-4 py-2 rounded-full hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+              >
+                <span aria-hidden="true">👋</span>
+                New to AI? Start here
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </Link>
+            </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto">
