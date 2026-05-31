@@ -499,7 +499,7 @@ export default function StartHerePageClient() {
               We&apos;ve put together a library of practical AI tools for real everyday problems. No fluff, no filler — just things that actually work.
             </p>
             <Link
-              href="/tools"
+              href="/field-guide"
               className="inline-flex items-center gap-2 bg-brand-green text-white px-8 py-4 rounded-xl font-semibold text-base shadow-lg hover:opacity-90 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
               style={{ transition: 'opacity 0.2s ease, transform 0.2s ease' }}
             >
