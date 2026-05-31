@@ -294,7 +294,7 @@ function InfiniteCarousel({ items }: { items: { emoji: string; text: string }[] 
             className="w-52 flex-shrink-0 mr-3 bg-white border border-gray-100 rounded-2xl px-4 py-4 shadow-sm"
           >
             <div className="text-xl mb-2" aria-hidden="true">{item.emoji}</div>
-            <p className="text-gray-700 text-sm leading-snug line-clamp-2">{item.text}</p>
+            <p className="text-gray-700 text-sm leading-snug">{item.text}</p>
           </div>
         ))}
       </div>
