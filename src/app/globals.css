@@ -33,6 +33,7 @@ html {
   
   /* Custom Font Families */
   --font-family-sans: var(--font-space-grotesk), system-ui, sans-serif;
+  --font-family-poppins: var(--font-poppins), 'Poppins', sans-serif;
   --font-family-serif: var(--font-playfair), Georgia, serif;
   --font-family-mono: var(--font-geist-mono), Consolas, monospace;
   

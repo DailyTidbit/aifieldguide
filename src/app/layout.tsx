@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, Poppins, Space_Grotesk } from "next/font/google";
 import CookieConsentManager from "./components/CookieConsentManager";
 import Footer from "./components/Footer";
 import "./globals.css";
@@ -28,6 +28,13 @@ const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "600", "700"],
+  display: 'swap',
+});
+
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   display: 'swap',
 });
 
@@ -133,7 +140,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} ${poppins.variable}`}
       suppressHydrationWarning
     >
       <head>
