@@ -4,13 +4,117 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 
-const USE_CASES = [
-  { emoji: '🏠', text: 'Figure out if your landlord is charging you fairly' },
+const CAROUSEL_ITEMS = [
+  // Home & Family
+  { emoji: '🍽️', text: "Plan a week of dinners from what's in your fridge" },
+  { emoji: '🛒', text: 'Write a grocery list organized by store aisle' },
+  { emoji: '🔨', text: "Figure out if a contractor's quote is fair" },
+  { emoji: '🔧', text: 'Troubleshoot why your appliance stopped working' },
+  { emoji: '🏠', text: "Find out if your landlord can legally do that thing they're doing" },
+  { emoji: '✉️', text: 'Write a firm but polite letter to your HOA' },
+  { emoji: '📋', text: 'Help you understand your lease before you sign it' },
+  { emoji: '🛠️', text: 'Suggest home repairs you can actually do yourself' },
+  { emoji: '📅', text: 'Create a chore schedule for your whole family' },
+  { emoji: '👶', text: "Help you childproof your home based on your kid's age" },
+  // Money & Finance
+  { emoji: '💸', text: 'Explain what your pay stub deductions actually mean' },
+  { emoji: '🏥', text: 'Make sense of a confusing medical bill' },
+  { emoji: '💌', text: 'Help you write a debt negotiation letter' },
+  { emoji: '⚡', text: "Figure out if you're being overcharged on your utility bill" },
+  { emoji: '📄', text: 'Explain what a financial document is asking you to sign' },
+  { emoji: '💰', text: 'Build a simple monthly budget from your expenses' },
+  { emoji: '📊', text: 'Help you understand your credit report' },
+  { emoji: '🏷️', text: 'Find out if a deal or sale is actually a good deal' },
+  { emoji: '🏦', text: 'Explain the difference between financial products (Roth vs Traditional IRA etc.)' },
+  { emoji: '💳', text: 'Help you write a letter disputing a charge on your credit card' },
+  // Health
+  { emoji: '🩺', text: "Research a symptom before your doctor's appointment" },
+  { emoji: '📋', text: 'Explain what a diagnosis actually means in plain English' },
+  { emoji: '🗒️', text: 'Help you prepare questions to ask your doctor' },
+  { emoji: '📖', text: 'Summarize a long medical study so you can actually read it' },
+  { emoji: '🔬', text: 'Suggest questions to ask before agreeing to a procedure' },
+  { emoji: '📄', text: 'Help you understand your insurance explanation of benefits' },
+  { emoji: '💊', text: "Create a medication schedule so you don't miss doses" },
+  { emoji: '🌿', text: 'Research whether a supplement actually works' },
+  { emoji: '🔍', text: 'Help you find a specialist for a specific condition' },
+  { emoji: '💊', text: 'Explain what a prescription drug does and its side effects' },
+  // Work & Career
+  { emoji: '📝', text: 'Write or rewrite your resume' },
+  { emoji: '🎤', text: 'Help you prepare for a job interview' },
+  { emoji: '✉️', text: "Write a cover letter that doesn't sound like everyone else's" },
+  { emoji: '💼', text: 'Help you negotiate a salary offer' },
+  { emoji: '📧', text: "Draft a professional email you've been putting off" },
+  { emoji: '⚡', text: 'Summarize a long work document in 30 seconds' },
+  { emoji: '📊', text: 'Help you write a performance self-review' },
+  { emoji: '💬', text: 'Prepare you for a difficult conversation with your boss' },
+  { emoji: '🔗', text: 'Help you write a LinkedIn profile that actually sounds like you' },
+  { emoji: '🧭', text: 'Figure out what career you might be good at based on your skills' },
+  // Travel
   { emoji: '✈️', text: 'Plan a trip around your actual budget' },
-  { emoji: '💊', text: "Research a health symptom before your doctor's appointment" },
-  { emoji: '📝', text: 'Write a complaint letter that actually gets results' },
-  { emoji: '💰', text: 'Make sense of a confusing financial document' },
-  { emoji: '🍽️', text: "Plan a week of dinners from what's already in your fridge" },
+  { emoji: '🎟️', text: 'Find the cheapest time to fly somewhere' },
+  { emoji: '🗺️', text: 'Build a day by day itinerary for any city' },
+  { emoji: '🌿', text: 'Suggest off-the-beaten-path things to do at your destination' },
+  { emoji: '🧳', text: 'Help you pack the right things for any climate' },
+  { emoji: '🌐', text: 'Translate a menu or sign in another language' },
+  { emoji: '🤝', text: 'Help you understand local customs before you go' },
+  { emoji: '🐾', text: 'Find pet-friendly hotels or rentals' },
+  { emoji: '✉️', text: 'Help you write a complaint to an airline or hotel' },
+  { emoji: '🚗', text: 'Suggest road trip stops between two cities' },
+  // Kids & Parenting
+  { emoji: '💬', text: 'Explain a tough topic to your kid in age-appropriate language' },
+  { emoji: '✏️', text: "Help you write a note to your child's teacher" },
+  { emoji: '🎨', text: 'Suggest activities for a rainy day by age group' },
+  { emoji: '📋', text: "Help you understand your child's IEP or school plan" },
+  { emoji: '🌙', text: 'Create a bedtime routine that actually works' },
+  { emoji: '🏫', text: 'Help you research the best school in your area' },
+  { emoji: '🎂', text: 'Write a birthday party invitation' },
+  { emoji: '📚', text: "Suggest books for your kid based on their reading level" },
+  { emoji: '💬', text: 'Help you talk to your teenager about something hard' },
+  { emoji: '🏕️', text: 'Research summer camps or after school programs' },
+  // Legal & Admin
+  { emoji: '⚖️', text: 'Explain what a contract clause actually means' },
+  { emoji: '✉️', text: 'Help you write a demand letter to a business' },
+  { emoji: '🏛️', text: 'Figure out if you have a case worth pursuing in small claims court' },
+  { emoji: '🔑', text: 'Help you understand your rights as a tenant' },
+  { emoji: '⚖️', text: 'Explain what happens during a specific legal process' },
+  { emoji: '📋', text: 'Help you fill out a government form correctly' },
+  { emoji: '👷', text: 'Research your rights as an employee' },
+  { emoji: '📝', text: 'Help you write a formal complaint to a company' },
+  { emoji: '🛡️', text: 'Explain what an insurance policy actually covers' },
+  { emoji: '📜', text: 'Help you understand a will or estate document' },
+  // Shopping & Consumer
+  { emoji: '🔍', text: 'Compare two products and tell you which is actually better' },
+  { emoji: '⭐', text: 'Find out if a review is fake or trustworthy' },
+  { emoji: '🌱', text: 'Research whether a brand is ethical or sustainable' },
+  { emoji: '📦', text: 'Help you write a return or refund request that works' },
+  { emoji: '🏷️', text: 'Find the best time of year to buy something' },
+  { emoji: '📊', text: 'Summarize hundreds of reviews into what people actually say' },
+  { emoji: '💰', text: 'Help you find a dupe for an expensive product' },
+  { emoji: '🛡️', text: 'Research whether a warranty is worth buying' },
+  { emoji: '🤔', text: 'Help you decide between two big purchases' },
+  { emoji: '⚠️', text: 'Find recalls or safety issues with a product you own' },
+  // Food & Cooking
+  { emoji: '🍳', text: 'Create a recipe from whatever ingredients you have' },
+  { emoji: '🥗', text: 'Adjust a recipe for dietary restrictions' },
+  { emoji: '📏', text: 'Scale a recipe up or down for your group size' },
+  { emoji: '🍷', text: 'Suggest wine or drink pairings for a meal' },
+  { emoji: '🥡', text: 'Help you meal prep for the whole week in one session' },
+  { emoji: '👨‍🍳', text: "Explain a cooking technique you've never tried" },
+  { emoji: '🛒', text: 'Give you a shopping list for a specific cuisine' },
+  { emoji: '🍽️', text: 'Help you recreate a restaurant dish at home' },
+  { emoji: '🥦', text: 'Suggest what to cook based on your calorie goals' },
+  { emoji: '🌿', text: 'Find recipes that use up food before it goes bad' },
+  // Personal & Lifestyle
+  { emoji: '🥂', text: 'Help you write a heartfelt speech or toast' },
+  { emoji: '🎁', text: 'Suggest a thoughtful gift for anyone in your life' },
+  { emoji: '💬', text: 'Help you write a difficult text or email to a friend or family member' },
+  { emoji: '💪', text: 'Create a workout plan based on your goals and equipment' },
+  { emoji: '📓', text: 'Help you start journaling with prompts tailored to you' },
+  { emoji: '🔍', text: 'Research whether a service or subscription is worth it' },
+  { emoji: '🗂️', text: 'Help you declutter by deciding what to keep or donate' },
+  { emoji: '💝', text: 'Write your dating profile in your actual voice' },
+  { emoji: '🎉', text: 'Help you plan a meaningful anniversary or birthday' },
+  { emoji: '📚', text: "Summarize a book so you can decide if it's worth reading" },
 ]
 
 function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -97,6 +201,104 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <p className="text-xs font-semibold uppercase tracking-widest text-brand-green mb-3">
       {children}
     </p>
+  )
+}
+
+const SPEED = 0.45 // px per frame — slow, readable drift
+
+function InfiniteCarousel({ items }: { items: { emoji: string; text: string }[] }) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const posRef = useRef(0)
+  const singleWidthRef = useRef(0)
+  const isPausedRef = useRef(false)
+  const isDraggingRef = useRef(false)
+  const dragStartXRef = useRef(0)
+  const dragStartPosRef = useRef(0)
+  const capturedPointerRef = useRef<number | null>(null)
+  const rafRef = useRef<number>(0)
+
+  useEffect(() => {
+    const tick = () => {
+      // Measure once the DOM is ready
+      if (singleWidthRef.current === 0 && trackRef.current) {
+        singleWidthRef.current = trackRef.current.offsetWidth / 2
+      }
+
+      if (!isDraggingRef.current && !isPausedRef.current) {
+        const single = singleWidthRef.current
+        if (single > 0) {
+          posRef.current += SPEED
+          if (posRef.current >= single) posRef.current -= single
+          if (trackRef.current) {
+            trackRef.current.style.transform = `translateX(-${posRef.current}px)`
+          }
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [])
+
+  const handleMouseEnter = () => { isPausedRef.current = true }
+  const handleMouseLeave = () => { isPausedRef.current = false }
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingRef.current = true
+    dragStartXRef.current = e.clientX
+    dragStartPosRef.current = posRef.current
+    capturedPointerRef.current = e.pointerId
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || e.pointerId !== capturedPointerRef.current) return
+    const single = singleWidthRef.current
+    if (single === 0) return
+    const delta = dragStartXRef.current - e.clientX
+    // Modulo wrap so looping stays seamless during drag
+    posRef.current = ((dragStartPosRef.current + delta) % single + single) % single
+    if (trackRef.current) {
+      trackRef.current.style.transform = `translateX(-${posRef.current}px)`
+    }
+  }
+
+  const stopDrag = () => {
+    isDraggingRef.current = false
+    capturedPointerRef.current = null
+  }
+
+  // Duplicate for seamless loop. Cards use mr-3 (not gap) so offsetWidth / 2 = exact single-set width.
+  const doubled = [...items, ...items]
+
+  return (
+    <div
+      className="overflow-hidden cursor-grab active:cursor-grabbing select-none"
+      style={{ touchAction: 'pan-y' }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={stopDrag}
+      onPointerCancel={stopDrag}
+    >
+      <div
+        ref={trackRef}
+        className="flex will-change-transform py-3"
+        style={{ width: 'max-content' }}
+        aria-hidden="true"
+      >
+        {doubled.map((item, i) => (
+          <div
+            key={i}
+            className="w-52 flex-shrink-0 mr-3 bg-white border border-gray-100 rounded-2xl px-4 py-4 shadow-sm"
+          >
+            <div className="text-xl mb-2" aria-hidden="true">{item.emoji}</div>
+            <p className="text-gray-700 text-sm leading-snug line-clamp-2">{item.text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -277,26 +479,13 @@ export default function StartHerePageClient() {
           </div>
         </div>
 
-        <div className="px-6 md:px-12">
-          <FadeIn>
-            <p className="text-gray-500 text-lg text-center mb-10 max-w-2xl mx-auto leading-relaxed">
-              Here&apos;s the thing — AI isn&apos;t just for tech people. It&apos;s genuinely useful for normal, everyday stuff.
-            </p>
-          </FadeIn>
-          <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {USE_CASES.map((item, i) => (
-              <FadeIn key={i} delay={i * 70}>
-                <div
-                  className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 h-full"
-                  style={{ transition: 'box-shadow 0.25s ease, transform 0.25s ease' }}
-                >
-                  <div className="text-3xl mb-3" aria-hidden="true">{item.emoji}</div>
-                  <p className="text-gray-700 text-sm leading-relaxed">{item.text}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
+        <FadeIn>
+          <p className="text-gray-500 text-lg text-center mb-10 max-w-2xl mx-auto px-6 leading-relaxed">
+            Here&apos;s the thing — AI isn&apos;t just for tech people. It&apos;s genuinely useful for normal, everyday stuff.
+          </p>
+        </FadeIn>
+
+        <InfiniteCarousel items={CAROUSEL_ITEMS} />
       </section>
 
       {/* Section 7 — How aifieldguide works */}
