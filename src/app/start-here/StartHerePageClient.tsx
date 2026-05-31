@@ -512,43 +512,6 @@ export default function StartHerePageClient() {
         </FadeIn>
       </section>
 
-      {/* Section 8 — CTA */}
-      <section className="relative h-[60vh] min-h-[420px] overflow-hidden">
-        <Image
-          src="/images/cta.jpg"
-          alt="You're ready"
-          fill
-          className="object-cover object-center"
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.65))' }}
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <FadeIn>
-            <div className="text-center px-6">
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight">
-                Alright. You&apos;re ready.
-              </h2>
-              <p className="text-white/80 text-base md:text-lg mb-10 max-w-md mx-auto leading-relaxed">
-                You now know more about AI than most people. Time to actually use it.
-              </p>
-              <Link
-                href="/day/1"
-                className="inline-flex items-center gap-2 bg-white text-gray-900 px-8 py-4 rounded-xl font-bold text-base shadow-xl hover:opacity-90 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-                style={{ transition: 'opacity 0.2s ease, transform 0.2s ease' }}
-              >
-                Let&apos;s go
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
-            </div>
-          </FadeIn>
-        </div>
-      </section>
-
     </div>
   )
 }
