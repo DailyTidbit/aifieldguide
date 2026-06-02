@@ -458,7 +458,7 @@ export default function StartHerePageClient() {
 
       {/* Section 6 — What can it do for you? */}
       <section className="py-20 md:py-28">
-        <div className="relative h-56 md:h-72 overflow-hidden mb-14 md:mb-20">
+        <div className="relative h-56 md:h-auto md:aspect-[3/1] overflow-hidden mb-14 md:mb-20">
           <Image
             src="/images/whatcando.jpg"
             alt="What can AI do for you?"
