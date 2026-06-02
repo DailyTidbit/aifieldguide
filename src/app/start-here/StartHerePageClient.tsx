@@ -338,7 +338,7 @@ export default function StartHerePageClient() {
           <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-sm">
               <Image
-                src="/images/explanation.jpg"
+                src="/images/whatisai.jpg"
                 alt="What is AI?"
                 fill
                 className="object-cover object-top"
@@ -383,10 +383,10 @@ export default function StartHerePageClient() {
             </div>
             <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-sm order-1 md:order-2">
               <Image
-                src="/images/explanation.jpg"
+                src="/images/aimodels.jpg"
                 alt="What are AI models?"
                 fill
-                className="object-cover object-bottom"
+                className="object-cover object-center"
               />
             </div>
           </div>
@@ -399,10 +399,10 @@ export default function StartHerePageClient() {
           <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-sm">
               <Image
-                src="/images/explanation.jpg"
+                src="/images/howaiistrained.jpg"
                 alt="How is AI trained?"
                 fill
-                className="object-cover object-left"
+                className="object-cover object-center"
               />
             </div>
             <div>
