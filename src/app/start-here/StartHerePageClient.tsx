@@ -309,7 +309,7 @@ export default function StartHerePageClient() {
       {/* Section 1 — Hero */}
       <section className="relative h-[75vh] min-h-[520px] overflow-hidden">
         <Image
-          src="/images/hero2.png"
+          src="/images/hero3.jpg"
           alt="AI is having a moment"
           fill
           className="object-cover object-center"
